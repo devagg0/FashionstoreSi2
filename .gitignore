@@ -1,0 +1,46 @@
+# =========================
+# BACKEND - Python/FastAPI
+# =========================
+backend/.venv/
+backend/.env
+backend/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+
+# Alembic cache
+backend/alembic/__pycache__/
+
+# =========================
+# FRONTEND - Angular
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.cache/
+
+# =========================
+# MOBILE - Flutter
+# =========================
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+Thumbs.db
+.DS_Store
+
+# =========================
+# SECRETS / ENV
+# =========================
+.env
+*.env
