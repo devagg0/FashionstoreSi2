@@ -1,0 +1,5 @@
+<button class="category-card" type="button" [attr.aria-label]="'Explorar ' + label()">
+  <span class="category-card__number">0{{ index() + 1 }}</span>
+  <span class="category-card__label">{{ label() }}</span>
+  <span class="category-card__arrow"><app-icon name="chevron-right" [size]="19" /></span>
+</button>

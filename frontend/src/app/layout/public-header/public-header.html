@@ -1,0 +1,137 @@
+<header class="site-header">
+  <div class="header-inner shell">
+    <button
+      class="icon-button mobile-menu-trigger"
+      type="button"
+      aria-label="Abrir menú de navegación"
+      [attr.aria-expanded]="mobileOpen()"
+      aria-controls="mobile-navigation"
+      (click)="toggleMobile()"
+    >
+      <app-icon name="menu" [size]="22" />
+    </button>
+
+    <a class="brand" routerLink="/" aria-label="FashionStore, ir al inicio">FASHIONSTORE</a>
+
+    <nav class="desktop-nav" aria-label="Navegación principal">
+      <a href="#novedades">Novedades</a>
+      @for (group of navigation; track group.label) {
+        <div class="nav-dropdown" [class.is-open]="openDropdown() === group.label">
+          <button
+            type="button"
+            [attr.aria-expanded]="openDropdown() === group.label"
+            (click)="toggleDropdown(group.label)"
+          >
+            {{ group.label }}
+            <app-icon name="chevron-down" [size]="15" />
+          </button>
+          <div class="dropdown-panel">
+            <p>Explorar {{ group.label.toLowerCase() }}</p>
+            @for (item of group.items; track item) {
+              <a href="#categorias" (click)="openDropdown.set(null)">{{ item }}</a>
+            }
+          </div>
+        </div>
+      }
+    </nav>
+
+    <div class="header-actions">
+      @if (user(); as currentUser) {
+        <div class="account-menu" [class.is-open]="openDropdown() === 'account'">
+          <button
+            class="account-trigger"
+            type="button"
+            aria-controls="account-dropdown"
+            [attr.aria-expanded]="openDropdown() === 'account'"
+            (click)="toggleDropdown('account')"
+          >
+            <app-icon name="user" [size]="18" />
+            <span>{{ currentUser.nombre }}</span>
+            <app-icon class="account-chevron" name="chevron-down" [size]="15" />
+          </button>
+          <div id="account-dropdown" class="account-dropdown">
+            <div class="account-dropdown__identity">
+              <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+              <span>{{ currentUser.rol }}</span>
+            </div>
+            <div class="account-dropdown__actions">
+              <a routerLink="/perfil" (click)="closeMenus()">Mi perfil</a>
+              <button type="button" (click)="logout()">Cerrar sesión</button>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <a class="login-link" routerLink="/login" aria-label="Iniciar sesión">
+          <app-icon name="user" [size]="18" />
+          <span>Iniciar sesión</span>
+        </a>
+      }
+      <button class="icon-button" type="button" aria-label="Carrito, próximamente">
+        <app-icon name="bag" [size]="21" />
+      </button>
+    </div>
+  </div>
+</header>
+
+@if (mobileOpen()) {
+  <button
+    class="menu-backdrop"
+    type="button"
+    aria-label="Cerrar menú"
+    (click)="closeMobile()"
+  ></button>
+  <aside id="mobile-navigation" class="mobile-panel" aria-label="Navegación móvil">
+    <div class="mobile-panel__top">
+      <span class="brand">FASHIONSTORE</span>
+      <button class="icon-button" type="button" aria-label="Cerrar menú" (click)="closeMobile()">
+        <app-icon name="close" [size]="22" />
+      </button>
+    </div>
+    <nav>
+      <a href="#novedades" (click)="closeMobile()">Novedades</a>
+      @for (group of navigation; track group.label) {
+        <details>
+          <summary>
+            {{ group.label }}
+            <app-icon name="chevron-down" [size]="17" />
+          </summary>
+          <div>
+            @for (item of group.items; track item) {
+              <a href="#categorias" (click)="closeMobile()">{{ item }}</a>
+            }
+          </div>
+        </details>
+      }
+      @if (user(); as currentUser) {
+        <div class="mobile-account">
+          <button
+            class="mobile-account__trigger"
+            type="button"
+            [attr.aria-expanded]="openDropdown() === 'account'"
+            (click)="toggleDropdown('account')"
+          >
+            <span><app-icon name="user" [size]="18" /> {{ currentUser.nombre }}</span>
+            <app-icon class="account-chevron" name="chevron-down" [size]="17" />
+          </button>
+          @if (openDropdown() === 'account') {
+            <div class="mobile-account__dropdown">
+              <div class="account-dropdown__identity">
+                <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+                <span>{{ currentUser.rol }}</span>
+              </div>
+              <div class="account-dropdown__actions">
+                <a routerLink="/perfil" (click)="closeMobile()">Mi perfil</a>
+                <button type="button" (click)="logout()">Cerrar sesión</button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <a class="mobile-login" routerLink="/login" (click)="closeMobile()">
+          <app-icon name="user" [size]="18" />
+          Iniciar sesión
+        </a>
+      }
+    </nav>
+  </aside>
+}

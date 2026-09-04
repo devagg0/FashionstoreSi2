@@ -16,3 +16,4 @@ from app.models.product_variant import ProductVariant
 from app.models.product_supplier import ProductSupplier
 from app.models.product_collection import ProductCollection
 from app.models.product_image import ProductImage
+from app.models.password_recovery import PasswordRecovery

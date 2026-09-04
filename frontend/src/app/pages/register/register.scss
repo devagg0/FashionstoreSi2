@@ -1,0 +1,9 @@
+:host {
+  display: block;
+}
+
+.auth-form__field label small {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}

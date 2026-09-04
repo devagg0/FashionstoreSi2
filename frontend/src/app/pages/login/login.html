@@ -1,0 +1,102 @@
+<app-auth-layout>
+  <header class="auth-intro">
+    <p class="auth-intro__eyebrow">BIENVENIDO DE NUEVO</p>
+    <h1>Inicia sesión</h1>
+    <p>Accede a tu cuenta FashionStore.</p>
+  </header>
+
+  @if (successMessage()) {
+    <p class="auth-form__message login-success-message" role="status">
+      {{ successMessage() }}
+    </p>
+  }
+
+  <form
+    class="auth-form"
+    [formGroup]="loginForm"
+    (ngSubmit)="submitLogin()"
+    [attr.aria-busy]="isSubmitting()"
+    novalidate
+  >
+    <div class="auth-form__field" [class.is-invalid]="isInvalid('correo')">
+      <label for="login-email">Correo electrónico <span aria-hidden="true">*</span></label>
+      <div class="auth-form__control">
+        <app-icon name="mail" [size]="18" />
+        <input
+          id="login-email"
+          type="email"
+          formControlName="correo"
+          placeholder="andres@correo.com"
+          autocomplete="email"
+          [attr.aria-invalid]="isInvalid('correo')"
+          aria-describedby="login-email-error"
+        />
+      </div>
+      <p id="login-email-error" class="auth-form__error" aria-live="polite">
+        @if (isInvalid('correo')) {
+          Ingresa un correo electrónico válido.
+        }
+      </p>
+    </div>
+
+    <div class="auth-form__field" [class.is-invalid]="isInvalid('password')">
+      <label for="login-password">Contraseña <span aria-hidden="true">*</span></label>
+      <div class="auth-form__control">
+        <app-icon name="lock" [size]="18" />
+        <input
+          id="login-password"
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password"
+          placeholder="Ingresa tu contraseña"
+          autocomplete="current-password"
+          [attr.aria-invalid]="isInvalid('password')"
+          aria-describedby="login-password-error"
+        />
+        <button
+          class="auth-form__toggle"
+          type="button"
+          [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+          [attr.aria-pressed]="showPassword()"
+          (click)="showPassword.set(!showPassword())"
+        >
+          <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="18" />
+        </button>
+      </div>
+      <p id="login-password-error" class="auth-form__error" aria-live="polite">
+        @if (isInvalid('password')) {
+          La contraseña es obligatoria.
+        }
+      </p>
+    </div>
+
+    <button class="forgot-password-link" type="button" (click)="recoveryModalOpen.set(true)">
+      ¿Olvidaste tu contraseña?
+    </button>
+
+    @if (serverMessage()) {
+      <p class="auth-form__message" role="alert">{{ serverMessage() }}</p>
+    }
+
+    <button
+      class="button button--solid auth-form__submit"
+      type="submit"
+      [disabled]="isSubmitting()"
+    >
+      @if (isSubmitting()) {
+        <span class="auth-form__spinner" aria-hidden="true"></span>
+        Iniciando sesión...
+      } @else {
+        Iniciar sesión
+      }
+    </button>
+  </form>
+
+  <div class="auth-switch">
+    <p>¿Aún no tienes una cuenta?</p>
+    <a class="button button--outline" routerLink="/registro">Crear cuenta</a>
+  </div>
+</app-auth-layout>
+
+@if (recoveryModalOpen()) {
+  <app-password-recovery-modal (closed)="recoveryModalOpen.set(false)" />
+}
