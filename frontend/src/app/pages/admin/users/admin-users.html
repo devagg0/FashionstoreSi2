@@ -1,0 +1,519 @@
+<main class="users-page" aria-labelledby="users-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="users-title">Usuarios y roles</h2>
+      <span>Consulta cuentas y administra únicamente su acceso y rol.</span>
+    </div>
+    <div class="page-heading__actions">
+      <a routerLink="/admin/roles">
+        <app-icon name="shield" [size]="18" />
+        Ver roles
+      </a>
+      <button type="button" (click)="openCreateModal()">
+        <app-icon name="user-plus" [size]="18" />
+        Nuevo usuario
+      </button>
+    </div>
+  </div>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="user-search">Buscar usuario</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="user-search"
+        type="search"
+        formControlName="search"
+        placeholder="Buscar por nombre o correo"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="role-filter">Rol</label>
+      <select id="role-filter" formControlName="rol">
+        <option value="">Todos los roles</option>
+        @for (role of roles(); track role.id_rol) {
+          <option [value]="role.nombre">{{ role.nombre }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filters__select">
+      <label for="status-filter">Estado</label>
+      <select id="status-filter" formControlName="estado">
+        <option value="">Todos</option>
+        <option value="true">Activos</option>
+        <option value="false">Inactivos</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" (click)="clearFilters()">Limpiar</button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de usuarios" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong>
+        <span>usuarios encontrados</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Correo</th>
+            <th scope="col">Rol</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td><td><span></span></td><td><span></span></td>
+                <td><span></span></td><td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (user of users(); track user.id_usuario) {
+              <tr [class.is-current-user]="isOwnUser(user)">
+                <td data-label="Nombre">
+                  <div class="user-cell">
+                    <span class="user-cell__avatar" aria-hidden="true">
+                      {{ user.nombre.charAt(0) }}{{ user.apellido.charAt(0) }}
+                    </span>
+                    <span>
+                      <strong>{{ user.nombre }} {{ user.apellido }}</strong>
+                      @if (isOwnUser(user)) { <small>Tu cuenta</small> }
+                    </span>
+                  </div>
+                </td>
+                <td data-label="Correo" class="email-cell">{{ user.correo }}</td>
+                <td data-label="Rol"><span class="role-badge">{{ user.rol }}</span></td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!user.estado">
+                    <span></span>{{ user.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + user.nombre"
+                      (click)="viewDetail(user.id_usuario)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Cambiar rol"
+                      [disabled]="isOwnUser(user)"
+                      [attr.aria-label]="'Cambiar rol de ' + user.nombre"
+                      (click)="openRoleModal(user)"
+                    >
+                      <app-icon name="shield" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="user.estado ? 'Desactivar usuario' : 'Activar usuario'"
+                      [disabled]="isOwnUser(user)"
+                      [attr.aria-label]="(user.estado ? 'Desactivar a ' : 'Activar a ') + user.nombre"
+                      (click)="openStatusModal(user)"
+                    >
+                      <app-icon [name]="user.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="5">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos usuarios</strong>
+                  <span>Prueba con otros términos o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />
+        Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente
+        <app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (detailModalOpen()) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar detalle" (click)="closeDetail()"></button>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div class="modal__header">
+        <div>
+          <p>DETALLE SEGURO</p>
+          <h3 id="detail-title">Información del usuario</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" [disabled]="detailLoading()" (click)="closeDetail()">
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle"><span></span><span></span><span></span></div>
+      } @else if (detailUser(); as user) {
+        <div class="detail-identity">
+          <span aria-hidden="true">{{ user.nombre.charAt(0) }}{{ user.apellido.charAt(0) }}</span>
+          <div><strong>{{ user.nombre }} {{ user.apellido }}</strong><small>ID {{ user.id_usuario }}</small></div>
+        </div>
+        <dl class="detail-list">
+          <div><dt>Correo</dt><dd>{{ user.correo }}</dd></div>
+          <div><dt>Rol</dt><dd>{{ user.rol }}</dd></div>
+          <div><dt>Estado</dt><dd>{{ user.estado ? 'Activo' : 'Inactivo' }}</dd></div>
+        </dl>
+      }
+    </section>
+  </div>
+}
+
+@if (statusUser(); as user) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cancelar cambio" (click)="closeStatusModal()"></button>
+    <section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="status-title">
+      <div class="confirm-icon" [class.confirm-icon--activate]="!user.estado">
+        <app-icon [name]="user.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="status-title">{{ user.estado ? 'Desactivar usuario' : 'Activar usuario' }}</h3>
+      <p>
+        {{ user.estado ? 'Se impedirá el acceso de' : 'Se restaurará el acceso de' }}
+        <strong>{{ user.nombre }} {{ user.apellido }}</strong>.
+      </p>
+      <div class="modal__actions">
+        <button class="modal-button modal-button--secondary" type="button" [disabled]="saving()" (click)="closeStatusModal()">Cancelar</button>
+        <button class="modal-button modal-button--primary" type="button" [disabled]="saving()" (click)="confirmStatusChange()">
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (roleUser(); as user) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cancelar cambio de rol" (click)="closeRoleModal()"></button>
+    <section class="modal modal--compact" role="dialog" aria-modal="true" aria-labelledby="role-title">
+      <div class="modal__header">
+        <div>
+          <p>ASIGNACIÓN DE ACCESO</p>
+          <h3 id="role-title">Cambiar rol</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" [disabled]="saving()" (click)="closeRoleModal()"><app-icon name="close" [size]="20" /></button>
+      </div>
+      <p class="role-modal-copy">Selecciona el nuevo rol para <strong>{{ user.nombre }} {{ user.apellido }}</strong>.</p>
+      <label class="role-select" for="new-role">
+        <span>Nuevo rol</span>
+        <select id="new-role" [formControl]="roleControl">
+          @for (role of assignableRoles(); track role.id_rol) {
+            <option [value]="role.nombre">{{ role.nombre }}</option>
+          }
+        </select>
+      </label>
+      <p class="role-help">La asignación será validada por el servidor según el perfil asociado al usuario.</p>
+      <div class="modal__actions">
+        <button class="modal-button modal-button--secondary" type="button" [disabled]="saving()" (click)="closeRoleModal()">Cancelar</button>
+        <button class="modal-button modal-button--primary" type="button" [disabled]="saving() || !roleControl.value || roleControl.value === user.rol" (click)="confirmRoleChange()">
+          {{ saving() ? 'Guardando...' : 'Guardar rol' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (createModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar creación de usuario"
+      (click)="closeCreateModal()"
+    ></button>
+    <section
+      class="modal modal--create"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-user-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>NUEVA CUENTA INTERNA</p>
+          <h3 id="create-user-title">Crear usuario</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="saving()"
+          (click)="closeCreateModal()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <p class="create-user-intro">
+        Crea una cuenta administrativa o de empleado. La sucursal se asignará posteriormente.
+      </p>
+
+      <form
+        class="auth-form create-user-form"
+        [formGroup]="createForm"
+        (ngSubmit)="submitCreateUser()"
+        [attr.aria-busy]="saving()"
+        novalidate
+      >
+        <div class="auth-form__grid">
+          <div class="auth-form__field" [class.is-invalid]="isCreateInvalid('nombre')">
+            <label for="admin-user-name">Nombre <span aria-hidden="true">*</span></label>
+            <div class="auth-form__control">
+              <app-icon name="user" [size]="18" />
+              <input
+                id="admin-user-name"
+                type="text"
+                formControlName="nombre"
+                autocomplete="given-name"
+                maxlength="100"
+                placeholder="Andrea"
+              />
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (isCreateInvalid('nombre')) {
+                @if (hasCreateError('nombre', 'required')) {
+                  El nombre es obligatorio.
+                } @else if (hasCreateError('nombre', 'minlength')) {
+                  Debe tener al menos 2 caracteres.
+                } @else if (hasCreateError('nombre', 'maxlength')) {
+                  No puede superar 100 caracteres.
+                }
+              }
+            </p>
+          </div>
+
+          <div class="auth-form__field" [class.is-invalid]="isCreateInvalid('apellido')">
+            <label for="admin-user-last-name">Apellido <span aria-hidden="true">*</span></label>
+            <div class="auth-form__control">
+              <app-icon name="user" [size]="18" />
+              <input
+                id="admin-user-last-name"
+                type="text"
+                formControlName="apellido"
+                autocomplete="family-name"
+                maxlength="100"
+                placeholder="Flores"
+              />
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (isCreateInvalid('apellido')) {
+                @if (hasCreateError('apellido', 'required')) {
+                  El apellido es obligatorio.
+                } @else if (hasCreateError('apellido', 'minlength')) {
+                  Debe tener al menos 2 caracteres.
+                } @else if (hasCreateError('apellido', 'maxlength')) {
+                  No puede superar 100 caracteres.
+                }
+              }
+            </p>
+          </div>
+
+          <div
+            class="auth-form__field auth-form__field--full"
+            [class.is-invalid]="isCreateInvalid('correo')"
+          >
+            <label for="admin-user-email">Correo electrónico <span aria-hidden="true">*</span></label>
+            <div class="auth-form__control">
+              <app-icon name="mail" [size]="18" />
+              <input
+                id="admin-user-email"
+                type="email"
+                formControlName="correo"
+                autocomplete="email"
+                placeholder="nombre@fashionstore.com"
+              />
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (isCreateInvalid('correo')) {
+                @if (hasCreateError('correo', 'emailTaken')) {
+                  Este correo ya se encuentra registrado.
+                } @else {
+                  Ingresa un correo electrónico válido.
+                }
+              }
+            </p>
+          </div>
+
+          <div class="auth-form__field" [class.is-invalid]="isCreateInvalid('telefono')">
+            <label for="admin-user-phone">Teléfono <small>(opcional)</small></label>
+            <div class="auth-form__control">
+              <app-icon name="phone" [size]="18" />
+              <input
+                id="admin-user-phone"
+                type="tel"
+                formControlName="telefono"
+                autocomplete="tel"
+                maxlength="30"
+                placeholder="Ej. 70012345"
+              />
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (isCreateInvalid('telefono')) { Ingresa un teléfono válido. }
+            </p>
+          </div>
+
+          <div class="auth-form__field" [class.is-invalid]="isCreateInvalid('rol')">
+            <label for="admin-user-role">Rol <span aria-hidden="true">*</span></label>
+            <div class="auth-form__control">
+              <app-icon name="shield" [size]="18" />
+              <select id="admin-user-role" formControlName="rol">
+                @for (role of internalRoles; track role) {
+                  <option [value]="role">{{ role }}</option>
+                }
+              </select>
+            </div>
+            <p class="auth-form__error" aria-live="polite"></p>
+          </div>
+
+          <div
+            class="auth-form__field auth-form__field--full"
+            [class.is-invalid]="isCreateInvalid('password')"
+          >
+            <label for="admin-user-password">Contraseña <span aria-hidden="true">*</span></label>
+            <div class="auth-form__control">
+              <app-icon name="lock" [size]="18" />
+              <input
+                id="admin-user-password"
+                [type]="showCreatePassword() ? 'text' : 'password'"
+                formControlName="password"
+                autocomplete="new-password"
+                placeholder="Crea una contraseña segura"
+              />
+              <button
+                class="auth-form__toggle"
+                type="button"
+                [attr.aria-label]="showCreatePassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [attr.aria-pressed]="showCreatePassword()"
+                (click)="showCreatePassword.set(!showCreatePassword())"
+              >
+                <app-icon [name]="showCreatePassword() ? 'eye-off' : 'eye'" [size]="18" />
+              </button>
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (isCreateInvalid('password') && hasCreateError('password', 'required')) {
+                La contraseña es obligatoria.
+              }
+            </p>
+          </div>
+
+          <div class="auth-form__requirements">
+            <p>La contraseña debe contener:</p>
+            <ul>
+              @for (requirement of passwordRequirements; track requirement.label) {
+                <li [class.is-met]="createPasswordMeets(requirement)">
+                  {{ requirement.label }}
+                </li>
+              }
+            </ul>
+          </div>
+
+          <div
+            class="auth-form__field auth-form__field--full"
+            [class.is-invalid]="isCreateInvalid('confirmPassword') || createConfirmationMismatch()"
+          >
+            <label for="admin-user-password-confirmation">
+              Confirmar contraseña <span aria-hidden="true">*</span>
+            </label>
+            <div class="auth-form__control">
+              <app-icon name="lock" [size]="18" />
+              <input
+                id="admin-user-password-confirmation"
+                [type]="showCreateConfirmation() ? 'text' : 'password'"
+                formControlName="confirmPassword"
+                autocomplete="new-password"
+                placeholder="Repite la contraseña"
+              />
+              <button
+                class="auth-form__toggle"
+                type="button"
+                [attr.aria-label]="showCreateConfirmation() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [attr.aria-pressed]="showCreateConfirmation()"
+                (click)="showCreateConfirmation.set(!showCreateConfirmation())"
+              >
+                <app-icon [name]="showCreateConfirmation() ? 'eye-off' : 'eye'" [size]="18" />
+              </button>
+            </div>
+            <p class="auth-form__error" aria-live="polite">
+              @if (
+                isCreateInvalid('confirmPassword') &&
+                hasCreateError('confirmPassword', 'required')
+              ) {
+                Confirma la contraseña.
+              } @else if (createConfirmationMismatch()) {
+                Las contraseñas no coinciden.
+              }
+            </p>
+          </div>
+
+          @if (createErrorMessage()) {
+            <p class="auth-form__message" role="alert">{{ createErrorMessage() }}</p>
+          }
+
+          <div class="modal__actions create-user-actions">
+            <button
+              class="modal-button modal-button--secondary"
+              type="button"
+              [disabled]="saving()"
+              (click)="closeCreateModal()"
+            >
+              Cancelar
+            </button>
+            <button
+              class="modal-button modal-button--primary"
+              type="submit"
+              [disabled]="saving()"
+            >
+              {{ saving() ? 'Creando usuario...' : 'Crear usuario' }}
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+  </div>
+}

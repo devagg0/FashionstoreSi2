@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -26,6 +26,8 @@ export class Profile {
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+
+  readonly embedded = input(false);
 
   protected readonly user = this.sessionService.currentUser;
   protected readonly passwordPanelOpen = signal(false);

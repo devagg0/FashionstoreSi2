@@ -1,0 +1,6 @@
+<section class="admin-profile-page" aria-label="Perfil administrativo">
+  @if (errorMessage()) {
+    <p class="profile-error" role="alert">{{ errorMessage() }}</p>
+  }
+  <app-profile [embedded]="true" />
+</section>

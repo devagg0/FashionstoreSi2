@@ -1,0 +1,59 @@
+<main class="dashboard" aria-labelledby="dashboard-title">
+  <div class="page-heading">
+    <div>
+      <p>VISTA GENERAL</p>
+      <h2 id="dashboard-title">Resumen administrativo</h2>
+      <span>Información actual de usuarios y roles disponible en CU03.</span>
+    </div>
+    <a class="page-heading__action" routerLink="/admin/usuarios">
+      Gestionar usuarios
+      <app-icon name="chevron-right" [size]="17" />
+    </a>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="state-message state-message--error" role="alert">
+      <span>{{ errorMessage() }}</span>
+      <button type="button" (click)="loadSummary()">
+        <app-icon name="refresh" [size]="17" />
+        Reintentar
+      </button>
+    </div>
+  }
+
+  <div class="summary-grid" [attr.aria-busy]="loading()">
+    @if (loading()) {
+      @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+        <article class="summary-card summary-card--loading" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </article>
+      }
+    } @else {
+      @for (card of cards(); track card.label) {
+        <article class="summary-card">
+          <div class="summary-card__icon">
+            <app-icon [name]="card.icon" [size]="22" />
+          </div>
+          <div>
+            <p>{{ card.label }}</p>
+            <strong>{{ card.value }}</strong>
+            <span>{{ card.helper }}</span>
+          </div>
+        </article>
+      }
+    }
+  </div>
+
+  <section class="scope-card" aria-labelledby="scope-title">
+    <div class="scope-card__icon"><app-icon name="shield" [size]="24" /></div>
+    <div>
+      <p>ALCANCE ACTUAL</p>
+      <h3 id="scope-title">Gestión segura y enfocada</h3>
+      <span>
+        Desde este panel puedes consultar usuarios, administrar su estado y rol, revisar los
+        roles disponibles y gestionar la seguridad de tu cuenta.
+      </span>
+    </div>
+    <a routerLink="/admin/roles">Consultar roles</a>
+  </section>
+</main>

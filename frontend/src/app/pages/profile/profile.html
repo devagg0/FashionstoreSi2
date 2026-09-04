@@ -1,4 +1,8 @@
-<main id="main-content" class="profile-page">
+<main
+  [attr.id]="embedded() ? null : 'main-content'"
+  class="profile-page"
+  [class.profile-page--embedded]="embedded()"
+>
   <section class="profile-shell" aria-labelledby="profile-title">
     <p class="profile-eyebrow">TU CUENTA</p>
     <h1 id="profile-title">Mi perfil</h1>
@@ -21,6 +25,12 @@
           <dt>Rol</dt>
           <dd>{{ currentUser.rol }}</dd>
         </div>
+        @if (currentUser.estado !== undefined) {
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ currentUser.estado ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+        }
       </dl>
     }
 

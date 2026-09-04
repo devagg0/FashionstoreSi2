@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.admin_cities import router as admin_cities_router
+from app.routers.admin_users import router as admin_users_router
 from app.routers.auth import router as auth_router
 
 
@@ -26,6 +28,8 @@ app.add_middleware(
 
 
 app.include_router(auth_router)
+app.include_router(admin_users_router)
+app.include_router(admin_cities_router)
 
 
 @app.get("/")

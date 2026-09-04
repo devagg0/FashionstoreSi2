@@ -147,6 +147,264 @@ img {
   white-space: nowrap;
 }
 
+/* Modales del panel administrativo. Se mantienen globales para compartirlos
+   sin incrementar el presupuesto CSS del componente de usuarios. */
+.modal-layer {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgb(43 38 37 / 55%);
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease;
+}
+.modal {
+  position: relative;
+  width: min(100%, 540px);
+  max-height: min(90dvh, 720px);
+  padding: 28px;
+  overflow-y: auto;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(43 38 37 / 28%);
+  animation: admin-modal-in 0.24s ease;
+}
+.modal--compact {
+  width: min(100%, 460px);
+}
+.modal--create {
+  width: min(100%, 720px);
+}
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.modal h3 {
+  margin: 0;
+  font: 650 1.28rem var(--font-display);
+  letter-spacing: -0.03em;
+}
+.detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 11px;
+  background: #f4ebe1;
+}
+.detail-identity > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #2b2625;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.detail-identity div {
+  display: grid;
+  gap: 4px;
+}
+.detail-identity strong {
+  font: 650 0.95rem var(--font-display);
+}
+.detail-identity small {
+  color: rgb(43 38 37 / 52%);
+  font-size: 0.68rem;
+}
+.detail-list {
+  margin: 18px 0 0;
+}
+.detail-list div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 15px;
+  padding: 15px 3px;
+  border-bottom: 1px solid rgb(43 38 37 / 9%);
+}
+.detail-list dt {
+  color: rgb(43 38 37 / 50%);
+  font-size: 0.69rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+.modal-loading {
+  display: grid;
+  gap: 13px;
+}
+.modal-loading span {
+  height: 16px;
+  border-radius: 6px;
+  background: #f4ebe1;
+}
+.modal-loading span:nth-child(2) {
+  width: 70%;
+}
+.modal-loading span:nth-child(3) {
+  width: 45%;
+}
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 50%;
+  background: rgb(200 125 85 / 14%);
+  color: #a15f3c;
+}
+.confirm-icon--activate {
+  background: rgb(86 126 91 / 12%);
+  color: #466749;
+}
+.modal--compact > p {
+  margin: 12px 0 0;
+  color: rgb(43 38 37 / 62%);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 26px;
+}
+.modal-button {
+  min-height: 42px;
+  padding: 0 17px;
+  border-radius: 8px;
+  font: 700 0.76rem var(--font-body);
+  cursor: pointer;
+}
+.modal-button--secondary {
+  border: 1px solid rgb(43 38 37 / 15%);
+  background: #fff;
+  color: #2b2625;
+}
+.modal-button--primary {
+  border: 1px solid #2b2625;
+  background: #2b2625;
+  color: #fff;
+}
+.modal-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.role-modal-copy {
+  margin-top: -10px !important;
+}
+.role-select {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.role-select > span {
+  color: rgb(43 38 37 / 62%);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.role-select select {
+  width: 100%;
+  min-height: 45px;
+  padding: 0 34px 0 12px;
+  border: 1px solid rgb(43 38 37 / 16%);
+  border-radius: 8px;
+  outline: 0;
+  background: #fff;
+  color: #2b2625;
+  font: 0.8rem var(--font-body);
+}
+.role-select select:focus {
+  border-color: #c87d55;
+  box-shadow: 0 0 0 3px rgb(200 125 85 / 10%);
+}
+.role-help {
+  padding: 11px 13px;
+  border-left: 2px solid #e2a882;
+  background: rgb(244 235 225 / 62%);
+  font-size: 0.72rem !important;
+}
+.create-user-intro {
+  margin: -12px 0 23px;
+  color: rgb(43 38 37 / 58%);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.create-user-form .auth-form__control select {
+  width: 100%;
+  height: 49px;
+  padding: 0 42px;
+  border: 1px solid rgb(43 38 37 / 18%);
+  border-radius: var(--radius-sm);
+  outline: 0;
+  background: #fff;
+  color: #2b2625;
+  font: 0.86rem var(--font-body);
+}
+.create-user-form .auth-form__control select:focus {
+  border-color: #c87d55;
+  box-shadow: 0 0 0 3px rgb(200 125 85 / 13%);
+}
+.create-user-form .auth-form__message {
+  margin: 0;
+  color: #9d513d;
+  font-size: 0.76rem;
+}
+.create-user-actions {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-top: 22px;
+  border-top: 1px solid rgb(43 38 37 / 10%);
+}
+
+@keyframes admin-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    padding: 23px 20px;
+  }
+  .detail-list div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 620px) {
+  .modal--create .auth-form__grid {
+    grid-template-columns: 1fr;
+  }
+  .modal--create .auth-form__requirements ul {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

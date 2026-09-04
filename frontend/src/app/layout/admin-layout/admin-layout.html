@@ -1,0 +1,88 @@
+<div class="admin-shell" [class.sidebar-is-open]="sidebarOpen()">
+  <button
+    class="admin-backdrop"
+    type="button"
+    aria-label="Cerrar navegación administrativa"
+    (click)="closeSidebar()"
+  ></button>
+
+  <aside id="admin-sidebar" class="admin-sidebar" aria-label="Navegación administrativa">
+    <div class="admin-sidebar__brand">
+      <a routerLink="/admin" (click)="closeSidebar()">FASHIONSTORE</a>
+      <span>ADMINISTRACIÓN</span>
+    </div>
+
+    <nav class="admin-navigation">
+      <p>MENÚ PRINCIPAL</p>
+      <a
+        routerLink="/admin"
+        routerLinkActive="is-active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="dashboard" [size]="20" />
+        <span>Resumen</span>
+      </a>
+      <a
+        routerLink="/admin/usuarios"
+        [class.is-active]="usersSectionActive()"
+        [attr.aria-current]="usersSectionActive() ? 'page' : null"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="users" [size]="20" />
+        <span>Usuarios y roles</span>
+      </a>
+      <a routerLink="/admin/ciudades" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="map-pin" [size]="20" />
+        <span>Ciudades</span>
+      </a>
+      <a routerLink="/admin/perfil" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="user" [size]="20" />
+        <span>Mi perfil</span>
+      </a>
+    </nav>
+
+    <div class="admin-sidebar__footer">
+      <button type="button" (click)="logout()">
+        <app-icon name="log-out" [size]="20" />
+        <span>Cerrar sesión</span>
+      </button>
+      <p>FashionStore · Tierra &amp; Lino</p>
+    </div>
+  </aside>
+
+  <div class="admin-workspace">
+    <header class="admin-topbar">
+      <div class="admin-topbar__section">
+        <button
+          class="admin-topbar__menu"
+          type="button"
+          aria-label="Abrir navegación administrativa"
+          aria-controls="admin-sidebar"
+          [attr.aria-expanded]="sidebarOpen()"
+          (click)="toggleSidebar()"
+        >
+          <app-icon name="menu" [size]="22" />
+        </button>
+        <div>
+          <span>Panel administrativo</span>
+          <h1>{{ sectionTitle() }}</h1>
+        </div>
+      </div>
+
+      @if (user(); as currentUser) {
+        <a class="admin-identity" routerLink="/admin/perfil" aria-label="Abrir mi perfil">
+          <span class="admin-identity__copy">
+            <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+            <small>{{ currentUser.rol }}</small>
+          </span>
+          <span class="admin-identity__avatar" aria-hidden="true">{{ initials() }}</span>
+        </a>
+      }
+    </header>
+
+    <div id="main-content" class="admin-main">
+      <router-outlet />
+    </div>
+  </div>
+</div>

@@ -22,6 +22,6 @@ export class App {
   );
 
   protected readonly showPublicChrome = computed(
-    () => !/^\/(login|registro)(?:[/?#]|$)/.test(this.activeUrl()),
+    () => !/^\/(login|registro|admin)(?:[/?#]|$)/.test(this.activeUrl()),
   );
 }

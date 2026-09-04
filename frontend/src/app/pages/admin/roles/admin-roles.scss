@@ -1,0 +1,32 @@
+:host { display: block; }
+.roles-page { width: min(100%, 1040px); margin: 0 auto; }
+.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.page-heading p { margin: 0 0 8px; color: #c87d55; font-size: .66rem; font-weight: 800; letter-spacing: .14em; }
+.page-heading h2 { margin: 0 0 8px; font: 650 clamp(1.75rem, 3vw, 2.35rem)/1.1 var(--font-display); letter-spacing: -.04em; }
+.page-heading span { color: rgb(43 38 37 / 60%); font-size: .87rem; }
+.page-heading a { display: inline-flex; align-items: center; gap: 7px; color: #2b2625; font-size: .78rem; font-weight: 700; text-decoration: none; }
+.page-heading a:hover { color: #c87d55; }
+.error-message { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 14px 16px; border: 1px solid rgb(200 125 85 / 28%); border-radius: 9px; background: rgb(200 125 85 / 9%); font-size: .8rem; }
+.error-message button { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: #2b2625; font: 700 .75rem var(--font-body); cursor: pointer; }
+.total-card { display: flex; align-items: flex-start; width: min(100%, 320px); min-height: 148px; gap: 17px; margin-bottom: 20px; padding: 25px; border: 1px solid rgb(43 38 37 / 10%); border-radius: 14px; background: #fff; box-shadow: 0 8px 26px rgb(43 38 37 / 5%); }
+.total-card__icon { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 12px; background: rgb(226 168 130 / 22%); color: #c87d55; }
+.total-card p { margin: 2px 0 8px; color: rgb(43 38 37 / 58%); font-size: .74rem; font-weight: 700; }
+.total-card strong { display: block; margin-bottom: 5px; font: 700 1.85rem var(--font-display); }
+.total-card div > span { color: rgb(43 38 37 / 45%); font-size: .69rem; }
+.roles-table { overflow: hidden; border: 1px solid rgb(43 38 37 / 10%); border-radius: 14px; background: #fff; box-shadow: 0 8px 26px rgb(43 38 37 / 5%); }
+.roles-table__header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 23px; border-bottom: 1px solid rgb(43 38 37 / 9%); }
+.roles-table__header h3 { margin: 0 0 4px; font: 650 .96rem var(--font-display); }
+.roles-table__header p { margin: 0; color: rgb(43 38 37 / 48%); font-size: .7rem; }
+.roles-table__header > span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 7px; background: rgb(244 235 225 / 72%); color: rgb(43 38 37 / 58%); font-size: .67rem; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 13px 22px; background: rgb(244 235 225 / 55%); color: rgb(43 38 37 / 52%); font-size: .65rem; font-weight: 800; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+td { padding: 17px 22px; border-top: 1px solid rgb(43 38 37 / 8%); font-size: .8rem; }
+.role-id { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 29px; padding: 0 8px; border-radius: 7px; background: rgb(226 168 130 / 18%); color: #7a4b33; font-size: .7rem; font-weight: 800; }
+td strong { font: 700 .78rem var(--font-display); letter-spacing: .025em; }
+.loading-row span { display: block; width: 70%; height: 13px; border-radius: 5px; background: #f4ebe1; }
+.empty-state { padding: 42px 20px; color: rgb(43 38 37 / 48%); text-align: center; }
+@media (max-width: 620px) {
+  .page-heading { align-items: flex-start; flex-direction: column; }
+  .roles-table__header > span { display: none; }
+  .total-card { width: 100%; }
+}

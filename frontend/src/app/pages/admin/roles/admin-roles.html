@@ -1,0 +1,58 @@
+<main class="roles-page" aria-labelledby="roles-title">
+  <div class="page-heading">
+    <div>
+      <p>CONFIGURACIÓN DISPONIBLE</p>
+      <h2 id="roles-title">Roles</h2>
+      <span>Consulta los roles registrados actualmente en FashionStore.</span>
+    </div>
+    <a routerLink="/admin/usuarios">
+      <app-icon name="chevron-left" [size]="17" />
+      Volver a usuarios
+    </a>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="error-message" role="alert">
+      <span>{{ errorMessage() }}</span>
+      <button type="button" (click)="loadRoles()"><app-icon name="refresh" [size]="17" /> Reintentar</button>
+    </div>
+  }
+
+  <article class="total-card">
+    <span class="total-card__icon"><app-icon name="shield" [size]="23" /></span>
+    <div>
+      <p>Total de roles</p>
+      <strong>{{ loading() ? '—' : roles().length }}</strong>
+      <span>Definidos en el sistema</span>
+    </div>
+  </article>
+
+  <section class="roles-table" aria-label="Roles disponibles" [attr.aria-busy]="loading()">
+    <div class="roles-table__header">
+      <div>
+        <h3>Listado de roles</h3>
+        <p>Información de solo lectura</p>
+      </div>
+      <span><app-icon name="shield" [size]="16" /> Sin acciones de edición</span>
+    </div>
+    <table>
+      <thead><tr><th scope="col">ID</th><th scope="col">Nombre del rol</th></tr></thead>
+      <tbody>
+        @if (loading()) {
+          @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+            <tr class="loading-row"><td><span></span></td><td><span></span></td></tr>
+          }
+        } @else {
+          @for (role of roles(); track role.id_rol) {
+            <tr>
+              <td data-label="ID"><span class="role-id">{{ role.id_rol }}</span></td>
+              <td data-label="Nombre"><strong>{{ role.nombre }}</strong></td>
+            </tr>
+          } @empty {
+            <tr><td class="empty-state" colspan="2">No existen roles configurados.</td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </section>
+</main>
