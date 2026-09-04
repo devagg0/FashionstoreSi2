@@ -1,0 +1,370 @@
+<main class="cities-page" aria-labelledby="cities-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="cities-title">Gestión de ciudades</h2>
+      <span>Administra las ciudades donde FashionStore tiene presencia.</span>
+    </div>
+    <button class="page-heading__action" type="button" (click)="openCityModal()">
+      <app-icon name="plus" [size]="18" />
+      Nueva ciudad
+    </button>
+  </div>
+
+  <section class="summary-grid" aria-label="Resumen de ciudades" [attr.aria-busy]="statsLoading()">
+    <article class="summary-card">
+      <span class="summary-card__icon"><app-icon name="map-pin" [size]="22" /></span>
+      <div>
+        <p>Total de ciudades</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ totalCities() }}</strong>
+        }
+        <small>Registradas en FashionStore</small>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon summary-card__icon--active">
+        <app-icon name="circle-check" [size]="22" />
+      </span>
+      <div>
+        <p>Ciudades activas</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ activeCities() }}</strong>
+        }
+        <small>Disponibles actualmente</small>
+      </div>
+    </article>
+  </section>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="city-search">Buscar ciudad por nombre</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="city-search"
+        type="search"
+        formControlName="search"
+        placeholder="Buscar por nombre"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="city-status-filter">Estado</label>
+      <select id="city-status-filter" formControlName="estado">
+        <option value="">Todas</option>
+        <option value="true">Activas</option>
+        <option value="false">Inactivas</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" (click)="clearFilters()">Limpiar</button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de ciudades" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong
+        ><span>ciudades encontradas</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Ciudad</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (city of cities(); track city.id_ciudad) {
+              <tr>
+                <td data-label="ID" class="id-cell">#{{ city.id_ciudad }}</td>
+                <td data-label="Ciudad">
+                  <div class="city-cell">
+                    <span aria-hidden="true"><app-icon name="map-pin" [size]="18" /></span>
+                    <strong>{{ city.nombre }}</strong>
+                  </div>
+                </td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!city.estado">
+                    <span></span>{{ city.estado ? 'Activa' : 'Inactiva' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + city.nombre"
+                      (click)="viewDetail(city.id_ciudad)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar ciudad"
+                      [attr.aria-label]="'Editar ' + city.nombre"
+                      (click)="openCityModal(city)"
+                    >
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="city.estado ? 'Desactivar ciudad' : 'Activar ciudad'"
+                      [attr.aria-label]="(city.estado ? 'Desactivar ' : 'Activar ') + city.nombre"
+                      (click)="openStatusModal(city)"
+                    >
+                      <app-icon [name]="city.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="4">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos ciudades</strong>
+                  <span>Prueba con otro nombre o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />
+        Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente
+        <app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (detailModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar detalle"
+      (click)="closeDetail()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="city-detail-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>DETALLE DE CIUDAD</p>
+          <h3 id="city-detail-title">Información de la ciudad</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="detailLoading()"
+          (click)="closeDetail()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle">
+          <span></span><span></span><span></span>
+        </div>
+      } @else if (detailCity(); as city) {
+        <div class="detail-identity city-detail-identity">
+          <span aria-hidden="true"><app-icon name="map-pin" [size]="22" /></span>
+          <div>
+            <strong>{{ city.nombre }}</strong
+            ><small>ID #{{ city.id_ciudad }}</small>
+          </div>
+        </div>
+        <dl class="detail-list">
+          <div>
+            <dt>Ciudad</dt>
+            <dd>{{ city.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ city.estado ? 'Activa' : 'Inactiva' }}</dd>
+          </div>
+        </dl>
+      }
+    </section>
+  </div>
+}
+
+@if (cityModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar"
+      (click)="closeCityModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="city-form-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>{{ editingCity() ? 'EDITAR CIUDAD' : 'NUEVA CIUDAD' }}</p>
+          <h3 id="city-form-title">{{ editingCity() ? 'Editar ciudad' : 'Crear ciudad' }}</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" [disabled]="saving()" (click)="closeCityModal()">
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <p class="city-form-intro">
+        {{
+          editingCity()
+            ? 'Actualiza el nombre con el que se mostrará en FashionStore.'
+            : 'Agrega una nueva ciudad a la cobertura de FashionStore.'
+        }}
+      </p>
+
+      <form class="city-form" [formGroup]="cityForm" (ngSubmit)="submitCity()" novalidate>
+        <div class="city-form__field" [class.is-invalid]="isNameInvalid()">
+          <label for="city-name">Nombre de ciudad <span aria-hidden="true">*</span></label>
+          <div class="city-form__control">
+            <app-icon name="map-pin" [size]="18" />
+            <input
+              id="city-name"
+              type="text"
+              formControlName="nombre"
+              maxlength="100"
+              autocomplete="address-level2"
+              placeholder="Santa Cruz de la Sierra"
+              (input)="clearNameConflict()"
+            />
+          </div>
+          <p class="city-form__error" aria-live="polite">
+            @if (isNameInvalid()) {
+              @if (cityForm.controls.nombre.hasError('duplicate')) {
+                Ya existe una ciudad con ese nombre.
+              } @else if (cityForm.controls.nombre.hasError('required')) {
+                El nombre de la ciudad es obligatorio.
+              } @else if (cityForm.controls.nombre.hasError('maxlength')) {
+                El nombre no puede superar 100 caracteres.
+              }
+            }
+          </p>
+        </div>
+
+        @if (modalErrorMessage()) {
+          <p class="city-form__message" role="alert">{{ modalErrorMessage() }}</p>
+        }
+
+        <div class="modal__actions">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="closeCityModal()"
+          >
+            Cancelar
+          </button>
+          <button class="modal-button modal-button--primary" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (statusCity(); as city) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeStatusModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="city-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!city.estado">
+        <app-icon [name]="city.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="city-status-title">{{ city.estado ? 'Desactivar ciudad' : 'Activar ciudad' }}</h3>
+      <p>
+        {{
+          city.estado
+            ? 'La ciudad dejará de estar disponible, pero conservará todos sus datos.'
+            : 'La ciudad volverá a estar disponible.'
+        }}
+        <strong>{{ city.nombre }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeStatusModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmStatusChange()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

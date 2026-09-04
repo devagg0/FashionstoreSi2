@@ -35,6 +35,7 @@ export interface AuthenticatedUser {
   apellido: string;
   correo: string;
   rol: string;
+  estado?: boolean;
 }
 
 export interface LoginResponse {

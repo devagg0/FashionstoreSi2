@@ -15,6 +15,17 @@
   margin: 0 auto;
 }
 
+.profile-page--embedded {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.profile-page--embedded .profile-shell {
+  width: min(100%, 760px);
+  margin: 0;
+}
+
 .profile-eyebrow {
   margin: 0 0 12px;
   color: var(--color-terracotta);
