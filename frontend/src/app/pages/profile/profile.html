@@ -1,0 +1,193 @@
+<main id="main-content" class="profile-page">
+  <section class="profile-shell" aria-labelledby="profile-title">
+    <p class="profile-eyebrow">TU CUENTA</p>
+    <h1 id="profile-title">Mi perfil</h1>
+
+    @if (user(); as currentUser) {
+      <dl class="profile-details">
+        <div>
+          <dt>Nombre</dt>
+          <dd>{{ currentUser.nombre }}</dd>
+        </div>
+        <div>
+          <dt>Apellido</dt>
+          <dd>{{ currentUser.apellido }}</dd>
+        </div>
+        <div>
+          <dt>Correo</dt>
+          <dd>{{ currentUser.correo }}</dd>
+        </div>
+        <div>
+          <dt>Rol</dt>
+          <dd>{{ currentUser.rol }}</dd>
+        </div>
+      </dl>
+    }
+
+    <section class="security-card" aria-labelledby="security-title">
+      <div class="security-card__header">
+        <div>
+          <p class="profile-eyebrow">SEGURIDAD</p>
+          <h2 id="security-title">Seguridad</h2>
+        </div>
+        <button
+          class="button button--outline security-card__toggle"
+          type="button"
+          [attr.aria-expanded]="passwordPanelOpen()"
+          aria-controls="change-password-panel"
+          (click)="togglePasswordPanel()"
+        >
+          {{ passwordPanelOpen() ? 'Cancelar' : 'Cambiar contraseña' }}
+        </button>
+      </div>
+
+      @if (passwordPanelOpen()) {
+        <form
+          id="change-password-panel"
+          class="auth-form security-form"
+          [formGroup]="passwordForm"
+          (ngSubmit)="submitPasswordChange()"
+          [attr.aria-busy]="isSubmitting()"
+          novalidate
+        >
+          <div class="auth-form__grid">
+            <div
+              class="auth-form__field auth-form__field--full"
+              [class.is-invalid]="isInvalid('currentPassword')"
+            >
+              <label for="current-password">Contraseña actual</label>
+              <div class="auth-form__control">
+                <app-icon name="lock" [size]="18" />
+                <input
+                  id="current-password"
+                  [type]="showCurrentPassword() ? 'text' : 'password'"
+                  formControlName="currentPassword"
+                  autocomplete="current-password"
+                  placeholder="Ingresa tu contraseña actual"
+                  [attr.aria-invalid]="isInvalid('currentPassword')"
+                  aria-describedby="current-password-error"
+                />
+                <button
+                  class="auth-form__toggle"
+                  type="button"
+                  [attr.aria-label]="
+                    showCurrentPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  "
+                  [attr.aria-pressed]="showCurrentPassword()"
+                  (click)="showCurrentPassword.set(!showCurrentPassword())"
+                >
+                  <app-icon [name]="showCurrentPassword() ? 'eye-off' : 'eye'" [size]="18" />
+                </button>
+              </div>
+              <p id="current-password-error" class="auth-form__error" aria-live="polite">
+                @if (isInvalid('currentPassword')) {
+                  La contraseña actual es obligatoria.
+                }
+              </p>
+            </div>
+
+            <div
+              class="auth-form__field auth-form__field--full"
+              [class.is-invalid]="isInvalid('newPassword')"
+            >
+              <label for="new-password">Nueva contraseña</label>
+              <div class="auth-form__control">
+                <app-icon name="lock" [size]="18" />
+                <input
+                  id="new-password"
+                  [type]="showNewPassword() ? 'text' : 'password'"
+                  formControlName="newPassword"
+                  autocomplete="new-password"
+                  placeholder="Crea una contraseña segura"
+                  [attr.aria-invalid]="isInvalid('newPassword')"
+                  aria-describedby="new-password-requirements new-password-error"
+                />
+                <button
+                  class="auth-form__toggle"
+                  type="button"
+                  [attr.aria-label]="
+                    showNewPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  "
+                  [attr.aria-pressed]="showNewPassword()"
+                  (click)="showNewPassword.set(!showNewPassword())"
+                >
+                  <app-icon [name]="showNewPassword() ? 'eye-off' : 'eye'" [size]="18" />
+                </button>
+              </div>
+              <p id="new-password-error" class="auth-form__error" aria-live="polite">
+                @if (isInvalid('newPassword') && hasError('newPassword', 'required')) {
+                  La nueva contraseña es obligatoria.
+                }
+              </p>
+            </div>
+
+            @if (passwordForm.controls.newPassword.dirty) {
+              <div id="new-password-requirements" class="auth-form__requirements">
+                <p>Tu contraseña debe contener:</p>
+                <ul>
+                  @for (requirement of passwordRequirements; track requirement.label) {
+                    <li [class.is-met]="passwordMeets(requirement)">{{ requirement.label }}</li>
+                  }
+                </ul>
+              </div>
+            }
+
+            <div
+              class="auth-form__field auth-form__field--full"
+              [class.is-invalid]="isInvalid('confirmPassword') || confirmationMismatch()"
+            >
+              <label for="confirm-new-password">Confirmar nueva contraseña</label>
+              <div class="auth-form__control">
+                <app-icon name="lock" [size]="18" />
+                <input
+                  id="confirm-new-password"
+                  [type]="showConfirmation() ? 'text' : 'password'"
+                  formControlName="confirmPassword"
+                  autocomplete="new-password"
+                  placeholder="Repite la nueva contraseña"
+                  [attr.aria-invalid]="isInvalid('confirmPassword') || confirmationMismatch()"
+                  aria-describedby="confirm-new-password-error"
+                />
+                <button
+                  class="auth-form__toggle"
+                  type="button"
+                  [attr.aria-label]="
+                    showConfirmation() ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  "
+                  [attr.aria-pressed]="showConfirmation()"
+                  (click)="showConfirmation.set(!showConfirmation())"
+                >
+                  <app-icon [name]="showConfirmation() ? 'eye-off' : 'eye'" [size]="18" />
+                </button>
+              </div>
+              <p id="confirm-new-password-error" class="auth-form__error" aria-live="polite">
+                @if (isInvalid('confirmPassword') && hasError('confirmPassword', 'required')) {
+                  Confirma la nueva contraseña.
+                } @else if (confirmationMismatch()) {
+                  Las contraseñas no coinciden.
+                }
+              </p>
+            </div>
+
+            @if (serverMessage()) {
+              <p class="auth-form__message" role="alert">{{ serverMessage() }}</p>
+            }
+
+            <button
+              class="button button--solid auth-form__submit"
+              type="submit"
+              [disabled]="isSubmitting()"
+            >
+              @if (isSubmitting()) {
+                <span class="auth-form__spinner" aria-hidden="true"></span>
+                Actualizando...
+              } @else {
+                Actualizar contraseña
+              }
+            </button>
+          </div>
+        </form>
+      }
+    </section>
+  </section>
+</main>

@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+.login-success-message {
+  margin: 0 0 22px;
+}
+
+.forgot-password-link {
+  justify-self: end;
+  margin-top: -11px;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--color-muted);
+  font: 500 0.78rem var(--font-body);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    color var(--transition);
+}
+
+.forgot-password-link:hover,
+.forgot-password-link:focus-visible {
+  border-color: var(--color-terracotta);
+  color: var(--color-terracotta);
+}

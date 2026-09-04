@@ -1,0 +1,129 @@
+:host {
+  display: block;
+}
+
+.profile-page {
+  min-height: calc(100svh - 74px);
+  padding: clamp(64px, 9vw, 120px) var(--page-gutter);
+  background:
+    radial-gradient(circle at 85% 15%, rgb(226 168 130 / 20%), transparent 28rem),
+    var(--color-linen);
+}
+
+.profile-shell {
+  width: min(100%, 680px);
+  margin: 0 auto;
+}
+
+.profile-eyebrow {
+  margin: 0 0 12px;
+  color: var(--color-terracotta);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+h1 {
+  margin: 0 0 34px;
+  font: 600 clamp(2.2rem, 5vw, 3.5rem) / 1.05 var(--font-display);
+  letter-spacing: -0.045em;
+}
+
+.profile-details {
+  margin: 0;
+  padding: clamp(24px, 5vw, 42px);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-white) 92%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.profile-details div {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.4fr) 1fr;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.profile-details div:first-child {
+  padding-top: 0;
+}
+
+.profile-details div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+dt {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.98rem;
+  font-weight: 500;
+}
+
+.security-card {
+  margin-top: 24px;
+  padding: clamp(24px, 5vw, 42px);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-white) 92%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.security-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.security-card__header .profile-eyebrow {
+  margin-bottom: 7px;
+}
+
+.security-card h2 {
+  margin: 0;
+  font: 600 1.3rem var(--font-display);
+  letter-spacing: -0.025em;
+}
+
+.security-card__toggle {
+  flex: 0 0 auto;
+}
+
+.security-form {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--color-line);
+}
+
+@media (max-width: 520px) {
+  .profile-page {
+    min-height: calc(100svh - 66px);
+    padding-top: 48px;
+  }
+
+  .profile-details div {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .security-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .security-card__toggle {
+    width: 100%;
+  }
+}

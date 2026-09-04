@@ -1,0 +1,97 @@
+<main id="main-content">
+  <section id="novedades" class="hero" aria-labelledby="hero-title">
+    <div class="hero__content shell">
+      <div class="hero__copy">
+        <p class="eyebrow">NUEVA TEMPORADA</p>
+        <h1 id="hero-title">Viste<br />tu estilo.</h1>
+        <p class="hero__description">Descubre una nueva forma de vestir cada momento.</p>
+        <div class="hero__actions">
+          <button class="button button--solid" type="button">Ver colección</button>
+          <a class="button button--outline" href="#estilos">Explorar</a>
+        </div>
+      </div>
+      <div class="hero__visual">
+        <img
+          [src]="heroImage"
+          alt="Selección editorial de moda en un espacio contemporáneo"
+          fetchpriority="high"
+        />
+        <span class="hero__index">F / 01</span>
+      </div>
+    </div>
+    <a class="hero__scroll" href="#estilos">Descubre <span aria-hidden="true">↓</span></a>
+  </section>
+
+  <section id="estilos" class="section style-section" aria-labelledby="styles-title">
+    <div class="shell">
+      <header class="section-heading">
+        <div>
+          <p class="eyebrow">PARA CADA VERSIÓN DE TI</p>
+          <h2 id="styles-title">Encuentra tu estilo</h2>
+        </div>
+        <p>Esenciales contemporáneos creados para combinar contigo, todos los días.</p>
+      </header>
+      <div class="style-grid">
+        @for (collection of collections; track collection.title) {
+          <app-section-card
+            [title]="collection.title"
+            [image]="collection.image"
+            [alt]="collection.alt"
+            [position]="collection.position ?? 'center'"
+          />
+        }
+      </div>
+    </div>
+  </section>
+
+  <section id="categorias" class="section categories-section" aria-labelledby="categories-title">
+    <div class="shell">
+      <header class="section-heading section-heading--compact">
+        <div>
+          <p class="eyebrow">ELIGE TU CAMINO</p>
+          <h2 id="categories-title">Explora por categoría</h2>
+        </div>
+      </header>
+      <div class="category-track" aria-label="Categorías de ropa">
+        @for (category of categories; track category; let index = $index) {
+          <app-category-card [label]="category" [index]="index" />
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section collection-section" aria-labelledby="collection-title">
+    <div class="shell editorial-banner">
+      <div class="editorial-banner__meta">
+        <span>FASHIONSTORE / 2026</span>
+        <span>EDICIÓN 01</span>
+      </div>
+      <div class="editorial-banner__copy">
+        <p class="eyebrow">NUEVA COLECCIÓN</p>
+        <h2 id="collection-title">URBAN<br /><em>2026</em></h2>
+        <p>Una colección pensada para acompañar tu estilo.</p>
+        <button class="button button--solid" type="button">Descubrir colección</button>
+      </div>
+      <div class="editorial-banner__shape" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="benefits" aria-labelledby="benefits-title">
+    <div class="shell">
+      <h2 id="benefits-title" class="visually-hidden">Experiencia FashionStore</h2>
+      <div class="benefit-grid">
+        @for (benefit of benefits; track benefit.title) {
+          <article class="benefit-card">
+            <span class="benefit-card__icon"><app-icon [name]="benefit.icon" [size]="23" /></span>
+            <div>
+              <h3>{{ benefit.title }}</h3>
+              <p>{{ benefit.description }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </div>
+  </section>
+</main>

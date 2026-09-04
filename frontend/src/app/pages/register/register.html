@@ -1,0 +1,232 @@
+<app-auth-layout>
+  @if (registrationSuccess()) {
+    <section class="auth-success" aria-live="polite">
+      <span class="auth-success__mark"><app-icon name="check" [size]="25" /></span>
+      <h1>Cuenta creada correctamente</h1>
+      <p>Ya puedes iniciar sesión en FashionStore.</p>
+      <a class="button button--solid" routerLink="/login">Ir a iniciar sesión</a>
+    </section>
+  } @else {
+    <header class="auth-intro">
+      <p class="auth-intro__eyebrow">TU ESTILO, TU CUENTA</p>
+      <h1>Crea tu cuenta</h1>
+      <p>Únete a FashionStore y descubre tu estilo.</p>
+    </header>
+
+    <form
+      class="auth-form"
+      [formGroup]="registerForm"
+      (ngSubmit)="submitRegistration()"
+      novalidate
+    >
+      <div class="auth-form__grid">
+        <div class="auth-form__field" [class.is-invalid]="isInvalid('nombre')">
+          <label for="register-name">Nombre <span aria-hidden="true">*</span></label>
+          <div class="auth-form__control">
+            <app-icon name="user" [size]="18" />
+            <input
+              id="register-name"
+              type="text"
+              formControlName="nombre"
+              placeholder="Andrés"
+              autocomplete="given-name"
+              maxlength="100"
+              [attr.aria-invalid]="isInvalid('nombre')"
+              aria-describedby="register-name-error"
+            />
+          </div>
+          <p id="register-name-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('nombre')) {
+              @if (hasError('nombre', 'required')) {
+                El nombre es obligatorio.
+              } @else if (hasError('nombre', 'minlength')) {
+                El nombre debe tener al menos 2 caracteres.
+              } @else if (hasError('nombre', 'maxlength')) {
+                El nombre no puede superar 100 caracteres.
+              }
+            }
+          </p>
+        </div>
+
+        <div class="auth-form__field" [class.is-invalid]="isInvalid('apellido')">
+          <label for="register-last-name">Apellido <span aria-hidden="true">*</span></label>
+          <div class="auth-form__control">
+            <app-icon name="user" [size]="18" />
+            <input
+              id="register-last-name"
+              type="text"
+              formControlName="apellido"
+              placeholder="García"
+              autocomplete="family-name"
+              maxlength="100"
+              [attr.aria-invalid]="isInvalid('apellido')"
+              aria-describedby="register-last-name-error"
+            />
+          </div>
+          <p id="register-last-name-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('apellido')) {
+              @if (hasError('apellido', 'required')) {
+                El apellido es obligatorio.
+              } @else if (hasError('apellido', 'minlength')) {
+                El apellido debe tener al menos 2 caracteres.
+              } @else if (hasError('apellido', 'maxlength')) {
+                El apellido no puede superar 100 caracteres.
+              }
+            }
+          </p>
+        </div>
+
+        <div
+          class="auth-form__field auth-form__field--full"
+          [class.is-invalid]="isInvalid('correo')"
+        >
+          <label for="register-email">Correo electrónico <span aria-hidden="true">*</span></label>
+          <div class="auth-form__control">
+            <app-icon name="mail" [size]="18" />
+            <input
+              id="register-email"
+              type="email"
+              formControlName="correo"
+              placeholder="andres@correo.com"
+              autocomplete="email"
+              [attr.aria-invalid]="isInvalid('correo')"
+              aria-describedby="register-email-error"
+            />
+          </div>
+          <p id="register-email-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('correo')) {
+              @if (hasError('correo', 'emailTaken')) {
+                Este correo ya se encuentra registrado.
+              } @else {
+                Ingresa un correo electrónico válido.
+              }
+            }
+          </p>
+        </div>
+
+        <div class="auth-form__field auth-form__field--full" [class.is-invalid]="isInvalid('telefono')">
+          <label for="register-phone">Teléfono <small>(opcional)</small></label>
+          <div class="auth-form__control">
+            <app-icon name="phone" [size]="18" />
+            <input
+              id="register-phone"
+              type="tel"
+              formControlName="telefono"
+              placeholder="Ej. 70012345"
+              autocomplete="tel"
+              maxlength="30"
+              [attr.aria-invalid]="isInvalid('telefono')"
+              aria-describedby="register-phone-error"
+            />
+          </div>
+          <p id="register-phone-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('telefono')) {
+              Ingresa un número de teléfono válido.
+            }
+          </p>
+        </div>
+
+        <div
+          class="auth-form__field auth-form__field--full"
+          [class.is-invalid]="isInvalid('password')"
+        >
+          <label for="register-password">Contraseña <span aria-hidden="true">*</span></label>
+          <div class="auth-form__control">
+            <app-icon name="lock" [size]="18" />
+            <input
+              id="register-password"
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="Crea una contraseña segura"
+              autocomplete="new-password"
+              [attr.aria-invalid]="isInvalid('password')"
+              aria-describedby="password-requirements register-password-error"
+            />
+            <button
+              class="auth-form__toggle"
+              type="button"
+              [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              [attr.aria-pressed]="showPassword()"
+              (click)="showPassword.set(!showPassword())"
+            >
+              <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="18" />
+            </button>
+          </div>
+          <p id="register-password-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('password') && hasError('password', 'required')) {
+              La contraseña es obligatoria.
+            }
+          </p>
+        </div>
+
+        <div id="password-requirements" class="auth-form__requirements">
+          <p>Tu contraseña debe contener:</p>
+          <ul>
+            @for (requirement of passwordRequirements; track requirement.label) {
+              <li [class.is-met]="passwordMeets(requirement)">{{ requirement.label }}</li>
+            }
+          </ul>
+        </div>
+
+        <div
+          class="auth-form__field auth-form__field--full"
+          [class.is-invalid]="isInvalid('confirmPassword') || confirmationMismatch()"
+        >
+          <label for="register-confirm-password">
+            Confirmar contraseña <span aria-hidden="true">*</span>
+          </label>
+          <div class="auth-form__control">
+            <app-icon name="lock" [size]="18" />
+            <input
+              id="register-confirm-password"
+              [type]="showConfirmation() ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              placeholder="Repite tu contraseña"
+              autocomplete="new-password"
+              [attr.aria-invalid]="isInvalid('confirmPassword') || confirmationMismatch()"
+              aria-describedby="register-confirm-password-error"
+            />
+            <button
+              class="auth-form__toggle"
+              type="button"
+              [attr.aria-label]="showConfirmation() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              [attr.aria-pressed]="showConfirmation()"
+              (click)="showConfirmation.set(!showConfirmation())"
+            >
+              <app-icon [name]="showConfirmation() ? 'eye-off' : 'eye'" [size]="18" />
+            </button>
+          </div>
+          <p id="register-confirm-password-error" class="auth-form__error" aria-live="polite">
+            @if (isInvalid('confirmPassword') && hasError('confirmPassword', 'required')) {
+              Confirma tu contraseña.
+            } @else if (confirmationMismatch()) {
+              Las contraseñas no coinciden.
+            }
+          </p>
+        </div>
+
+        @if (serverMessage()) {
+          <p class="auth-form__message" role="alert">{{ serverMessage() }}</p>
+        }
+
+        <button
+          class="button button--solid auth-form__submit"
+          type="submit"
+          [disabled]="isSubmitting()"
+        >
+          @if (isSubmitting()) {
+            <span class="auth-form__spinner" aria-hidden="true"></span>
+            Creando cuenta...
+          } @else {
+            Crear cuenta
+          }
+        </button>
+      </div>
+    </form>
+
+    <div class="auth-switch">
+      <p>¿Ya tienes una cuenta?</p>
+      <a class="button button--outline" routerLink="/login">Iniciar sesión</a>
+    </div>
+  }
+</app-auth-layout>
