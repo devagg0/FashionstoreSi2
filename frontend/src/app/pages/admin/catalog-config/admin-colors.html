@@ -1,0 +1,358 @@
+<section class="colors-page" aria-labelledby="colors-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="colors-title">Gestión de colores</h2>
+      <span>Catálogo global compartido por todas las sucursales.</span>
+    </div>
+    <button class="page-heading__action" type="button" (click)="openColorModal()">
+      <app-icon name="plus" [size]="18" />
+      Nuevo color
+    </button>
+  </div>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="color-search">Buscar color por nombre</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="color-search"
+        type="search"
+        maxlength="50"
+        formControlName="search"
+        placeholder="Buscar por nombre"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="color-status-filter">Estado</label>
+      <select id="color-status-filter" formControlName="estado">
+        <option value="">Todos</option>
+        <option value="true">Activos</option>
+        <option value="false">Inactivos</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" (click)="clearFilters()">Limpiar</button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de colores" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong
+        ><span>colores encontrados</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Código</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (color of colors(); track color.id_color) {
+              <tr>
+                <td data-label="Nombre">
+                  <div class="color-cell">
+                    <span aria-hidden="true"><app-icon name="map-pin" [size]="18" /></span>
+                    <strong>{{ color.nombre }}</strong>
+                  </div>
+                </td>
+                <td data-label="Código">{{ color.codigo_hex ?? '—' }}</td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!color.estado">
+                    <span></span>{{ color.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + color.nombre"
+                      (click)="viewDetail(color.id_color)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar color"
+                      [attr.aria-label]="'Editar ' + color.nombre"
+                      (click)="openColorModal(color)"
+                    >
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="color.estado ? 'Desactivar color' : 'Activar color'"
+                      [attr.aria-label]="(color.estado ? 'Desactivar ' : 'Activar ') + color.nombre"
+                      (click)="openStatusModal(color)"
+                    >
+                      <app-icon [name]="color.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="4">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos colores</strong>
+                  <span>Prueba con otro nombre o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />
+        Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente
+        <app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</section>
+
+@if (detailModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar detalle"
+      (click)="closeDetail()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="color-detail-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>DETALLE DE COLOR</p>
+          <h3 id="color-detail-title">Información del color</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="detailLoading()"
+          (click)="closeDetail()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle">
+          <span></span><span></span><span></span>
+        </div>
+      } @else if (detailColor(); as color) {
+        <div class="detail-identity color-detail-identity">
+          <span aria-hidden="true"><app-icon name="map-pin" [size]="22" /></span>
+          <div>
+            <strong>{{ color.nombre }}</strong
+            ><small>ID #{{ color.id_color }}</small>
+          </div>
+        </div>
+        <dl class="detail-list">
+          <div>
+            <dt>Color</dt>
+            <dd>{{ color.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Código</dt>
+            <dd>{{ color.codigo_hex ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ color.estado ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+        </dl>
+      }
+    </section>
+  </div>
+}
+
+@if (colorModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar"
+      (click)="closeColorModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="color-form-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>{{ editingColor() ? 'EDITAR COLOR' : 'NUEVO COLOR' }}</p>
+          <h3 id="color-form-title">{{ editingColor() ? 'Editar color' : 'Crear color' }}</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" [disabled]="saving()" (click)="closeColorModal()">
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <p class="color-form-intro">
+        {{
+          editingColor()
+            ? 'Actualiza los datos del catálogo.'
+            : 'Agrega un registro al catálogo global de FashionStore.'
+        }}
+      </p>
+
+      <form class="color-form" [formGroup]="colorForm" (ngSubmit)="submitColor()" novalidate>
+        <div class="color-form__field" [class.is-invalid]="isNameInvalid()">
+          <label for="color-name">Nombre de color <span aria-hidden="true">*</span></label>
+          <div class="color-form__control">
+            <app-icon name="map-pin" [size]="18" />
+            <input
+              id="color-name"
+              type="text"
+              formControlName="nombre"
+              maxlength="50"
+              autocomplete="off"
+              placeholder="Nombre"
+              (input)="clearNameConflict()"
+            />
+          </div>
+          <p class="color-form__error" aria-live="polite">
+            @if (isNameInvalid()) {
+              @if (colorForm.controls.nombre.hasError('duplicate')) {
+                Ya existe un color con ese nombre.
+              } @else if (colorForm.controls.nombre.hasError('required')) {
+                El nombre del color es obligatorio.
+              } @else if (colorForm.controls.nombre.hasError('maxlength')) {
+                El nombre no puede superar 50 caracteres.
+              }
+            }
+          </p>
+        </div>
+
+        <div class="color-form__field">
+          <label for="color-optional">Código (opcional)</label>
+          <div class="color-form__control">
+            <input id="color-optional" type="text" formControlName="codigo_hex" maxlength="7" />
+          </div>
+          <p class="color-form__error" aria-live="polite">
+            @if (colorForm.controls.codigo_hex.invalid && colorForm.controls.codigo_hex.touched) {
+              Máximo 7 caracteres.
+            }
+          </p>
+        </div>
+
+        @if (modalErrorMessage()) {
+          <p class="color-form__message" role="alert">{{ modalErrorMessage() }}</p>
+        }
+
+        <div class="modal__actions">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="closeColorModal()"
+          >
+            Cancelar
+          </button>
+          <button class="modal-button modal-button--primary" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (statusColor(); as color) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeStatusModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="color-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!color.estado">
+        <app-icon [name]="color.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="color-status-title">{{ color.estado ? 'Desactivar color' : 'Activar color' }}</h3>
+      <p>
+        {{
+          color.estado
+            ? 'El color dejará de estar disponible, pero conservará todos sus datos.'
+            : 'El color volverá a estar disponible.'
+        }}
+        <strong>{{ color.nombre }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeStatusModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmStatusChange()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+main {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+}
+h2 {
+  margin: 0 0 8px;
+  font: 650 2rem var(--font-display);
+  letter-spacing: -0.04em;
+}
+.intro {
+  color: rgb(43 38 37 / 60%);
+  font-size: 0.87rem;
+  margin-bottom: 24px;
+}
+.catalog-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid rgb(43 38 37 / 14%);
+}
+button {
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #2b2625;
+  font: 700 0.85rem var(--font-body);
+  cursor: pointer;
+}
+button[aria-selected='true'] {
+  border-bottom-color: #c87d55;
+  color: #965b3c;
+}
+button:focus-visible {
+  outline: 2px solid #c87d55;
+  outline-offset: -2px;
+}
+@media (max-width: 500px) {
+  button {
+    flex: 1;
+    padding: 12px 8px;
+  }
+}

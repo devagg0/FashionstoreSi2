@@ -36,9 +36,29 @@
         <app-icon name="map-pin" [size]="20" />
         <span>Ciudades</span>
       </a>
+      <a routerLink="/admin/sucursales" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="map-pin" [size]="20" />
+        <span>Sucursales</span>
+      </a>
+      <a routerLink="/admin/configuracion-catalogo" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" />
+        <span>Configuración de catálogo</span>
+      </a>
+      <a routerLink="/admin/temporadas-colecciones" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" />
+        <span>Temporadas y colecciones</span>
+      </a>
+      <a routerLink="/admin/proveedores" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="users" [size]="20" />
+        <span>Proveedores</span>
+      </a>
       <a routerLink="/admin/perfil" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="user" [size]="20" />
         <span>Mi perfil</span>
+      </a>
+      <a routerLink="/admin/asignaciones-sucursal" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="users" [size]="20" />
+        <span>Asignación de empleados</span>
       </a>
     </nav>
 

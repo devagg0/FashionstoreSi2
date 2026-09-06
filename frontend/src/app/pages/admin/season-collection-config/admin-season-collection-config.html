@@ -1,0 +1,38 @@
+<main aria-labelledby="catalog-title">
+  <h2 id="catalog-title">Temporadas y colecciones</h2>
+  <p class="intro">Temporadas y colecciones globales de FashionStore.</p>
+  <div class="catalog-tabs" role="tablist" aria-label="Catálogos">
+    @for (tab of tabs; track tab.id; let index = $index) {
+      <button
+        type="button"
+        role="tab"
+        [id]="'tab-' + tab.id"
+        [attr.aria-controls]="'panel-' + tab.id"
+        [attr.aria-selected]="activeTab() === tab.id"
+        [tabIndex]="activeTab() === tab.id ? 0 : -1"
+        (click)="selectTab(tab.id)"
+        (keydown)="moveTab($event, index)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+  <div
+    id="panel-seasons"
+    role="tabpanel"
+    aria-labelledby="tab-seasons"
+    [hidden]="activeTab() !== 'seasons'"
+  >
+    <app-admin-seasons [active]="activeTab() === 'seasons'" />
+  </div>
+  <div
+    id="panel-collections"
+    role="tabpanel"
+    aria-labelledby="tab-collections"
+    [hidden]="activeTab() !== 'collections'"
+  >
+    @if (visited().has('collections')) {
+      <app-admin-collections [active]="activeTab() === 'collections'" />
+    }
+  </div>
+</main>
