@@ -23,6 +23,7 @@ app = FastAPI(
 origins = [
     "http://localhost:4201",
     "http://127.0.0.1:4201",
+    "https://fashionstore-frontend-r9b5.onrender.com",
 ]
 
 
