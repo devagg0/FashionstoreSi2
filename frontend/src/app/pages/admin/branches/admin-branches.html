@@ -1,0 +1,468 @@
+<main class="branches-page" aria-labelledby="branches-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="branches-title">Gestión de sucursales</h2>
+      <span>Administra las sucursales donde FashionStore tiene presencia.</span>
+    </div>
+    <button class="page-heading__action" type="button" (click)="openBranchModal()">
+      <app-icon name="plus" [size]="18" />
+      Nueva sucursal
+    </button>
+  </div>
+
+  <section
+    class="summary-grid"
+    aria-label="Resumen de sucursales"
+    [attr.aria-busy]="statsLoading()"
+  >
+    <article class="summary-card">
+      <span class="summary-card__icon"><app-icon name="map-pin" [size]="22" /></span>
+      <div>
+        <p>Total de sucursales</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ totalBranches() }}</strong>
+        }
+        <small>Registradas en FashionStore</small>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon summary-card__icon--active">
+        <app-icon name="circle-check" [size]="22" />
+      </span>
+      <div>
+        <p>Sucursales activas</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ activeBranches() }}</strong>
+        }
+        <small>Disponibles actualmente</small>
+      </div>
+    </article>
+  </section>
+
+  @if (citiesError() && !branchModalOpen()) {
+    <div class="notice notice--error" role="alert">
+      <span>{{ citiesError() }}</span
+      ><button type="button" (click)="loadCityOptions()">Reintentar</button>
+    </div>
+  }
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="branch-search">Buscar sucursal por nombre</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="branch-search"
+        type="search"
+        formControlName="search"
+        maxlength="150"
+        placeholder="Buscar por nombre"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="branch-status-filter">Estado</label>
+      <select id="branch-status-filter" formControlName="estado">
+        <option value="">Todas</option>
+        <option value="true">Activas</option>
+        <option value="false">Inactivas</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit" [disabled]="loading()">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" [disabled]="loading()" (click)="clearFilters()">
+      Limpiar
+    </button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de sucursales" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong
+        ><span>sucursales encontradas</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Ciudad</th>
+            <th scope="col">Dirección</th>
+            <th scope="col">Teléfono</th>
+            <th scope="col">Horario</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (branch of branches(); track branch.id_sucursal) {
+              <tr>
+                <td data-label="Sucursal">
+                  <div class="branch-cell">
+                    <span aria-hidden="true"><app-icon name="map-pin" [size]="18" /></span>
+                    <strong>{{ branch.nombre }}</strong>
+                  </div>
+                </td>
+                <td data-label="Ciudad">{{ cityName(branch.id_ciudad) }}</td>
+                <td data-label="Dirección">{{ branch.direccion }}</td>
+                <td data-label="Teléfono">{{ branch.telefono || 'Sin teléfono' }}</td>
+                <td data-label="Horario">
+                  {{ branch.hora_apertura || 'Sin apertura' }} –
+                  {{ branch.hora_cierre || 'Sin cierre' }}
+                </td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!branch.estado">
+                    <span></span>{{ branch.estado ? 'Activa' : 'Inactiva' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + branch.nombre"
+                      (click)="viewDetail(branch.id_sucursal)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar sucursal"
+                      [attr.aria-label]="'Editar ' + branch.nombre"
+                      (click)="openBranchModal(branch)"
+                    >
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="branch.estado ? 'Desactivar sucursal' : 'Activar sucursal'"
+                      [attr.aria-label]="
+                        (branch.estado ? 'Desactivar ' : 'Activar ') + branch.nombre
+                      "
+                      (click)="openStatusModal(branch)"
+                    >
+                      <app-icon [name]="branch.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="7">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos sucursales</strong>
+                  <span>Prueba con otro nombre o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />
+        Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente
+        <app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (detailModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar detalle"
+      (click)="closeDetail()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="branch-detail-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>DETALLE DE SUCURSAL</p>
+          <h3 id="branch-detail-title">Información de la sucursal</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="detailLoading()"
+          (click)="closeDetail()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle">
+          <span></span><span></span><span></span>
+        </div>
+      } @else if (detailBranch(); as branch) {
+        <div class="detail-identity branch-detail-identity">
+          <span aria-hidden="true"><app-icon name="map-pin" [size]="22" /></span>
+          <div>
+            <strong>{{ branch.nombre }}</strong
+            ><small>ID #{{ branch.id_sucursal }}</small>
+          </div>
+        </div>
+        <dl class="detail-list">
+          <div>
+            <dt>Ciudad</dt>
+            <dd>{{ cityName(branch.id_ciudad) }}</dd>
+          </div>
+          <div>
+            <dt>Dirección</dt>
+            <dd>{{ branch.direccion }}</dd>
+          </div>
+          <div>
+            <dt>Teléfono</dt>
+            <dd>{{ branch.telefono || 'Sin teléfono' }}</dd>
+          </div>
+          <div>
+            <dt>Apertura</dt>
+            <dd>{{ branch.hora_apertura || 'Sin horario' }}</dd>
+          </div>
+          <div>
+            <dt>Cierre</dt>
+            <dd>{{ branch.hora_cierre || 'Sin horario' }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ branch.estado ? 'Activa' : 'Inactiva' }}</dd>
+          </div>
+        </dl>
+      }
+    </section>
+  </div>
+}
+
+@if (branchModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar"
+      (click)="closeBranchModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="form-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>{{ editingBranch() ? 'EDITAR SUCURSAL' : 'NUEVA SUCURSAL' }}</p>
+          <h3 id="form-title">
+            {{ editingBranch() ? 'Editar sucursal' : 'Crear sucursal' }}
+          </h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="saving()"
+          (click)="closeBranchModal()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <p class="form-intro">
+        {{
+          editingBranch()
+            ? 'Actualiza los datos de la sucursal en FashionStore.'
+            : 'Registra una sucursal y selecciona una ciudad activa.'
+        }}
+      </p>
+
+      <form class="form" [formGroup]="branchForm" (ngSubmit)="submitBranch()" novalidate>
+        <div class="form__field">
+          <label for="branch-city">Ciudad *</label>
+          <div class="form__control">
+            <select id="branch-city" formControlName="id_ciudad" [attr.aria-busy]="citiesLoading()">
+              <option [ngValue]="0">Selecciona una ciudad</option>
+              @for (city of cityOptions(); track city.id_ciudad) {
+                @if (city.estado || city.id_ciudad === editingBranch()?.id_ciudad) {
+                  <option [ngValue]="city.id_ciudad">
+                    {{ city.nombre }}{{ city.estado ? '' : ' (inactiva, asociación actual)' }}
+                  </option>
+                }
+              }
+            </select>
+          </div>
+          @if (branchForm.controls.id_ciudad.touched && branchForm.controls.id_ciudad.invalid) {
+            <p class="form__error">Selecciona una ciudad.</p>
+          }
+          @if (citiesLoading()) {
+            <p role="status">Cargando ciudades...</p>
+          }
+          @if (citiesError()) {
+            <p class="form__message" role="alert">{{ citiesError() }}</p>
+            <button type="button" class="clear-button" (click)="loadCityOptions()">
+              Reintentar
+            </button>
+          } @else if (!citiesLoading() && !cityOptions().length) {
+            <p role="status">No hay ciudades disponibles.</p>
+          }
+        </div>
+        @for (field of textFields; track field.name) {
+          <div
+            class="form__field"
+            [class.is-invalid]="
+              branchForm.controls[field.name].touched && branchForm.controls[field.name].invalid
+            "
+          >
+            <label [for]="'branch-' + field.name">{{ field.label }}</label>
+            <div class="form__control">
+              <input
+                [id]="'branch-' + field.name"
+                [type]="field.name === 'telefono' ? 'tel' : 'text'"
+                [formControlName]="field.name"
+                [maxlength]="field.max"
+              />
+            </div>
+            @if (
+              branchForm.controls[field.name].touched && branchForm.controls[field.name].invalid
+            ) {
+              <p class="form__error">
+                {{ field.label }}:
+                {{ field.name === 'telefono' ? 'máximo' : 'obligatorio, máximo' }}
+                {{ field.max }} caracteres.
+              </p>
+            }
+          </div>
+        }
+        <div class="form__field">
+          <label for="branch-opening">Hora de apertura (opcional)</label>
+          <div class="form__control">
+            <input id="branch-opening" type="time" step="any" formControlName="hora_apertura" />
+          </div>
+        </div>
+        <div class="form__field">
+          <label for="branch-closing">Hora de cierre (opcional)</label>
+          <div class="form__control">
+            <input id="branch-closing" type="time" step="any" formControlName="hora_cierre" />
+          </div>
+        </div>
+
+        @if (modalErrorMessage()) {
+          <p class="form__message" role="alert">{{ modalErrorMessage() }}</p>
+        }
+
+        <div class="modal__actions">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="closeBranchModal()"
+          >
+            Cancelar
+          </button>
+          <button
+            class="modal-button modal-button--primary"
+            type="submit"
+            [disabled]="saving() || citiesLoading() || !!citiesError()"
+          >
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (statusBranch(); as branch) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeStatusModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="branch-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!branch.estado">
+        <app-icon [name]="branch.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="branch-status-title">
+        {{ branch.estado ? 'Desactivar sucursal' : 'Activar sucursal' }}
+      </h3>
+      <p>
+        {{
+          branch.estado
+            ? 'La sucursal dejará de estar disponible, pero conservará todos sus datos.'
+            : 'La sucursal volverá a estar disponible.'
+        }}
+        <strong>{{ branch.nombre }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeStatusModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmStatusChange()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

@@ -1,0 +1,69 @@
+<main class="assignments-page" aria-labelledby="assignment-title">
+  <div class="page-heading">
+    <div><p>ADMINISTRACIÓN</p><h2 id="assignment-title">Asignación de empleados</h2><span>Administra los vínculos entre empleados y sucursales.</span></div>
+    <button class="page-heading__action" type="button" (click)="openForm()" [disabled]="loading()"><app-icon name="plus" [size]="18" />Asignar empleado</button>
+  </div>
+  @if (errorMessage()) {
+    <div class="notice notice--error" role="alert"><span>{{ errorMessage() }}</span><button type="button" (click)="loadAssignments(pagination().page)">Reintentar</button></div>
+  }
+  @if (successMessage()) { <div class="notice notice--success" role="status">{{ successMessage() }}</div> }
+  @if (optionsError() && !formOpen()) {
+    <div class="notice notice--error" role="alert"><span>{{ optionsError() }}</span><button type="button" (click)="loadOptions()">Reintentar opciones</button></div>
+  }
+  <form class="filters" [formGroup]="filters" (ngSubmit)="loadAssignments()">
+    <div class="filters__select"><label for="employee-filter">Empleado</label><select id="employee-filter" formControlName="id_empleado"><option [ngValue]="0">Todos</option>@for (employee of filterEmployees(); track employee.id_empleado) { <option [ngValue]="employee.id_empleado">{{ employee.label }}</option> }</select></div>
+    <div class="filters__select"><label for="branch-filter">Sucursal</label><select id="branch-filter" formControlName="id_sucursal"><option [ngValue]="0">Todas</option>@for (branch of branches(); track branch.id_sucursal) { <option [ngValue]="branch.id_sucursal">{{ branch.nombre }}{{ branch.estado ? '' : ' (inactiva)' }}</option> }</select></div>
+    <div class="filters__select"><label for="state-filter">Estado</label><select id="state-filter" formControlName="estado"><option value="">Todos</option><option value="true">Activas</option><option value="false">Inactivas</option></select></div>
+    <button class="filter-button" type="submit" [disabled]="loading()">Aplicar</button><button class="clear-button" type="button" (click)="clearFilters()" [disabled]="loading()">Limpiar</button>
+  </form>
+  <section class="table-card" aria-label="Asignaciones" [attr.aria-busy]="loading()">
+    <div class="table-card__meta"><span>{{ pagination().total }} asignaciones encontradas</span><span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span></div>
+    <div class="table-scroll"><table><thead><tr><th>Empleado</th><th>Rol</th><th>Sucursal</th><th>Fecha de asignación</th><th>Estado</th><th class="actions-heading">Acciones</th></tr></thead><tbody>
+      @if (loading()) { <tr><td colspan="6" class="empty-state" role="status">Cargando asignaciones...</td></tr> }
+      @else if (errorMessage()) { <tr><td colspan="6" class="empty-state">No se pudo cargar el listado.</td></tr> }
+      @else {
+        @for (assignment of assignments(); track assignment.id_empleado_sucursal) {
+          <tr>
+            <td data-label="Empleado"><strong>{{ assignment.nombre_empleado }}</strong><small>ID {{ assignment.id_empleado }}</small></td>
+            <td data-label="Rol">{{ assignment.rol }}</td><td data-label="Sucursal">{{ assignment.nombre_sucursal }}</td>
+            <td data-label="Fecha">{{ assignment.fecha_asignacion | date:'dd/MM/yyyy' }}</td>
+            <td data-label="Estado"><span class="status-badge" [class.status-badge--inactive]="!assignment.estado"><span></span>{{ assignment.estado ? 'Activa' : 'Inactiva' }}</span></td>
+            <td data-label="Acciones"><div class="row-actions"><button type="button" (click)="viewDetail(assignment.id_empleado_sucursal)">Ver</button><button type="button" (click)="requestStatus(assignment)">{{ assignment.estado ? 'Desactivar' : 'Reactivar' }}</button></div></td>
+          </tr>
+        } @empty { <tr><td colspan="6" class="empty-state"><strong>No hay asignaciones</strong><span>Prueba otros filtros o asigna un empleado.</span></td></tr> }
+      }
+    </tbody></table></div>
+    <div class="pagination"><button type="button" (click)="changePage(-1)" [disabled]="loading() || pagination().page <= 1">Anterior</button><span>Página {{ pagination().page }}</span><button type="button" (click)="changePage(1)" [disabled]="loading() || pagination().page >= pagination().total_pages">Siguiente</button></div>
+  </section>
+</main>
+
+@if (formOpen()) {
+  <div class="modal-layer"><button class="modal-backdrop" type="button" aria-label="Cerrar formulario" (click)="closeModals()"></button>
+    <section class="modal modal--compact" role="dialog" aria-modal="true" aria-labelledby="create-title">
+      <div class="modal__header"><div><h3 id="create-title">Asignar empleado</h3><p>Selecciona el empleado y la sucursal.</p></div><button type="button" aria-label="Cerrar" (click)="closeModals()" [disabled]="saving()"><app-icon name="close" [size]="18" /></button></div>
+      @if (optionsLoading()) { <p role="status">Cargando empleados y sucursales...</p> }
+      @if (optionsError()) { <p class="form__message" role="alert">{{ optionsError() }} <button type="button" (click)="loadOptions()">Reintentar</button></p> }
+      <form class="form" [formGroup]="form" (ngSubmit)="submit()">
+        <div class="form__field"><label for="assignment-employee">Empleado *</label><div class="form__control"><select id="assignment-employee" formControlName="id_empleado"><option [ngValue]="0">Selecciona un empleado</option>@for (employee of employees(); track employee.id_empleado) { <option [ngValue]="employee.id_empleado">{{ employee.nombre }} {{ employee.apellido }} — {{ employee.rol }} — {{ employee.correo }}</option> }</select></div></div>
+        <div class="form__field"><label for="assignment-branch">Sucursal *</label><div class="form__control"><select id="assignment-branch" formControlName="id_sucursal"><option [ngValue]="0">Selecciona una sucursal</option>@for (branch of activeBranches(); track branch.id_sucursal) { <option [ngValue]="branch.id_sucursal">{{ branch.nombre }}</option> }</select></div></div>
+        @if (!optionsLoading() && !optionsError() && (!employees().length || !activeBranches().length)) { <p class="form__message">No hay empleados o sucursales activas disponibles.</p> }
+        @if (modalError()) { <p class="form__message" role="alert">{{ modalError() }}</p> }
+        <div class="modal__actions"><button class="modal-button modal-button--secondary" type="button" (click)="closeModals()" [disabled]="saving()">Cancelar</button><button class="modal-button modal-button--primary" type="submit" [disabled]="saving() || optionsLoading() || !!optionsError() || !employees().length || !activeBranches().length">{{ saving() ? 'Guardando...' : 'Guardar' }}</button></div>
+      </form>
+    </section>
+  </div>
+}
+@if (detailOpen()) {
+  <div class="modal-layer"><button class="modal-backdrop" type="button" aria-label="Cerrar detalle" (click)="closeModals()"></button><section class="modal modal--compact" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+    <div class="modal__header"><h3 id="detail-title">Detalle de asignación</h3><button type="button" aria-label="Cerrar" (click)="closeModals()" [disabled]="detailLoading()"><app-icon name="close" [size]="18" /></button></div>
+    @if (detailLoading()) { <p role="status">Cargando detalle...</p> }
+    @if (detail(); as item) { <dl class="detail-list"><div><dt>Empleado</dt><dd>{{ item.nombre_empleado }}</dd></div><div><dt>Correo</dt><dd>{{ item.correo }}</dd></div><div><dt>Rol</dt><dd>{{ item.rol }}</dd></div><div><dt>Sucursal</dt><dd>{{ item.nombre_sucursal }}</dd></div><div><dt>Fecha de asignación</dt><dd>{{ item.fecha_asignacion | date:'dd/MM/yyyy' }}</dd></div><div><dt>Estado</dt><dd>{{ item.estado ? 'Activa' : 'Inactiva' }}</dd></div></dl> }
+  </section></div>
+}
+@if (statusAssignment(); as item) {
+  <div class="modal-layer"><button class="modal-backdrop" type="button" aria-label="Cancelar" (click)="closeModals()"></button><section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="status-title">
+    <h3 id="status-title">{{ item.estado ? 'Desactivar asignación' : 'Reactivar asignación' }}</h3><p>¿Confirmas {{ item.estado ? 'desactivar' : 'reactivar' }} la asignación de <strong>{{ item.nombre_empleado }}</strong> a {{ item.nombre_sucursal }}?</p>
+    @if (modalError()) { <p class="form__message" role="alert">{{ modalError() }}</p> }
+    <div class="modal__actions"><button class="modal-button modal-button--secondary" type="button" (click)="closeModals()" [disabled]="saving()">Cancelar</button><button class="modal-button modal-button--primary" type="button" (click)="confirmStatus()" [disabled]="saving()">{{ saving() ? 'Guardando...' : 'Confirmar' }}</button></div>
+  </section></div>
+}

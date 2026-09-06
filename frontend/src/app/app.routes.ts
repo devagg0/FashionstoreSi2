@@ -35,6 +35,11 @@ export const routes: Routes = [
       import('./layout/admin-layout/admin-layout').then(({ AdminLayout }) => AdminLayout),
     children: [
       {
+        path: 'proveedores',
+        loadComponent: () => import('./pages/admin/suppliers/admin-suppliers').then(({ AdminSuppliers }) => AdminSuppliers),
+        title: 'Proveedores | FashionStore',
+      },
+      {
         path: '',
         loadComponent: () =>
           import('./pages/admin/dashboard/admin-dashboard').then(
@@ -59,6 +64,30 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/cities/admin-cities').then(({ AdminCities }) => AdminCities),
         title: 'Gestión de ciudades | FashionStore',
+      },
+      {
+        path: 'sucursales',
+        loadComponent: () =>
+          import('./pages/admin/branches/admin-branches').then(({ AdminBranches }) => AdminBranches),
+        title: 'Gestión de sucursales | FashionStore',
+      },
+      {
+        path: 'temporadas-colecciones',
+        loadComponent: () =>
+          import('./pages/admin/season-collection-config/admin-season-collection-config').then(({ AdminSeasonCollectionConfig }) => AdminSeasonCollectionConfig),
+        title: 'Temporadas y colecciones | FashionStore',
+      },
+      {
+        path: 'configuracion-catalogo',
+        loadComponent: () =>
+          import('./pages/admin/catalog-config/admin-catalog-config').then(({ AdminCatalogConfig }) => AdminCatalogConfig),
+        title: 'Configuración de catálogo | FashionStore',
+      },
+      {
+        path: 'asignaciones-sucursal',
+        loadComponent: () =>
+          import('./pages/admin/employee-branches/admin-employee-branches').then(({ AdminEmployeeBranches }) => AdminEmployeeBranches),
+        title: 'Asignación de empleados | FashionStore',
       },
       {
         path: 'perfil',

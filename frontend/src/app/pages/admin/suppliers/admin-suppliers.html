@@ -1,0 +1,413 @@
+<main class="suppliers-page" aria-labelledby="suppliers-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="suppliers-title">Gestión de proveedores</h2>
+      <span>Administra el maestro global de proveedores de FashionStore.</span>
+    </div>
+    <button class="page-heading__action" type="button" (click)="openSupplierModal()">
+      <app-icon name="plus" [size]="18" />
+      Nuevo proveedor
+    </button>
+  </div>
+
+  <section
+    class="summary-grid"
+    aria-label="Resumen de proveedores"
+    [attr.aria-busy]="statsLoading()"
+  >
+    <article class="summary-card">
+      <span class="summary-card__icon"><app-icon name="map-pin" [size]="22" /></span>
+      <div>
+        <p>Total de proveedores</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ totalSuppliers() }}</strong>
+        }
+        <small>Registrados en FashionStore</small>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon summary-card__icon--active">
+        <app-icon name="circle-check" [size]="22" />
+      </span>
+      <div>
+        <p>Proveedores activas</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ activeSuppliers() }}</strong>
+        }
+        <small>Disponibles actualmente</small>
+      </div>
+    </article>
+  </section>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="supplier-search">Buscar por nombre, NIT o correo</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="supplier-search"
+        type="search"
+        formControlName="search"
+        maxlength="150"
+        placeholder="Buscar por nombre, NIT o correo"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="supplier-status-filter">Estado</label>
+      <select id="supplier-status-filter" formControlName="estado">
+        <option value="">Todos</option>
+        <option value="true">Activos</option>
+        <option value="false">Inactivos</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit" [disabled]="loading()">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" [disabled]="loading()" (click)="clearFilters()">
+      Limpiar
+    </button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de proveedores" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong
+        ><span>proveedores encontrados</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">NIT</th>
+            <th scope="col">Teléfono</th>
+            <th scope="col">Correo</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (supplier of suppliers(); track supplier.id_proveedor) {
+              <tr>
+                <td data-label="Proveedor">
+                  <div class="supplier-cell">
+                    <span aria-hidden="true"><app-icon name="map-pin" [size]="18" /></span>
+                    <strong>{{ supplier.nombre }}</strong>
+                  </div>
+                </td>
+                <td data-label="NIT">{{ supplier.nit || 'Sin NIT' }}</td>
+                <td data-label="Teléfono">{{ supplier.telefono || 'Sin teléfono' }}</td>
+                <td data-label="Correo">{{ supplier.correo || 'Sin correo' }}</td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!supplier.estado">
+                    <span></span>{{ supplier.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + supplier.nombre"
+                      (click)="viewDetail(supplier.id_proveedor)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar proveedor"
+                      [attr.aria-label]="'Editar ' + supplier.nombre"
+                      (click)="openSupplierModal(supplier)"
+                    >
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="supplier.estado ? 'Desactivar proveedor' : 'Activar proveedor'"
+                      [attr.aria-label]="
+                        (supplier.estado ? 'Desactivar ' : 'Activar ') + supplier.nombre
+                      "
+                      (click)="openStatusModal(supplier)"
+                    >
+                      <app-icon [name]="supplier.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="6">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos proveedores</strong>
+                  <span>Prueba con otro nombre o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />
+        Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente
+        <app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (detailModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar detalle"
+      (click)="closeDetail()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="supplier-detail-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>DETALLE DE PROVEEDOR</p>
+          <h3 id="supplier-detail-title">Información del proveedor</h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="detailLoading()"
+          (click)="closeDetail()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle">
+          <span></span><span></span><span></span>
+        </div>
+      } @else if (detailSupplier(); as supplier) {
+        <div class="detail-identity supplier-detail-identity">
+          <span aria-hidden="true"><app-icon name="map-pin" [size]="22" /></span>
+          <div>
+            <strong>{{ supplier.nombre }}</strong
+            ><small>ID #{{ supplier.id_proveedor }}</small>
+          </div>
+        </div>
+        <dl class="detail-list">
+          @for (field of textFields; track field.name) {
+            @if (field.name !== 'nombre') {
+              <div>
+                <dt>{{ field.label }}</dt>
+                <dd>{{ supplier[field.name] || 'Sin datos' }}</dd>
+              </div>
+            }
+          }
+          <div>
+            <dt>Cuenta de usuario</dt>
+            <dd>
+              {{
+                supplier.id_usuario !== null
+                  ? 'Cuenta vinculada #' + supplier.id_usuario
+                  : 'Sin cuenta vinculada'
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ supplier.estado ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+        </dl>
+      }
+    </section>
+  </div>
+}
+
+@if (supplierModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar"
+      (click)="closeSupplierModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="form-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>{{ editingSupplier() ? 'EDITAR PROVEEDOR' : 'NUEVO PROVEEDOR' }}</p>
+          <h3 id="form-title">
+            {{ editingSupplier() ? 'Editar proveedor' : 'Crear proveedor' }}
+          </h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="saving()"
+          (click)="closeSupplierModal()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <p class="form-intro">
+        {{
+          editingSupplier()
+            ? 'Actualiza los datos del proveedor en FashionStore.'
+            : 'Registra los datos comerciales del proveedor.'
+        }}
+      </p>
+
+      <form class="form" [formGroup]="supplierForm" (ngSubmit)="submitSupplier()" novalidate>
+        @for (field of textFields; track field.name) {
+          <div
+            class="form__field"
+            [class.is-invalid]="
+              supplierForm.controls[field.name].touched && supplierForm.controls[field.name].invalid
+            "
+          >
+            <label [for]="'supplier-' + field.name">{{ field.label }}</label>
+            <div class="form__control">
+              <input
+                [id]="'supplier-' + field.name"
+                [type]="
+                  field.name === 'correo' ? 'email' : field.name === 'telefono' ? 'tel' : 'text'
+                "
+                [formControlName]="field.name"
+                [maxlength]="field.max"
+              />
+            </div>
+            @if (
+              supplierForm.controls[field.name].touched && supplierForm.controls[field.name].invalid
+            ) {
+              <p class="form__error">
+                {{ field.label }}:
+                {{ field.name === 'nombre' ? 'obligatorio, máximo' : 'máximo' }}
+                {{ field.max }} caracteres.
+                @if (field.name === 'correo') {
+                  Ingresa un correo válido.
+                }
+              </p>
+            }
+          </div>
+        }
+        @if (modalErrorMessage()) {
+          <p class="form__message" role="alert">{{ modalErrorMessage() }}</p>
+        }
+
+        <div class="modal__actions">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="closeSupplierModal()"
+          >
+            Cancelar
+          </button>
+          <button class="modal-button modal-button--primary" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (statusSupplier(); as supplier) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeStatusModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="supplier-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!supplier.estado">
+        <app-icon [name]="supplier.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="supplier-status-title">
+        {{ supplier.estado ? 'Desactivar proveedor' : 'Activar proveedor' }}
+      </h3>
+      <p>
+        {{
+          supplier.estado
+            ? 'El proveedor dejará de estar disponible, pero conservará todos sus datos.'
+            : 'El proveedor volverá a estar disponible.'
+        }}
+        <strong>{{ supplier.nombre }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeStatusModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmStatusChange()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

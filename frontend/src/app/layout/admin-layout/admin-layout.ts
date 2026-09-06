@@ -26,9 +26,14 @@ export class AdminLayout {
   protected readonly user = this.sessionService.currentUser;
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
+    if (url.startsWith('/admin/proveedores')) return 'Proveedores';
     if (url.startsWith('/admin/usuarios')) return 'Usuarios y roles';
     if (url.startsWith('/admin/roles')) return 'Roles';
     if (url.startsWith('/admin/ciudades')) return 'Ciudades';
+    if (url.startsWith('/admin/configuracion-catalogo')) return 'Configuración de catálogo';
+    if (url.startsWith('/admin/sucursales')) return 'Sucursales';
+    if (url.startsWith('/admin/asignaciones-sucursal')) return 'Asignación de empleados';
+    if (url.startsWith('/admin/temporadas-colecciones')) return 'Temporadas y colecciones';
     if (url.startsWith('/admin/perfil')) return 'Mi perfil';
     return 'Resumen';
   });
