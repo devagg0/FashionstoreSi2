@@ -6,10 +6,10 @@
     </div>
     <nav aria-label="Comprar">
       <h2>Comprar</h2>
-      <a href="#novedades">Novedades</a>
-      <a href="#estilos">Hombre</a>
-      <a href="#estilos">Mujer</a>
-      <a href="#estilos">Unisex</a>
+      <a routerLink="/catalogo">Novedades</a>
+      <a routerLink="/catalogo" [queryParams]="{ seccion: 'HOMBRE' }">Hombre</a>
+      <a routerLink="/catalogo" [queryParams]="{ seccion: 'MUJER' }">Mujer</a>
+      <a routerLink="/catalogo" [queryParams]="{ seccion: 'UNISEX' }">Unisex</a>
     </nav>
     <nav aria-label="Ayuda">
       <h2>Ayuda</h2>

@@ -5,6 +5,7 @@ import { Icon } from '../../shared/components/icon/icon';
 
 interface NavigationGroup {
   label: string;
+  section: 'HOMBRE' | 'MUJER' | 'UNISEX';
   items: readonly string[];
 }
 
@@ -23,12 +24,17 @@ export class PublicHeader {
   protected readonly openDropdown = signal<string | null>(null);
   protected readonly user = this.sessionService.currentUser;
   protected readonly navigation: readonly NavigationGroup[] = [
-    { label: 'Hombre', items: ['Poleras', 'Camisas', 'Pantalones', 'Shorts', 'Chaquetas'] },
+    {
+      label: 'Hombre',
+      section: 'HOMBRE',
+      items: ['Poleras', 'Camisas', 'Pantalones', 'Shorts', 'Chaquetas'],
+    },
     {
       label: 'Mujer',
+      section: 'MUJER',
       items: ['Poleras', 'Camisas', 'Pantalones', 'Shorts', 'Chaquetas', 'Vestidos'],
     },
-    { label: 'Unisex', items: ['Poleras', 'Chaquetas', 'Shorts'] },
+    { label: 'Unisex', section: 'UNISEX', items: ['Poleras', 'Chaquetas', 'Shorts'] },
   ];
 
   protected toggleMobile(): void {

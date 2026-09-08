@@ -1,0 +1,222 @@
+<main id="main-content" class="detail-page">
+  <div class="shell">
+    <nav class="breadcrumb" aria-label="Ruta de navegación">
+      <a routerLink="/catalogo" [queryParams]="catalogQueryParams()">
+        <app-icon name="chevron-left" [size]="15" /> Catálogo
+      </a>
+      @if (product(); as current) {
+        <span>/</span><span>{{ current.categoria }}</span>
+      }
+    </nav>
+
+    @if (loading()) {
+      <div class="detail-skeleton">
+        <div></div>
+        <section><i></i><i></i><i></i><i></i></section>
+      </div>
+    } @else if (errorMessage()) {
+      <section class="detail-state">
+        <span><app-icon name="ban" [size]="28" /></span>
+        <h1>Producto no disponible</h1>
+        <p>{{ errorMessage() }}</p>
+        <div>
+          <a
+            class="button button--outline"
+            routerLink="/catalogo"
+            [queryParams]="catalogQueryParams()"
+            >Volver al catálogo</a
+          >
+          <button class="button button--solid" type="button" (click)="retry()">Reintentar</button>
+        </div>
+      </section>
+    } @else if (product(); as current) {
+      <div class="product-detail">
+        <section class="gallery" aria-label="Galería del producto">
+          @if (visibleImages().length) {
+            <div class="gallery__thumbs">
+              @for (image of visibleImages(); track image.id_imagen_producto) {
+                <button
+                  type="button"
+                  [class.is-active]="selectedImage() === image.url_imagen"
+                  [attr.aria-label]="'Ver imagen de ' + current.nombre"
+                  (click)="selectImage(image.url_imagen)"
+                >
+                  <img
+                    [src]="image.url_imagen"
+                    alt=""
+                    loading="lazy"
+                    (error)="imageFailed(image.url_imagen)"
+                  />
+                </button>
+              }
+            </div>
+            <div class="gallery__main">
+              <img
+                [src]="selectedImage() || ''"
+                [alt]="current.nombre"
+                (error)="imageFailed(selectedImage() || '')"
+              />
+              @if (current.promocion_destacada; as promotion) {
+                <span>{{ promotionLabel(promotion) }}</span>
+              }
+            </div>
+          } @else {
+            <div class="gallery__empty"><strong>FS</strong><span>Imagen no disponible</span></div>
+          }
+        </section>
+
+        <section class="product-info">
+          <div class="product-info__meta">
+            <span>{{ current.categoria }}</span
+            ><span>{{ current.seccion }}</span>
+          </div>
+          <h1>{{ current.nombre }}</h1>
+          @if (current.temporada) {
+            <p class="season">Temporada {{ current.temporada }}</p>
+          }
+
+          <div class="detail-price">
+            @if (current.tiene_promocion) {
+              <s>{{ formatMoney(current.precio_base) }}</s>
+            }
+            <strong>{{ formatMoney(current.precio_final) }}</strong>
+            @if (current.promocion_destacada; as promotion) {
+              <span>{{ promotion.nombre }}</span>
+            }
+          </div>
+
+          @if (current.descripcion) {
+            <p class="description">{{ current.descripcion }}</p>
+          }
+
+          <div class="selection-block">
+            <div class="selection-heading">
+              <strong>Color</strong><span>{{ selectedColorName() }}</span>
+            </div>
+            <div class="color-options">
+              @for (color of current.colores; track color.id_color) {
+                <button
+                  type="button"
+                  [disabled]="!isColorEnabled(color.id_color)"
+                  [class.is-active]="selectedColorId() === color.id_color"
+                  [attr.aria-label]="color.nombre"
+                  [attr.title]="color.nombre"
+                  (click)="selectColor(color.id_color)"
+                >
+                  <span [style.background-color]="color.codigo_hex || '#e2a882'"></span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="selection-block">
+            <div class="selection-heading">
+              <strong>Talla</strong><span>{{ selectedSizeName() }}</span>
+            </div>
+            <div class="size-options">
+              @for (size of current.tallas; track size.id_talla) {
+                <button
+                  type="button"
+                  [disabled]="!isSizeEnabled(size.id_talla)"
+                  [class.is-active]="selectedSizeId() === size.id_talla"
+                  (click)="selectSize(size.id_talla)"
+                >
+                  {{ size.nombre }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="availability-panel">
+            @if (!branchId()) {
+              <app-icon name="map-pin" [size]="20" />
+              <div>
+                <strong>Consulta disponibilidad</strong
+                ><span>Selecciona una sucursal desde el catálogo para conocer el stock.</span>
+              </div>
+            } @else if (selectedVariant(); as variant) {
+              <app-icon
+                [name]="
+                  variant.disponibilidad_sucursal?.cantidad_disponible ? 'circle-check' : 'ban'
+                "
+                [size]="20"
+              />
+              <div>
+                <strong [class]="availabilityClass(variant)">{{
+                  availabilityLabel(variant)
+                }}</strong>
+                <span>
+                  @if (variant.disponibilidad_sucursal?.cantidad_disponible; as quantity) {
+                    {{ quantity }} unidades disponibles
+                  } @else {
+                    Variante {{ variant.sku }}
+                  }
+                </span>
+              </div>
+            } @else {
+              <app-icon name="store" [size]="20" />
+              <div>
+                <strong>Selecciona color y talla</strong
+                ><span>Te mostraremos la disponibilidad exacta de la variante.</span>
+              </div>
+            }
+          </div>
+
+          <button class="future-purchase" type="button" disabled>
+            Compra disponible próximamente
+          </button>
+
+          @if (current.colecciones.length) {
+            <div class="collections">
+              <span>Colecciones</span>
+              <div>
+                @for (collection of current.colecciones; track collection.id_coleccion) {
+                  <small>{{ collection.nombre }}</small>
+                }
+              </div>
+            </div>
+          }
+        </section>
+      </div>
+
+      <section class="variant-list" aria-labelledby="variant-title">
+        <div>
+          <p>OPCIONES DE ESTA PRENDA</p>
+          <h2 id="variant-title">Variantes disponibles</h2>
+        </div>
+        <div class="variant-grid">
+          @for (variant of current.variantes; track variant.id_variante_producto) {
+            <article>
+              <span [style.background-color]="variant.color.codigo_hex || '#e2a882'"></span>
+              <div>
+                <strong>{{ variant.color.nombre }} / {{ variant.talla.nombre }}</strong
+                ><small>{{ availabilityLabel(variant) }}</small>
+              </div>
+              <small class="sku">{{ variant.sku }}</small>
+            </article>
+          } @empty {
+            <p>No hay variantes activas para este producto.</p>
+          }
+        </div>
+      </section>
+
+      @if (current.promociones_vigentes.length > 1) {
+        <section class="promotions" aria-labelledby="promotions-title">
+          <p>PROMOCIONES VIGENTES</p>
+          <h2 id="promotions-title">La mejor oferta se aplica automáticamente</h2>
+          <div>
+            @for (promotion of current.promociones_vigentes; track promotion.id_promocion) {
+              <article>
+                <strong>{{ promotion.nombre }}</strong
+                ><span
+                  >{{ promotionLabel(promotion) }} ·
+                  {{ formatMoney(promotion.precio_resultante) }}</span
+                >
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
+  </div>
+</main>

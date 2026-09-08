@@ -1,0 +1,236 @@
+<main id="main-content" class="catalog-page">
+  <header class="catalog-hero shell">
+    <div>
+      <p class="catalog-hero__eyebrow">COLECCIÓN FASHIONSTORE</p>
+      <h1>{{ title() }}</h1>
+      <p>
+        @if (loading()) {
+          Preparando la selección...
+        } @else {
+          {{ total() }} {{ total() === 1 ? 'prenda encontrada' : 'prendas encontradas' }}
+        }
+      </p>
+    </div>
+    <span aria-hidden="true">CATÁLOGO / 12</span>
+  </header>
+
+  <form class="catalog-shell shell" [formGroup]="filterForm" (ngSubmit)="applySearch()">
+    <div class="catalog-toolbar">
+      <label class="search-box">
+        <span class="visually-hidden">Buscar productos</span>
+        <app-icon name="search" [size]="19" />
+        <input formControlName="search" type="search" placeholder="Buscar por nombre o SKU" />
+        <button type="submit">Buscar</button>
+      </label>
+      <button
+        class="filter-trigger"
+        type="button"
+        [attr.aria-expanded]="filtersVisible()"
+        (click)="toggleFilters()"
+      >
+        <app-icon name="filter" [size]="18" />
+        Filtros
+        @if (activeFilterCount()) {
+          <span>{{ activeFilterCount() }}</span>
+        }
+      </button>
+      <label class="sort-control">
+        <span>Ordenar por</span>
+        <select formControlName="sort" (change)="changeSort()">
+          <option value="recientes">Más recientes</option>
+          <option value="precio_asc">Precio: menor a mayor</option>
+          <option value="precio_desc">Precio: mayor a menor</option>
+          <option value="nombre">Nombre</option>
+        </select>
+        <app-icon name="chevron-down" [size]="15" />
+      </label>
+    </div>
+
+    @if (filterForm.controls.idSucursal.value) {
+      <div class="location-context">
+        <app-icon name="store" [size]="19" />
+        <div>
+          <strong>{{ branchName() || 'Sucursal seleccionada' }}</strong>
+          <span>Mostrando prendas con disponibilidad en esta sucursal.</span>
+        </div>
+        <button type="button" (click)="filterForm.controls.idSucursal.setValue(''); applyFilters()">
+          Quitar ubicación
+        </button>
+      </div>
+    }
+
+    <div class="catalog-layout" [class.catalog-layout--wide]="!filtersVisible()">
+      @if (filtersVisible()) {
+        <button
+          class="filter-backdrop"
+          type="button"
+          aria-label="Cerrar filtros"
+          (click)="toggleFilters()"
+        ></button>
+        <aside class="filters" aria-label="Filtros del catálogo">
+          <div class="filters__header">
+            <div>
+              <span>Refina tu selección</span>
+              <strong>Filtros</strong>
+            </div>
+            <button type="button" aria-label="Cerrar filtros" (click)="toggleFilters()">
+              <app-icon name="close" [size]="20" />
+            </button>
+          </div>
+
+          <fieldset>
+            <legend>Sección</legend>
+            <label><input formControlName="seccion" type="radio" value="" /> Todas</label>
+            <label><input formControlName="seccion" type="radio" value="HOMBRE" /> Hombre</label>
+            <label><input formControlName="seccion" type="radio" value="MUJER" /> Mujer</label>
+            <label><input formControlName="seccion" type="radio" value="UNISEX" /> Unisex</label>
+          </fieldset>
+
+          <label class="filter-select">
+            <span>Categoría</span>
+            <select formControlName="idCategoria">
+              <option value="">Todas las categorías</option>
+              @for (category of categoryOptions(); track category.id_categoria) {
+                <option [value]="category.id_categoria">{{ category.nombre }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="filter-select">
+            <span>Talla</span>
+            <select formControlName="idTalla">
+              <option value="">Todas las tallas</option>
+              @for (size of sizeOptions(); track size.id_talla) {
+                <option [value]="size.id_talla">{{ size.nombre }}</option>
+              }
+            </select>
+          </label>
+
+          <fieldset>
+            <legend>Color</legend>
+            <div class="color-filter">
+              @for (color of colorOptions(); track color.id_color) {
+                <button
+                  type="button"
+                  [class.is-selected]="
+                    filterForm.controls.idColor.value === color.id_color.toString()
+                  "
+                  [attr.aria-label]="color.nombre"
+                  [attr.aria-pressed]="
+                    filterForm.controls.idColor.value === color.id_color.toString()
+                  "
+                  (click)="selectColor(color.id_color)"
+                >
+                  <span [style.background-color]="color.codigo_hex || '#e2a882'"></span>
+                </button>
+              } @empty {
+                <small>Los colores aparecerán al cargar productos.</small>
+              }
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Rango de precio</legend>
+            <div class="price-range">
+              <label
+                ><span>Desde</span
+                ><input formControlName="precioMin" type="number" min="0" placeholder="Bs 0"
+              /></label>
+              <label
+                ><span>Hasta</span
+                ><input formControlName="precioMax" type="number" min="0" placeholder="Sin límite"
+              /></label>
+            </div>
+          </fieldset>
+
+          <label class="offer-toggle">
+            <input formControlName="soloPromociones" type="checkbox" />
+            <span></span>
+            Solo productos en oferta
+          </label>
+
+          <details class="location-filter">
+            <summary>
+              Consultar disponibilidad
+              <app-icon name="chevron-down" [size]="16" />
+            </summary>
+            <p>Usa los códigos de ubicación proporcionados por la tienda.</p>
+            <div class="price-range">
+              <label
+                ><span>Ciudad</span
+                ><input formControlName="idCiudad" type="number" min="1" placeholder="Código"
+              /></label>
+              <label
+                ><span>Sucursal</span
+                ><input formControlName="idSucursal" type="number" min="1" placeholder="Código"
+              /></label>
+            </div>
+          </details>
+
+          <div class="filters__actions">
+            <button class="apply-button" type="button" (click)="applyFilters()">
+              Ver resultados
+            </button>
+            <button class="clear-button" type="button" (click)="clearFilters()">
+              Limpiar filtros
+            </button>
+          </div>
+        </aside>
+      }
+
+      <section class="catalog-results" aria-live="polite">
+        @if (loading()) {
+          <div class="product-grid" aria-label="Cargando productos">
+            @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+              <div class="product-skeleton"><span></span><i></i><i></i><i></i></div>
+            }
+          </div>
+        } @else if (errorMessage()) {
+          <div class="catalog-state">
+            <span><app-icon name="refresh" [size]="27" /></span>
+            <h2>No pudimos mostrar esta selección</h2>
+            <p>{{ errorMessage() }}</p>
+            <button class="button button--solid" type="button" (click)="retry()">
+              Intentar nuevamente
+            </button>
+          </div>
+        } @else if (!products().length) {
+          <div class="catalog-state">
+            <span><app-icon name="search" [size]="27" /></span>
+            <h2>No encontramos prendas</h2>
+            <p>Prueba otra búsqueda o limpia algunos filtros para ampliar los resultados.</p>
+            <button class="button button--outline" type="button" (click)="clearFilters()">
+              Limpiar filtros
+            </button>
+          </div>
+        } @else {
+          <div class="product-grid">
+            @for (product of products(); track product.id_producto) {
+              <app-catalog-product-card
+                [product]="product"
+                [cityId]="appliedFilters().idCiudad"
+                [branchId]="appliedFilters().idSucursal"
+              />
+            }
+          </div>
+
+          @if (totalPages() > 1) {
+            <nav class="pagination" aria-label="Paginación del catálogo">
+              <button type="button" [disabled]="page() === 1" (click)="goToPage(page() - 1)">
+                <app-icon name="chevron-left" [size]="17" /> Anterior
+              </button>
+              <span>Página {{ page() }} de {{ totalPages() }}</span>
+              <button
+                type="button"
+                [disabled]="page() === totalPages()"
+                (click)="goToPage(page() + 1)"
+              >
+                Siguiente <app-icon name="chevron-right" [size]="17" />
+              </button>
+            </nav>
+          }
+        }
+      </section>
+    </div>
+  </form>
+</main>

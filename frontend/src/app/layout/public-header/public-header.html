@@ -14,7 +14,8 @@
     <a class="brand" routerLink="/" aria-label="FashionStore, ir al inicio">FASHIONSTORE</a>
 
     <nav class="desktop-nav" aria-label="Navegación principal">
-      <a href="#novedades">Novedades</a>
+      <a routerLink="/" fragment="novedades">Novedades</a>
+      <a routerLink="/catalogo">Catálogo</a>
       @for (group of navigation; track group.label) {
         <div class="nav-dropdown" [class.is-open]="openDropdown() === group.label">
           <button
@@ -27,8 +28,13 @@
           </button>
           <div class="dropdown-panel">
             <p>Explorar {{ group.label.toLowerCase() }}</p>
+            <a
+              routerLink="/catalogo"
+              [queryParams]="{ seccion: group.section }"
+              (click)="openDropdown.set(null)"
+            >Ver todo</a>
             @for (item of group.items; track item) {
-              <a href="#categorias" (click)="openDropdown.set(null)">{{ item }}</a>
+              <a routerLink="/" fragment="categorias" (click)="openDropdown.set(null)">{{ item }}</a>
             }
           </div>
         </div>
@@ -88,7 +94,8 @@
       </button>
     </div>
     <nav>
-      <a href="#novedades" (click)="closeMobile()">Novedades</a>
+      <a routerLink="/" fragment="novedades" (click)="closeMobile()">Novedades</a>
+      <a routerLink="/catalogo" (click)="closeMobile()">Catálogo</a>
       @for (group of navigation; track group.label) {
         <details>
           <summary>
@@ -96,8 +103,9 @@
             <app-icon name="chevron-down" [size]="17" />
           </summary>
           <div>
+            <a routerLink="/catalogo" [queryParams]="{ seccion: group.section }" (click)="closeMobile()">Ver todo</a>
             @for (item of group.items; track item) {
-              <a href="#categorias" (click)="closeMobile()">{{ item }}</a>
+              <a routerLink="/" fragment="categorias" (click)="closeMobile()">{{ item }}</a>
             }
           </div>
         </details>

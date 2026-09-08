@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     BREVO_API_KEY: SecretStr = Field(min_length=1)
     BREVO_SENDER_EMAIL: EmailStr
     BREVO_SENDER_NAME: str = Field(min_length=1, max_length=100)
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = None
+    SUPABASE_STORAGE_BUCKET: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

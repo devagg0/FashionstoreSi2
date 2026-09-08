@@ -26,6 +26,8 @@ export class AdminLayout {
   protected readonly user = this.sessionService.currentUser;
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
+    if (url.startsWith('/admin/productos')) return 'Productos';
+    if (url.startsWith('/admin/promociones')) return 'Promociones';
     if (url.startsWith('/admin/proveedores')) return 'Proveedores';
     if (url.startsWith('/admin/usuarios')) return 'Usuarios y roles';
     if (url.startsWith('/admin/roles')) return 'Roles';

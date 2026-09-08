@@ -11,6 +11,9 @@ from app.routers.admin_users import router as admin_users_router
 from app.routers.admin_seasons import router as admin_seasons_router
 from app.routers.admin_collections import router as admin_collections_router
 from app.routers.admin_suppliers import router as admin_suppliers_router
+from app.routers.admin_products import router as admin_products_router
+from app.routers.admin_promotions import router as admin_promotions_router
+from app.routers.catalog import router as catalog_router
 from app.routers.auth import router as auth_router
 
 
@@ -37,6 +40,9 @@ app.add_middleware(
 
 
 app.include_router(admin_suppliers_router)
+app.include_router(admin_products_router)
+app.include_router(admin_promotions_router)
+app.include_router(catalog_router)
 app.include_router(admin_seasons_router)
 app.include_router(admin_collections_router)
 app.include_router(auth_router)

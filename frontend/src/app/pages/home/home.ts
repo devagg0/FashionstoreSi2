@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CategoryCard } from '../../shared/components/category-card/category-card';
 import { Icon, IconName } from '../../shared/components/icon/icon';
 import { SectionCard } from '../../shared/components/section-card/section-card';
@@ -18,7 +19,7 @@ interface Benefit {
 
 @Component({
   selector: 'app-home',
-  imports: [CategoryCard, Icon, SectionCard],
+  imports: [CategoryCard, Icon, RouterLink, SectionCard],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

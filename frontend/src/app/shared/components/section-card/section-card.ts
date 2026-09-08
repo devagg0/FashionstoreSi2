@@ -1,7 +1,9 @@
 import { Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-section-card',
+  imports: [RouterLink],
   templateUrl: './section-card.html',
   styleUrl: './section-card.scss',
 })

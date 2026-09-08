@@ -1,0 +1,103 @@
+.location-context {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border: solid var(--color-line);
+  border-width: 0 1px 1px;
+  background: color-mix(in srgb, var(--color-clay) 17%, var(--color-white));
+}
+.location-context div {
+  display: grid;
+  gap: 3px;
+}
+.location-context strong {
+  font-size: 0.8rem;
+}
+.location-context span {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+}
+.location-context button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-terracotta);
+  font: 700 0.69rem var(--font-body);
+  cursor: pointer;
+}
+.product-skeleton {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 20px;
+  overflow: hidden;
+  background: var(--color-white);
+}
+.product-skeleton span {
+  aspect-ratio: 4 / 5;
+  background: linear-gradient(
+    100deg,
+    var(--color-clay-soft) 30%,
+    var(--color-linen) 48%,
+    var(--color-clay-soft) 66%
+  );
+  background-size: 250% 100%;
+  animation: catalog-shimmer 1.4s infinite;
+}
+.product-skeleton i {
+  height: 11px;
+  margin: 0 18px;
+  border-radius: 8px;
+  background: var(--color-clay-soft);
+}
+.product-skeleton i:nth-child(3) {
+  width: 54%;
+}
+.product-skeleton i:nth-child(4) {
+  width: 32%;
+}
+@keyframes catalog-shimmer {
+  to {
+    background-position-x: -250%;
+  }
+}
+.catalog-page .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 42px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-line);
+}
+.catalog-page .pagination button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--color-line);
+  gap: 7px;
+  background: var(--color-white);
+  color: var(--color-espresso);
+  font: 650 0.7rem var(--font-body);
+  cursor: pointer;
+}
+.catalog-page .pagination button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.catalog-page .pagination span {
+  color: var(--color-muted);
+  font-size: 0.69rem;
+}
+@media (max-width: 500px) {
+  .location-context span {
+    display: none;
+  }
+  .location-context button {
+    font-size: 0;
+  }
+  .location-context button::after {
+    font-size: 0.69rem;
+    content: 'Quitar';
+  }
+}
