@@ -40,6 +40,14 @@
         <app-icon name="map-pin" [size]="20" />
         <span>Sucursales</span>
       </a>
+      <a routerLink="/admin/productos" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="bag" [size]="20" />
+        <span>Productos</span>
+      </a>
+      <a routerLink="/admin/promociones" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="filter" [size]="20" />
+        <span>Promociones</span>
+      </a>
       <a routerLink="/admin/configuracion-catalogo" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="dashboard" [size]="20" />
         <span>Configuración de catálogo</span>

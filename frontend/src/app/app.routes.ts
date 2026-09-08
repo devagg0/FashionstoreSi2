@@ -28,12 +28,41 @@ export const routes: Routes = [
     title: 'Mi perfil | FashionStore',
   },
   {
+    path: 'catalogo',
+    loadComponent: () => import('./pages/catalog/catalog').then(({ Catalog }) => Catalog),
+    title: 'Catálogo | FashionStore',
+  },
+  {
+    path: 'catalogo/producto/:id',
+    loadComponent: () =>
+      import('./pages/product-detail/product-detail').then(
+        ({ ProductDetail }) => ProductDetail,
+      ),
+    title: 'Detalle de producto | FashionStore',
+  },
+  {
     path: 'admin',
     canActivate: [adminGuard],
     canActivateChild: [adminChildGuard],
     loadComponent: () =>
       import('./layout/admin-layout/admin-layout').then(({ AdminLayout }) => AdminLayout),
     children: [
+      {
+        path: 'productos',
+        loadComponent: () =>
+          import('./pages/admin/products/admin-products').then(
+            ({ AdminProducts }) => AdminProducts,
+          ),
+        title: 'Productos | FashionStore',
+      },
+      {
+        path: 'promociones',
+        loadComponent: () =>
+          import('./pages/admin/promotions/admin-promotions').then(
+            ({ AdminPromotions }) => AdminPromotions,
+          ),
+        title: 'Promociones | FashionStore',
+      },
       {
         path: 'proveedores',
         loadComponent: () => import('./pages/admin/suppliers/admin-suppliers').then(({ AdminSuppliers }) => AdminSuppliers),

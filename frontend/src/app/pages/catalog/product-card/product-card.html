@@ -1,0 +1,72 @@
+<article class="product-card">
+  <a
+    class="product-card__image"
+    [routerLink]="['/catalogo/producto', product().id_producto]"
+    [queryParams]="detailQueryParams()"
+    [attr.aria-label]="'Ver ' + product().nombre"
+  >
+    @if (product().imagen_principal && !imageFailed()) {
+      <img
+        [src]="product().imagen_principal"
+        [alt]="product().nombre"
+        loading="lazy"
+        (error)="imageFailed.set(true)"
+      />
+    } @else {
+      <span class="product-card__fallback" aria-hidden="true">FS</span>
+    }
+    @if (product().tiene_promocion) {
+      <span class="product-card__badge">{{ promotionLabel() }}</span>
+    }
+  </a>
+
+  <div class="product-card__body">
+    <div class="product-card__meta">
+      <span>{{ product().categoria }}</span>
+      <span>{{ product().seccion }}</span>
+    </div>
+    <a
+      class="product-card__name"
+      [routerLink]="['/catalogo/producto', product().id_producto]"
+      [queryParams]="detailQueryParams()"
+      >{{ product().nombre }}</a
+    >
+
+    @if (product().colores_disponibles.length) {
+      <div class="product-card__colors" aria-label="Colores disponibles">
+        @for (color of product().colores_disponibles.slice(0, 5); track color.id_color) {
+          <span
+            [style.background-color]="color.codigo_hex || '#e2a882'"
+            [attr.title]="color.nombre"
+          ></span>
+        }
+        @if (product().colores_disponibles.length > 5) {
+          <small>+{{ product().colores_disponibles.length - 5 }}</small>
+        }
+      </div>
+    }
+
+    <div class="product-card__footer">
+      <div class="product-card__price">
+        @if (product().tiene_promocion) {
+          <s>{{ formatMoney(product().precio_base) }}</s>
+        }
+        <strong>{{ formatMoney(product().precio_final) }}</strong>
+        @if (product().promocion_destacada?.tipo_descuento === 'MONTO_FIJO') {
+          <small class="product-card__saving">
+            Ahorras {{ formatMoney(product().monto_descuento!) }}
+          </small>
+        }
+      </div>
+      @if (product().disponibilidad_sucursal; as availability) {
+        <span class="stock" [class.stock--empty]="availability.estado === 'AGOTADO'">
+          <app-icon
+            [name]="availability.estado === 'DISPONIBLE' ? 'circle-check' : 'ban'"
+            [size]="15"
+          />
+          {{ availability.estado === 'DISPONIBLE' ? 'Disponible' : 'Sin stock' }}
+        </span>
+      }
+    </div>
+  </div>
+</article>

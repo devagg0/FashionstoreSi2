@@ -1,0 +1,350 @@
+<main class="promotions-page" aria-labelledby="promotions-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="promotions-title">Gestión de promociones</h2>
+      <span>Configura descuentos globales y los productos que participan.</span>
+    </div>
+    <button class="page-heading__action" type="button" (click)="openPromotionModal()">
+      <app-icon name="plus" [size]="18" />
+      Nueva promoción
+    </button>
+  </div>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="promotion-search">Buscar por nombre o código</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="promotion-search"
+        type="search"
+        maxlength="150"
+        formControlName="search"
+        placeholder="Buscar por nombre o código"
+      />
+    </div>
+    <div class="filters__select">
+      <label for="promotion-status-filter">Estado</label>
+      <select id="promotion-status-filter" formControlName="estado">
+        <option value="">Todos</option>
+        <option value="true">Activas</option>
+        <option value="false">Inactivas</option>
+      </select>
+    </div>
+    <div class="filters__select">
+      <label for="promotion-validity-filter">Vigencia</label>
+      <select id="promotion-validity-filter" formControlName="vigencia">
+        <option value="">Todas</option>
+        <option value="PROGRAMADA">Programadas</option>
+        <option value="VIGENTE">Vigentes</option>
+        <option value="EXPIRADA">Expiradas</option>
+      </select>
+    </div>
+    <button class="filter-button" type="submit" [disabled]="loading()">
+      <app-icon name="filter" [size]="17" />Aplicar
+    </button>
+    <button class="clear-button" type="button" [disabled]="loading()" (click)="clearFilters()">
+      Limpiar
+    </button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de promociones" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong><span>promociones encontradas</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Promoción</th>
+            <th scope="col">Descuento</th>
+            <th scope="col">Vigencia</th>
+            <th scope="col">Periodo</th>
+            <th scope="col">Productos</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td><td><span></span></td><td><span></span></td>
+                <td><span></span></td><td><span></span></td><td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (promotion of promotions(); track promotion.id_promocion) {
+              <tr>
+                <td data-label="Promoción">
+                  <div class="promotion-cell">
+                    <span aria-hidden="true"><app-icon name="filter" [size]="18" /></span>
+                    <div>
+                      <strong>{{ promotion.nombre }}</strong>
+                      <small>{{ promotion.codigo || 'Sin código' }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td data-label="Descuento"><strong>{{ formatDiscount(promotion) }}</strong></td>
+                <td data-label="Vigencia">
+                  <span class="validity-badge" [class]="'validity-badge validity-badge--' + promotion.vigencia.toLowerCase()">
+                    {{ validityLabel(promotion.vigencia) }}
+                  </span>
+                </td>
+                <td data-label="Periodo" class="date-cell">
+                  <span>{{ formatDate(promotion.fecha_inicio) }}</span>
+                  <small>hasta {{ formatDate(promotion.fecha_fin) }}</small>
+                </td>
+                <td data-label="Productos">{{ promotion.total_productos }}</td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!promotion.estado">
+                    <span></span>{{ promotion.estado ? 'Activa' : 'Inactiva' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button type="button" title="Ver detalle" [attr.aria-label]="'Ver detalle de ' + promotion.nombre" (click)="viewDetail(promotion.id_promocion)">
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button type="button" title="Editar promoción" [attr.aria-label]="'Editar ' + promotion.nombre" (click)="openPromotionModal(promotion)">
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button type="button" [title]="promotion.estado ? 'Desactivar promoción' : 'Activar promoción'" [attr.aria-label]="(promotion.estado ? 'Desactivar ' : 'Activar ') + promotion.nombre" (click)="openStatusModal(promotion)">
+                      <app-icon [name]="promotion.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="7">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos promociones</strong>
+                  <span>Prueba con otro nombre, código o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente<app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (promotionModalOpen()) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cancelar" (click)="closePromotionModal()"></button>
+    <section class="modal modal--create promotion-form-modal" role="dialog" aria-modal="true" aria-labelledby="promotion-form-title">
+      <div class="modal__header">
+        <div>
+          <p>{{ editingPromotion() ? 'EDITAR PROMOCIÓN' : 'NUEVA PROMOCIÓN' }}</p>
+          <h3 id="promotion-form-title">{{ editingPromotion() ? 'Editar promoción' : 'Registrar promoción' }}</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" [disabled]="saving()" (click)="closePromotionModal()">
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      <p class="form-intro">Define el descuento y su periodo de aplicación para toda la cadena.</p>
+      <form class="form form--promotion" [formGroup]="promotionForm" (ngSubmit)="submitPromotion()" novalidate>
+        <div class="form__field form__field--wide" [class.is-invalid]="promotionForm.controls.nombre.touched && promotionForm.controls.nombre.invalid">
+          <label for="promotion-name">Nombre *</label>
+          <div class="form__control"><input id="promotion-name" maxlength="150" formControlName="nombre" /></div>
+          @if (promotionForm.controls.nombre.touched && promotionForm.controls.nombre.invalid) {
+            <p class="form__error">Ingresa un nombre de hasta 150 caracteres.</p>
+          }
+        </div>
+        <div class="form__field">
+          <label for="promotion-code">Código</label>
+          <div class="form__control"><input id="promotion-code" maxlength="50" formControlName="codigo" /></div>
+          @if (promotionForm.controls.codigo.touched && promotionForm.controls.codigo.invalid) {
+            <p class="form__error">Usa un código de hasta 50 caracteres.</p>
+          }
+        </div>
+        <div class="form__field">
+          <label for="promotion-type">Tipo de descuento *</label>
+          <div class="form__control">
+            <select id="promotion-type" formControlName="tipo_descuento">
+              <option value="PORCENTAJE">Porcentaje</option>
+              <option value="MONTO_FIJO">Monto fijo</option>
+            </select>
+          </div>
+        </div>
+        <div class="form__field" [class.is-invalid]="promotionForm.controls.valor.touched && (promotionForm.controls.valor.invalid || promotionForm.hasError('discountValue'))">
+          <label for="promotion-value">{{ promotionForm.controls.tipo_descuento.value === 'PORCENTAJE' ? 'Porcentaje (%) *' : 'Monto (Bs) *' }}</label>
+          <div class="form__control"><input id="promotion-value" inputmode="decimal" placeholder="0.00" formControlName="valor" /></div>
+          @if (promotionForm.controls.valor.touched && (promotionForm.controls.valor.invalid || promotionForm.hasError('discountValue'))) {
+            <p class="form__error">{{ promotionForm.controls.tipo_descuento.value === 'PORCENTAJE' ? 'Ingresa un porcentaje mayor a 0 y máximo 100.' : 'Ingresa un monto mayor a 0 con máximo dos decimales.' }}</p>
+          }
+        </div>
+        <label class="checkbox-field"><input type="checkbox" formControlName="acumulable" /><span>Permitir acumular con otros descuentos</span></label>
+        <div class="form__field" [class.is-invalid]="promotionForm.controls.fecha_inicio.touched && promotionForm.controls.fecha_inicio.invalid">
+          <label for="promotion-start">Inicio *</label>
+          <div class="form__control"><input id="promotion-start" type="datetime-local" formControlName="fecha_inicio" /></div>
+          @if (promotionForm.controls.fecha_inicio.touched && promotionForm.controls.fecha_inicio.invalid) {
+            <p class="form__error">Selecciona la fecha y hora de inicio.</p>
+          }
+        </div>
+        <div class="form__field" [class.is-invalid]="promotionForm.controls.fecha_fin.touched && (promotionForm.controls.fecha_fin.invalid || promotionForm.hasError('dateRange'))">
+          <label for="promotion-end">Fin *</label>
+          <div class="form__control"><input id="promotion-end" type="datetime-local" formControlName="fecha_fin" /></div>
+          @if (promotionForm.controls.fecha_fin.touched && (promotionForm.controls.fecha_fin.invalid || promotionForm.hasError('dateRange'))) {
+            <p class="form__error">La fecha fin debe ser igual o posterior al inicio.</p>
+          }
+        </div>
+        <div class="form__field form__field--wide">
+          <label for="promotion-description">Descripción</label>
+          <div class="form__control form__control--textarea"><textarea id="promotion-description" rows="3" maxlength="200" formControlName="descripcion"></textarea></div>
+        </div>
+        @if (modalErrorMessage()) {
+          <p class="form__message form__field--wide" role="alert">{{ modalErrorMessage() }}</p>
+        }
+        <div class="modal__actions form__field--wide">
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="saving()" (click)="closePromotionModal()">Cancelar</button>
+          <button class="modal-button modal-button--primary" type="submit" [disabled]="saving()">{{ saving() ? 'Guardando...' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (detailModalOpen()) {
+  <app-promotion-detail-shell>
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar detalle" (click)="closeDetail()"></button>
+    <section class="modal promotion-detail-modal" role="dialog" aria-modal="true" aria-labelledby="promotion-detail-title">
+      <div class="modal__header detail-header">
+        <div><p>DETALLE DE PROMOCIÓN</p><h3 id="promotion-detail-title">Promoción y productos</h3></div>
+        <div class="modal-header-actions">
+          @if (detailPromotion()) {
+            <button type="button" title="Editar promoción" aria-label="Editar promoción" [disabled]="saving()" (click)="editFromDetail()"><app-icon name="pencil" [size]="18" /></button>
+          }
+          <button type="button" aria-label="Cerrar" [disabled]="detailLoading() || saving()" (click)="closeDetail()"><app-icon name="close" [size]="20" /></button>
+        </div>
+      </div>
+      @if (detailLoading()) {
+        <div class="modal-loading" aria-label="Cargando detalle"><span></span><span></span><span></span></div>
+      } @else if (detailPromotion(); as promotion) {
+        <section class="promotion-overview">
+          <div class="overview-heading">
+            <div><small>{{ promotion.codigo || 'SIN CÓDIGO' }}</small><strong>{{ promotion.nombre }}</strong></div>
+            <div class="overview-badges">
+              <span class="validity-badge" [class]="'validity-badge validity-badge--' + promotion.vigencia.toLowerCase()">{{ validityLabel(promotion.vigencia) }}</span>
+              <span class="status-badge" [class.status-badge--inactive]="!promotion.estado"><span></span>{{ promotion.estado ? 'Activa' : 'Inactiva' }}</span>
+            </div>
+          </div>
+          <p>{{ promotion.descripcion || 'Sin descripción.' }}</p>
+          <dl class="overview-list">
+            <div><dt>Descuento</dt><dd>{{ formatDiscount(promotion) }}</dd></div>
+            <div><dt>Inicio</dt><dd>{{ formatDate(promotion.fecha_inicio) }}</dd></div>
+            <div><dt>Fin</dt><dd>{{ formatDate(promotion.fecha_fin) }}</dd></div>
+            <div><dt>Acumulable</dt><dd>{{ promotion.acumulable ? 'Sí' : 'No' }}</dd></div>
+          </dl>
+        </section>
+
+        @if (detailError() || detailMessage()) {
+          <div class="detail-notice" [class.detail-notice--error]="detailError()" [attr.role]="detailError() ? 'alert' : 'status'">
+            <app-icon [name]="detailError() ? 'ban' : 'circle-check'" [size]="17" /><span>{{ detailError() ?? detailMessage() }}</span>
+          </div>
+        }
+
+        <section class="detail-section">
+          <div class="detail-section__heading">
+            <div><p>PRODUCTOS ASOCIADOS</p><h4>{{ promotion.productos.length }} productos en esta promoción</h4></div>
+          </div>
+          <div class="subtable-scroll">
+            <table class="subtable">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Sección</th><th>Precio</th><th>Estado</th></tr></thead>
+              <tbody>
+                @for (product of promotion.productos; track product.id_promocion_producto) {
+                  <tr>
+                    <td><strong>{{ product.nombre }}</strong></td>
+                    <td>{{ productCategory(product) }}</td>
+                    <td><span class="section-badge">{{ product.seccion }}</span></td>
+                    <td>{{ formatMoney(product.precio) }}</td>
+                    <td><span class="status-badge" [class.status-badge--inactive]="!product.estado"><span></span>{{ product.estado ? 'Activo' : 'Inactivo' }}</span></td>
+                  </tr>
+                } @empty {
+                  <tr><td class="subtable-empty" colspan="5">Aún no hay productos asociados.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="detail-section association-section">
+          <div class="detail-section__heading">
+            <div><p>ASOCIAR PRODUCTOS</p><h4>Selecciona productos activos</h4></div>
+            @if (selectedProductIds().length) { <span class="selection-count">{{ selectedProductIds().length }} seleccionados</span> }
+          </div>
+          <form class="product-search" [formGroup]="productSearchForm" (ngSubmit)="loadAvailableProducts()">
+            <div class="filters__search"><app-icon name="search" [size]="18" /><input type="search" maxlength="150" formControlName="search" placeholder="Buscar productos activos" aria-label="Buscar productos activos" /></div>
+            <button class="small-action" type="submit" [disabled]="productsLoading()">Buscar</button>
+          </form>
+          @if (productsLoading()) {
+            <div class="product-options-loading" aria-label="Cargando productos"><span></span><span></span><span></span></div>
+          } @else {
+            <div class="product-options">
+              @for (product of availableProducts(); track product.id_producto) {
+                <label class="product-option" [class.is-selected]="isProductSelected(product.id_producto)">
+                  <input type="checkbox" [checked]="isProductSelected(product.id_producto)" (change)="toggleProduct(product.id_producto, $any($event.target).checked)" />
+                  <span class="product-option__check"><app-icon name="check" [size]="14" /></span>
+                  <span><strong>{{ product.nombre }}</strong><small>{{ product.categoria }} · {{ product.seccion }} · {{ formatMoney(product.precio) }}</small></span>
+                </label>
+              } @empty {
+                <p class="section-empty">No hay productos activos disponibles para asociar.</p>
+              }
+            </div>
+          }
+          <div class="association-actions">
+            <small>Los productos ya asociados no pueden seleccionarse nuevamente.</small>
+            <button class="small-action small-action--primary" type="button" [disabled]="saving() || productsLoading() || !selectedProductIds().length" (click)="associateProducts()">{{ saving() ? 'Asociando...' : 'Asociar seleccionados' }}</button>
+          </div>
+        </section>
+      }
+    </section>
+  </div>
+  </app-promotion-detail-shell>
+}
+
+@if (statusPromotion(); as promotion) {
+  <div class="modal-layer status-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cancelar cambio" (click)="closeStatusModal()"></button>
+    <section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="promotion-status-title">
+      <div class="confirm-icon" [class.confirm-icon--activate]="!promotion.estado"><app-icon [name]="promotion.estado ? 'ban' : 'circle-check'" [size]="24" /></div>
+      <h3 id="promotion-status-title">{{ promotion.estado ? 'Desactivar promoción' : 'Activar promoción' }}</h3>
+      <p>{{ promotion.estado ? 'La promoción dejará de estar disponible, pero conservará sus datos y productos asociados.' : 'La promoción volverá a estar disponible.' }}<strong>{{ promotion.nombre }}</strong></p>
+      <div class="modal__actions">
+        <button class="modal-button modal-button--secondary" type="button" [disabled]="saving()" (click)="closeStatusModal()">Cancelar</button>
+        <button class="modal-button modal-button--primary" type="button" [disabled]="saving()" (click)="confirmStatusChange()">{{ saving() ? 'Guardando...' : 'Confirmar' }}</button>
+      </div>
+    </section>
+  </div>
+}

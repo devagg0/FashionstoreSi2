@@ -1,0 +1,404 @@
+.product-detail-modal {
+  width: min(96vw, 1100px);
+  max-height: 94dvh;
+  padding: 28px;
+}
+.product-detail-header {
+  position: sticky;
+  z-index: 3;
+  top: -28px;
+  margin: -28px -28px 22px;
+  padding: 25px 28px 18px;
+  border-bottom: 1px solid rgb(43 38 37 / 9%);
+  background: #fff;
+}
+.product-overview {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 24px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #f4ebe1;
+}
+.product-overview__image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  color: #c87d55;
+}
+.product-overview__copy {
+  min-width: 0;
+}
+.product-overview__title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+.product-overview__title > div {
+  display: grid;
+  gap: 4px;
+}
+.product-overview__title strong {
+  font: 650 1.25rem var(--font-display);
+}
+.product-overview__title small {
+  color: rgb(43 38 37 / 50%);
+  font-size: 0.68rem;
+}
+.product-overview__copy > p {
+  margin: 15px 0 0;
+  color: rgb(43 38 37 / 65%);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.overview-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 0;
+}
+.overview-list div {
+  display: grid;
+  gap: 4px;
+}
+.overview-list dt {
+  color: rgb(43 38 37 / 48%);
+  font-size: 0.61rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.overview-list dd {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.detail-notice {
+  grid-template-columns: auto 1fr;
+  margin-top: 16px;
+}
+.detail-sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+.detail-section {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgb(43 38 37 / 10%);
+  border-radius: 13px;
+}
+.detail-section--half {
+  grid-column: auto;
+}
+.detail-section__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+.detail-section__heading p {
+  margin-bottom: 5px;
+  font-size: 0.59rem;
+}
+.detail-section h4 {
+  margin: 0;
+  font: 650 0.94rem var(--font-display);
+}
+.small-action {
+  min-height: 35px;
+  padding: 0 11px;
+  border: 1px solid rgb(43 38 37 / 14%);
+  background: #fff;
+  color: #2b2625;
+}
+.small-action--primary {
+  border-color: #2b2625;
+  background: #2b2625;
+  color: #fff;
+}
+.inline-form,
+.compact-form {
+  display: grid;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgb(244 235 225 / 55%);
+}
+.inline-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+.inline-form--supplier {
+  grid-template-columns: minmax(140px, 1fr) minmax(130px, 0.7fr) auto;
+}
+.inline-form--image {
+  grid-template-columns: minmax(220px, 1fr) 128px auto auto;
+}
+.compact-form {
+  grid-template-columns: 1fr auto;
+}
+.inline-form .form__control,
+.compact-form .form__control {
+  min-height: 40px;
+  padding-inline: 10px;
+}
+.inline-form .form__control select {
+  min-height: 38px;
+}
+.inline-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+}
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  gap: 8px;
+  color: rgb(43 38 37 / 65%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.checkbox-field input {
+  accent-color: #c87d55;
+}
+.inline-form--image .file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.inline-form--image .file-picker {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  gap: 8px;
+  padding: 9px 11px;
+  overflow: hidden;
+  border: 1px solid rgb(43 38 37 / 14%);
+  border-radius: 8px;
+  background: #fff;
+  color: #2b2625;
+  cursor: pointer;
+}
+.inline-form--image .file-picker:hover,
+.inline-form--image .file-input:focus-visible + .file-picker {
+  border-color: #c87d55;
+  box-shadow: 0 0 0 3px rgb(200 125 85 / 12%);
+}
+.inline-form--image .file-picker span {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.image-upload-field > small {
+  color: rgb(43 38 37 / 52%);
+  font-size: 0.64rem;
+}
+.image-upload-preview {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.image-upload-preview img {
+  width: 128px;
+  height: 88px;
+  border: 1px solid rgb(43 38 37 / 10%);
+  border-radius: 9px;
+  object-fit: cover;
+}
+.image-upload-preview figcaption {
+  color: rgb(43 38 37 / 52%);
+  font-size: 0.62rem;
+  text-align: center;
+}
+.subtable {
+  min-width: 620px;
+}
+.subtable th {
+  padding: 10px 12px;
+}
+.subtable td {
+  padding: 11px 12px;
+}
+.subtable-empty,
+.section-empty {
+  color: rgb(43 38 37 / 48%);
+  font-size: 0.75rem;
+  text-align: center;
+}
+.section-empty {
+  margin: 15px 0;
+}
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-list span {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f4ebe1;
+  color: #2b2625;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.chip-list span.is-inactive {
+  opacity: 0.55;
+}
+.relation-list {
+  display: grid;
+  gap: 8px;
+}
+.relation-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid rgb(43 38 37 / 9%);
+  border-radius: 9px;
+}
+.relation-list article > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.relation-list strong {
+  overflow-wrap: anywhere;
+  font: 650 0.76rem var(--font-display);
+}
+.relation-list small {
+  color: rgb(43 38 37 / 52%);
+  font-size: 0.66rem;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.image-card {
+  overflow: hidden;
+  border: 1px solid rgb(43 38 37 / 11%);
+  border-radius: 11px;
+  background: #fff;
+}
+.image-card--primary {
+  border-color: #c87d55;
+  box-shadow: 0 0 0 2px rgb(200 125 85 / 12%);
+}
+.image-card__preview {
+  aspect-ratio: 4 / 3;
+  background: #f4ebe1;
+}
+.image-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px;
+}
+.image-card__footer > span {
+  color: rgb(43 38 37 / 60%);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .detail-sections {
+    grid-template-columns: 1fr;
+  }
+  .detail-section--half {
+    grid-column: 1 / -1;
+  }
+  .inline-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .inline-form--image {
+    grid-template-columns: 1fr auto;
+  }
+  .inline-form--image .form__field {
+    grid-column: 1 / -1;
+  }
+  .image-upload-preview {
+    justify-self: start;
+  }
+  .image-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .product-detail-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+  }
+  .product-detail-header {
+    top: -16px;
+    margin: -16px -16px 16px;
+    padding: 18px 16px 14px;
+  }
+  .product-overview {
+    grid-template-columns: 90px 1fr;
+    gap: 15px;
+    padding: 14px;
+  }
+  .overview-list {
+    grid-template-columns: 1fr 1fr;
+  }
+  .inline-form,
+  .inline-form--supplier,
+  .inline-form--image {
+    grid-template-columns: 1fr;
+  }
+  .inline-form--image .form__field {
+    grid-column: auto;
+  }
+  .image-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .product-overview {
+    grid-template-columns: 1fr;
+  }
+  .product-overview__image {
+    max-height: 220px;
+  }
+  .product-overview__title {
+    flex-direction: column;
+  }
+  .detail-section {
+    padding: 14px;
+  }
+  .detail-section__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .image-grid {
+    grid-template-columns: 1fr;
+  }
+  .relation-list article {
+    grid-template-columns: 1fr auto;
+  }
+  .relation-list article .status-badge {
+    grid-column: 1;
+  }
+}

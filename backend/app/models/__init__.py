@@ -17,3 +17,14 @@ from app.models.product_supplier import ProductSupplier
 from app.models.product_collection import ProductCollection
 from app.models.product_image import ProductImage
 from app.models.password_recovery import PasswordRecovery
+from app.models.promotion import Promotion
+from app.models.promotion_product import PromotionProduct
+from app.models.branch_inventory import BranchInventory
+from app.models.reservation import Reservation
+from app.models.reservation_detail import ReservationDetail
+from app.models.cart import Cart
+from app.models.cart_detail import CartDetail
+from app.models.sale import Sale
+from app.models.sale_detail import SaleDetail
+from app.models.inventory_movement import InventoryMovement
+from app.models.inventory_movement_detail import InventoryMovementDetail

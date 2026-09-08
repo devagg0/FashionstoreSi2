@@ -4,9 +4,9 @@
   <div class="style-card__content">
     <p>Selección editorial</p>
     <h3>{{ title() }}</h3>
-    <button class="button button--light-outline" type="button">
+    <a class="button button--light-outline" routerLink="/catalogo" [queryParams]="{ seccion: title() }">
       Explorar
       <span aria-hidden="true">→</span>
-    </button>
+    </a>
   </div>
 </article>

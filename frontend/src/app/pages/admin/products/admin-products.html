@@ -1,0 +1,944 @@
+<main class="products-page" aria-labelledby="products-title">
+  <div class="page-heading">
+    <div>
+      <p>ADMINISTRACIÓN</p>
+      <h2 id="products-title">Gestión de productos</h2>
+      <span>Administra las prendas, sus variantes y relaciones comerciales.</span>
+    </div>
+    <button
+      class="page-heading__action"
+      type="button"
+      [disabled]="optionsLoading() || !!optionsError()"
+      (click)="openProductModal()"
+    >
+      <app-icon name="plus" [size]="18" />
+      Nuevo producto
+    </button>
+  </div>
+
+  @if (errorMessage() || successMessage()) {
+    <div
+      class="notice"
+      [class.notice--success]="successMessage()"
+      [class.notice--error]="errorMessage()"
+      [attr.role]="errorMessage() ? 'alert' : 'status'"
+    >
+      <app-icon [name]="successMessage() ? 'circle-check' : 'ban'" [size]="19" />
+      <span>{{ successMessage() ?? errorMessage() }}</span>
+      <button type="button" aria-label="Cerrar mensaje" (click)="dismissMessage()">
+        <app-icon name="close" [size]="17" />
+      </button>
+    </div>
+  }
+
+  @if (optionsError()) {
+    <div class="notice notice--error" role="alert">
+      <app-icon name="ban" [size]="19" />
+      <span>{{ optionsError() }}</span>
+      <button class="retry-button" type="button" (click)="loadOptions()">Reintentar</button>
+    </div>
+  }
+
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <div class="filters__search">
+      <label class="visually-hidden" for="product-search">Buscar por nombre o SKU</label>
+      <app-icon name="search" [size]="19" />
+      <input
+        id="product-search"
+        type="search"
+        formControlName="search"
+        maxlength="150"
+        placeholder="Buscar por nombre o SKU"
+      />
+    </div>
+
+    <div class="filters__select">
+      <label for="product-category-filter">Categoría</label>
+      <select id="product-category-filter" formControlName="id_categoria">
+        <option [ngValue]="0">Todas</option>
+        @for (category of categoryOptions(); track category.id_categoria) {
+          <option [ngValue]="category.id_categoria">{{ category.nombre }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filters__select">
+      <label for="product-status-filter">Estado</label>
+      <select id="product-status-filter" formControlName="estado">
+        <option value="">Todos</option>
+        <option value="true">Activos</option>
+        <option value="false">Inactivos</option>
+      </select>
+    </div>
+
+    <button class="filter-button" type="submit" [disabled]="loading()">
+      <app-icon name="filter" [size]="17" />
+      Aplicar
+    </button>
+    <button class="clear-button" type="button" [disabled]="loading()" (click)="clearFilters()">
+      Limpiar
+    </button>
+  </form>
+
+  <section class="table-card" aria-label="Listado de productos" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <div>
+        <strong>{{ pagination().total }}</strong
+        ><span>productos encontrados</span>
+      </div>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Sección</th>
+            <th scope="col">Precio</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+              <tr class="loading-row" aria-hidden="true">
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+                <td><span></span></td>
+              </tr>
+            }
+          } @else {
+            @for (product of products(); track product.id_producto) {
+              <tr>
+                <td data-label="Producto">
+                  <div class="product-cell">
+                    <span class="product-thumb" aria-hidden="true">
+                      @if (product.imagen_principal) {
+                        <img [src]="product.imagen_principal" alt="" />
+                      } @else {
+                        <app-icon name="bag" [size]="18" />
+                      }
+                    </span>
+                    <div>
+                      <strong>{{ product.nombre }}</strong>
+                      <small>{{ product.total_variantes }} variantes</small>
+                    </div>
+                  </div>
+                </td>
+                <td data-label="Categoría">{{ product.categoria }}</td>
+                <td data-label="Sección">
+                  <span class="section-badge">{{ product.seccion }}</span>
+                </td>
+                <td data-label="Precio">
+                  <strong>{{ formatMoney(product.precio) }}</strong>
+                </td>
+                <td data-label="Estado">
+                  <span class="status-badge" [class.status-badge--inactive]="!product.estado">
+                    <span></span>{{ product.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td data-label="Acciones">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      title="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + product.nombre"
+                      (click)="viewDetail(product.id_producto)"
+                    >
+                      <app-icon name="eye" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar producto"
+                      [disabled]="optionsLoading() || !!optionsError()"
+                      [attr.aria-label]="'Editar ' + product.nombre"
+                      (click)="openProductModal(product)"
+                    >
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button
+                      type="button"
+                      [title]="product.estado ? 'Desactivar producto' : 'Activar producto'"
+                      [attr.aria-label]="
+                        (product.estado ? 'Desactivar ' : 'Activar ') + product.nombre
+                      "
+                      (click)="openStatusModal(product)"
+                    >
+                      <app-icon [name]="product.estado ? 'ban' : 'circle-check'" [size]="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="empty-state" colspan="6">
+                  <app-icon name="search" [size]="25" />
+                  <strong>No encontramos productos</strong>
+                  <span>Prueba con otro nombre, SKU o limpia los filtros.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" [disabled]="!canGoPrevious()" (click)="previousPage()">
+        <app-icon name="chevron-left" [size]="17" />Anterior
+      </button>
+      <span>{{ pagination().page }} / {{ pagination().total_pages || 1 }}</span>
+      <button type="button" [disabled]="!canGoNext()" (click)="nextPage()">
+        Siguiente<app-icon name="chevron-right" [size]="17" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (productModalOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar"
+      (click)="closeProductModal()"
+    ></button>
+    <section
+      class="modal modal--create product-form-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="product-form-title"
+    >
+      <div class="modal__header">
+        <div>
+          <p>{{ editingProduct() ? 'EDITAR PRODUCTO' : 'NUEVO PRODUCTO' }}</p>
+          <h3 id="product-form-title">
+            {{ editingProduct() ? 'Editar producto' : 'Registrar producto' }}
+          </h3>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="saving()"
+          (click)="closeProductModal()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+      <p class="form-intro">
+        {{
+          editingProduct()
+            ? 'Actualiza los datos generales de la prenda.'
+            : 'Registra los datos generales; luego podrás agregar variantes e imágenes.'
+        }}
+      </p>
+
+      <form
+        class="form form--product"
+        [formGroup]="productForm"
+        (ngSubmit)="submitProduct()"
+        novalidate
+      >
+        <div
+          class="form__field form__field--wide"
+          [class.is-invalid]="
+            productForm.controls.nombre.touched && productForm.controls.nombre.invalid
+          "
+        >
+          <label for="product-name">Nombre *</label>
+          <div class="form__control">
+            <input id="product-name" type="text" maxlength="150" formControlName="nombre" />
+          </div>
+          @if (productForm.controls.nombre.touched && productForm.controls.nombre.invalid) {
+            <p class="form__error">Ingresa un nombre de hasta 150 caracteres.</p>
+          }
+        </div>
+        <div
+          class="form__field"
+          [class.is-invalid]="
+            productForm.controls.precio.touched && productForm.controls.precio.invalid
+          "
+        >
+          <label for="product-price">Precio (Bs) *</label>
+          <div class="form__control">
+            <input
+              id="product-price"
+              type="text"
+              inputmode="decimal"
+              placeholder="0.00"
+              formControlName="precio"
+            />
+          </div>
+          @if (productForm.controls.precio.touched && productForm.controls.precio.invalid) {
+            <p class="form__error">Usa un valor positivo con máximo dos decimales.</p>
+          }
+        </div>
+        <div class="form__field">
+          <label for="product-section">Sección *</label>
+          <div class="form__control">
+            <select id="product-section" formControlName="seccion">
+              <option value="HOMBRE">Hombre</option>
+              <option value="MUJER">Mujer</option>
+              <option value="UNISEX">Unisex</option>
+            </select>
+          </div>
+        </div>
+        <div
+          class="form__field"
+          [class.is-invalid]="
+            productForm.controls.id_categoria.touched && productForm.controls.id_categoria.invalid
+          "
+        >
+          <label for="product-category">Categoría *</label>
+          <div class="form__control">
+            <select id="product-category" formControlName="id_categoria">
+              <option [ngValue]="0">Selecciona una categoría</option>
+              @for (category of categoryOptions(); track category.id_categoria) {
+                @if (category.estado || category.id_categoria === editingProduct()?.id_categoria) {
+                  <option [ngValue]="category.id_categoria">
+                    {{ category.nombre
+                    }}{{ category.estado ? '' : ' (inactiva, asociación actual)' }}
+                  </option>
+                }
+              }
+            </select>
+          </div>
+          @if (
+            productForm.controls.id_categoria.touched && productForm.controls.id_categoria.invalid
+          ) {
+            <p class="form__error">Selecciona una categoría activa.</p>
+          }
+        </div>
+        <div class="form__field">
+          <label for="product-season">Temporada (opcional)</label>
+          <div class="form__control">
+            <select id="product-season" formControlName="id_temporada">
+              <option [ngValue]="0">Sin temporada</option>
+              @for (season of seasonOptions(); track season.id_temporada) {
+                @if (season.estado || season.id_temporada === editingProduct()?.id_temporada) {
+                  <option [ngValue]="season.id_temporada">
+                    {{ season.nombre }}{{ season.estado ? '' : ' (inactiva, asociación actual)' }}
+                  </option>
+                }
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form__field form__field--wide">
+          <label for="product-description">Descripción</label>
+          <div class="form__control form__control--textarea">
+            <textarea id="product-description" rows="4" formControlName="descripcion"></textarea>
+          </div>
+        </div>
+        @if (optionsLoading()) {
+          <p class="form__hint form__field--wide" role="status">Cargando opciones...</p>
+        }
+        @if (modalErrorMessage()) {
+          <p class="form__message form__field--wide" role="alert">{{ modalErrorMessage() }}</p>
+        }
+        <div class="modal__actions form__field--wide">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="closeProductModal()"
+          >
+            Cancelar
+          </button>
+          <button
+            class="modal-button modal-button--primary"
+            type="submit"
+            [disabled]="saving() || optionsLoading() || !!optionsError()"
+          >
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (detailModalOpen()) {
+  <app-product-detail-shell>
+    <div class="modal-layer">
+      <button
+        class="modal-backdrop"
+        type="button"
+        aria-label="Cerrar detalle"
+        (click)="closeDetail()"
+      ></button>
+      <section
+        class="modal product-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-title"
+      >
+        <div class="modal__header product-detail-header">
+          <div>
+            <p>DETALLE DE PRODUCTO</p>
+            <h3 id="product-detail-title">Producto y configuración</h3>
+          </div>
+          <div class="modal-header-actions">
+            @if (detailProduct()) {
+              <button
+                type="button"
+                title="Editar producto"
+                aria-label="Editar producto"
+                [disabled]="saving() || optionsLoading()"
+                (click)="editFromDetail()"
+              >
+                <app-icon name="pencil" [size]="18" />
+              </button>
+            }
+            <button
+              type="button"
+              aria-label="Cerrar"
+              [disabled]="detailLoading() || saving()"
+              (click)="closeDetail()"
+            >
+              <app-icon name="close" [size]="20" />
+            </button>
+          </div>
+        </div>
+
+        @if (detailLoading()) {
+          <div class="modal-loading" aria-label="Cargando detalle">
+            <span></span><span></span><span></span>
+          </div>
+        } @else if (detailProduct(); as product) {
+          <div class="product-overview">
+            <div class="product-overview__image">
+              @if (product.imagen_principal) {
+                <img [src]="product.imagen_principal" [alt]="product.nombre" />
+              } @else {
+                <app-icon name="bag" [size]="30" />
+              }
+            </div>
+            <div class="product-overview__copy">
+              <div class="product-overview__title">
+                <div>
+                  <strong>{{ product.nombre }}</strong
+                  ><small>ID #{{ product.id_producto }}</small>
+                </div>
+                <span class="status-badge" [class.status-badge--inactive]="!product.estado"
+                  ><span></span>{{ product.estado ? 'Activo' : 'Inactivo' }}</span
+                >
+              </div>
+              <dl class="overview-list">
+                <div>
+                  <dt>Categoría</dt>
+                  <dd>{{ product.categoria }}</dd>
+                </div>
+                <div>
+                  <dt>Temporada</dt>
+                  <dd>{{ product.temporada || 'Sin temporada' }}</dd>
+                </div>
+                <div>
+                  <dt>Sección</dt>
+                  <dd>{{ product.seccion }}</dd>
+                </div>
+                <div>
+                  <dt>Precio</dt>
+                  <dd>{{ formatMoney(product.precio) }}</dd>
+                </div>
+              </dl>
+              <p>{{ product.descripcion || 'Sin descripción.' }}</p>
+            </div>
+          </div>
+
+          @if (detailMessage() || detailError()) {
+            <div
+              class="detail-notice"
+              [class.detail-notice--error]="detailError()"
+              [attr.role]="detailError() ? 'alert' : 'status'"
+            >
+              <app-icon [name]="detailError() ? 'ban' : 'circle-check'" [size]="17" />
+              <span>{{ detailError() ?? detailMessage() }}</span>
+            </div>
+          }
+
+          <div class="detail-sections">
+            <section class="detail-section">
+              <div class="detail-section__heading">
+                <div>
+                  <p>VARIANTES</p>
+                  <h4>Tallas, colores y SKU</h4>
+                </div>
+                <button
+                  class="small-action"
+                  type="button"
+                  [disabled]="saving()"
+                  (click)="startVariantEdit()"
+                >
+                  <app-icon name="plus" [size]="16" />Nueva variante
+                </button>
+              </div>
+              <form class="inline-form" [formGroup]="variantForm" (ngSubmit)="submitVariant()">
+                <div class="form__field">
+                  <label for="variant-size">Talla *</label>
+                  <div class="form__control">
+                    <select id="variant-size" formControlName="id_talla">
+                      <option [ngValue]="0">Selecciona</option>
+                      @for (size of sizeOptions(); track size.id_talla) {
+                        @if (size.estado || size.id_talla === editingVariant()?.id_talla) {
+                          <option [ngValue]="size.id_talla">
+                            {{ size.nombre }}{{ size.estado ? '' : ' (inactiva)' }}
+                          </option>
+                        }
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="form__field">
+                  <label for="variant-color">Color *</label>
+                  <div class="form__control">
+                    <select id="variant-color" formControlName="id_color">
+                      <option [ngValue]="0">Selecciona</option>
+                      @for (color of colorOptions(); track color.id_color) {
+                        @if (color.estado || color.id_color === editingVariant()?.id_color) {
+                          <option [ngValue]="color.id_color">
+                            {{ color.nombre }}{{ color.estado ? '' : ' (inactivo)' }}
+                          </option>
+                        }
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="form__field">
+                  <label for="variant-sku">SKU *</label>
+                  <div class="form__control">
+                    <input id="variant-sku" maxlength="100" formControlName="sku" />
+                  </div>
+                </div>
+                <div class="inline-form__actions">
+                  <button
+                    class="small-action small-action--primary"
+                    type="submit"
+                    [disabled]="saving()"
+                  >
+                    {{ editingVariant() ? 'Guardar' : 'Agregar' }}
+                  </button>
+                  @if (editingVariant()) {
+                    <button
+                      class="text-button"
+                      type="button"
+                      [disabled]="saving()"
+                      (click)="cancelVariantEdit()"
+                    >
+                      Cancelar
+                    </button>
+                  }
+                </div>
+              </form>
+              <div class="subtable-scroll">
+                <table class="subtable">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Talla</th>
+                      <th>Color</th>
+                      <th>Estado</th>
+                      <th class="actions-heading">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (variant of product.variantes; track variant.id_variante_producto) {
+                      <tr>
+                        <td data-label="SKU">
+                          <strong>{{ variant.sku }}</strong>
+                        </td>
+                        <td data-label="Talla">{{ variant.talla }}</td>
+                        <td data-label="Color">{{ variant.color }}</td>
+                        <td data-label="Estado">
+                          <span
+                            class="status-badge"
+                            [class.status-badge--inactive]="!variant.estado"
+                            ><span></span>{{ variant.estado ? 'Activa' : 'Inactiva' }}</span
+                          >
+                        </td>
+                        <td data-label="Acciones">
+                          <div class="row-actions">
+                            <button
+                              type="button"
+                              title="Editar variante"
+                              (click)="startVariantEdit(variant)"
+                            >
+                              <app-icon name="pencil" [size]="16" /></button
+                            ><button
+                              type="button"
+                              [title]="variant.estado ? 'Desactivar variante' : 'Activar variante'"
+                              (click)="
+                                openRelatedStatus(
+                                  'variant',
+                                  variant.id_variante_producto,
+                                  variant.sku,
+                                  variant.estado
+                                )
+                              "
+                            >
+                              <app-icon
+                                [name]="variant.estado ? 'ban' : 'circle-check'"
+                                [size]="16"
+                              />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td class="subtable-empty" colspan="5">
+                          Aún no hay variantes registradas.
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="detail-section detail-section--half">
+              <div class="detail-section__heading">
+                <div>
+                  <p>COLECCIONES</p>
+                  <h4>Colecciones asociadas</h4>
+                </div>
+              </div>
+              <form
+                class="compact-form"
+                [formGroup]="collectionForm"
+                (ngSubmit)="submitCollection()"
+              >
+                <div class="form__control">
+                  <select aria-label="Colección" formControlName="id_coleccion">
+                    <option [ngValue]="0">Selecciona una colección</option>
+                    @for (collection of availableCollections(); track collection.id_coleccion) {
+                      <option [ngValue]="collection.id_coleccion">{{ collection.nombre }}</option>
+                    }
+                  </select>
+                </div>
+                <button
+                  class="small-action small-action--primary"
+                  type="submit"
+                  [disabled]="saving() || !availableCollections().length"
+                >
+                  Asociar
+                </button>
+              </form>
+              <div class="chip-list">
+                @for (collection of product.colecciones; track collection.id_producto_coleccion) {
+                  <span [class.is-inactive]="!collection.estado_coleccion"
+                    >{{ collection.coleccion
+                    }}{{ collection.estado_coleccion ? '' : ' · Inactiva' }}</span
+                  >
+                } @empty {
+                  <p class="section-empty">Sin colecciones asociadas.</p>
+                }
+              </div>
+            </section>
+
+            <section class="detail-section detail-section--half">
+              <div class="detail-section__heading">
+                <div>
+                  <p>PROVEEDORES</p>
+                  <h4>Origen y costo</h4>
+                </div>
+                <button
+                  class="small-action"
+                  type="button"
+                  [disabled]="saving()"
+                  (click)="startSupplierEdit()"
+                >
+                  <app-icon name="plus" [size]="16" />Asociar
+                </button>
+              </div>
+              <form
+                class="inline-form inline-form--supplier"
+                [formGroup]="supplierForm"
+                (ngSubmit)="submitSupplier()"
+              >
+                <div class="form__field">
+                  <label for="product-supplier">Proveedor *</label>
+                  <div class="form__control">
+                    <select
+                      id="product-supplier"
+                      formControlName="id_proveedor"
+                      [attr.disabled]="editingSupplier() ? true : null"
+                    >
+                      <option [ngValue]="0">Selecciona</option>
+                      @if (editingSupplier(); as association) {
+                        <option [ngValue]="association.id_proveedor">
+                          {{ association.proveedor }}
+                        </option>
+                      } @else {
+                        @for (supplier of availableSuppliers(); track supplier.id_proveedor) {
+                          <option [ngValue]="supplier.id_proveedor">{{ supplier.nombre }}</option>
+                        }
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="form__field">
+                  <label for="supplier-cost">Costo de referencia</label>
+                  <div class="form__control">
+                    <input
+                      id="supplier-cost"
+                      type="text"
+                      inputmode="decimal"
+                      placeholder="0.00"
+                      formControlName="costo_referencia"
+                    />
+                  </div>
+                </div>
+                <div class="inline-form__actions">
+                  <button
+                    class="small-action small-action--primary"
+                    type="submit"
+                    [disabled]="saving()"
+                  >
+                    {{ editingSupplier() ? 'Guardar' : 'Asociar' }}
+                  </button>
+                  @if (editingSupplier()) {
+                    <button
+                      class="text-button"
+                      type="button"
+                      [disabled]="saving()"
+                      (click)="cancelSupplierEdit()"
+                    >
+                      Cancelar
+                    </button>
+                  }
+                </div>
+              </form>
+              <div class="relation-list">
+                @for (supplier of product.proveedores; track supplier.id_producto_proveedor) {
+                  <article>
+                    <div>
+                      <strong>{{ supplier.proveedor }}</strong
+                      ><small
+                        >{{ formatMoney(supplier.costo_referencia)
+                        }}{{ supplier.estado_proveedor ? '' : ' · Proveedor inactivo' }}</small
+                      >
+                    </div>
+                    <span class="status-badge" [class.status-badge--inactive]="!supplier.estado"
+                      ><span></span>{{ supplier.estado ? 'Activo' : 'Inactivo' }}</span
+                    >
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        title="Editar costo"
+                        (click)="startSupplierEdit(supplier)"
+                      >
+                        <app-icon name="pencil" [size]="16" /></button
+                      ><button
+                        type="button"
+                        [title]="supplier.estado ? 'Desactivar asociación' : 'Activar asociación'"
+                        (click)="
+                          openRelatedStatus(
+                            'supplier',
+                            supplier.id_producto_proveedor,
+                            supplier.proveedor,
+                            supplier.estado
+                          )
+                        "
+                      >
+                        <app-icon [name]="supplier.estado ? 'ban' : 'circle-check'" [size]="16" />
+                      </button>
+                    </div>
+                  </article>
+                } @empty {
+                  <p class="section-empty">Sin proveedores asociados.</p>
+                }
+              </div>
+            </section>
+
+            <section class="detail-section detail-section--images">
+              <div class="detail-section__heading">
+                <div>
+                  <p>IMÁGENES</p>
+                  <h4>Galería del producto</h4>
+                </div>
+                <button
+                  class="small-action"
+                  type="button"
+                  [disabled]="saving()"
+                  (click)="openImagePicker()"
+                >
+                  <app-icon name="plus" [size]="16" />Seleccionar imagen
+                </button>
+              </div>
+              <form
+                class="inline-form inline-form--image"
+                [formGroup]="imageForm"
+                (ngSubmit)="submitImage()"
+              >
+                <div class="form__field image-upload-field">
+                  <label for="product-image-file">Archivo de imagen *</label>
+                  <input
+                    #imageInput
+                    id="product-image-file"
+                    class="file-input"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    [disabled]="saving()"
+                    (change)="onImageSelected($event)"
+                  />
+                  <label class="file-picker" for="product-image-file">
+                    <app-icon name="plus" [size]="16" />
+                    <span>{{ selectedImageFile()?.name || 'Seleccionar desde el equipo' }}</span>
+                  </label>
+                  <small>JPG, JPEG, PNG o WEBP. Máximo 5 MB.</small>
+                </div>
+                @if (imagePreviewUrl(); as previewUrl) {
+                  <figure class="image-upload-preview">
+                    <img [src]="previewUrl" alt="Vista previa de la imagen seleccionada" />
+                    <figcaption>Vista previa</figcaption>
+                  </figure>
+                }
+                <label class="checkbox-field"
+                  ><input type="checkbox" formControlName="es_principal" /><span
+                    >Imagen principal</span
+                  ></label
+                >
+                <div class="inline-form__actions">
+                  <button
+                    class="small-action small-action--primary"
+                    type="submit"
+                    [disabled]="saving() || !selectedImageFile()"
+                  >
+                    {{ saving() ? 'Subiendo...' : 'Subir imagen' }}
+                  </button>
+                </div>
+              </form>
+              <div class="image-grid">
+                @for (image of product.imagenes; track image.id_imagen_producto) {
+                  <article class="image-card" [class.image-card--primary]="image.es_principal">
+                    <div class="image-card__preview">
+                      <img [src]="image.url_imagen" [alt]="'Imagen de ' + product.nombre" />
+                    </div>
+                    <div class="image-card__footer">
+                      <span>{{ image.es_principal ? 'Principal' : 'Secundaria' }}</span>
+                      <div class="row-actions">
+                        @if (!image.es_principal) {
+                          <button
+                            type="button"
+                            title="Seleccionar como principal"
+                            (click)="selectMainImage(image)"
+                          >
+                            <app-icon name="circle-check" [size]="16" />
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  </article>
+                } @empty {
+                  <p class="section-empty">Sin imágenes registradas.</p>
+                }
+              </div>
+            </section>
+          </div>
+        }
+      </section>
+    </div>
+  </app-product-detail-shell>
+}
+
+@if (statusProduct(); as product) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeStatusModal()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="product-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!product.estado">
+        <app-icon [name]="product.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="product-status-title">
+        {{ product.estado ? 'Desactivar producto' : 'Activar producto' }}
+      </h3>
+      <p>
+        {{
+          product.estado
+            ? 'El producto dejará de estar disponible, pero conservará sus variantes y relaciones.'
+            : 'El producto volverá a estar disponible.'
+        }}<strong>{{ product.nombre }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeStatusModal()"
+        >
+          Cancelar</button
+        ><button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmStatusChange()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (relatedStatus(); as pending) {
+  <div class="modal-layer related-status-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cancelar cambio"
+      (click)="closeRelatedStatus()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="related-status-title"
+    >
+      <div class="confirm-icon" [class.confirm-icon--activate]="!pending.estado">
+        <app-icon [name]="pending.estado ? 'ban' : 'circle-check'" [size]="24" />
+      </div>
+      <h3 id="related-status-title">
+        {{ pending.estado ? 'Desactivar' : 'Activar' }}
+        {{ pending.kind === 'variant' ? 'variante' : 'proveedor' }}
+      </h3>
+      <p>
+        La relación se conservará y podrá reactivarse posteriormente.<strong>{{
+          pending.label
+        }}</strong>
+      </p>
+      <div class="modal__actions">
+        <button
+          class="modal-button modal-button--secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="closeRelatedStatus()"
+        >
+          Cancelar</button
+        ><button
+          class="modal-button modal-button--primary"
+          type="button"
+          [disabled]="saving()"
+          (click)="confirmRelatedStatus()"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}
