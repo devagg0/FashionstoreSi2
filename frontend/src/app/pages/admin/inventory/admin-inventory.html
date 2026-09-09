@@ -1,0 +1,491 @@
+<main class="inventory-page" aria-labelledby="inventory-title">
+  <div class="page-heading">
+    <div>
+      <p>INVENTARIO</p>
+      <h2 id="inventory-title">Inventario por sucursal</h2>
+      <span>Consulta existencias y configura el stock mínimo de cada variante.</span>
+    </div>
+    <button
+      class="page-heading__action"
+      type="button"
+      (click)="openCreate()"
+      [disabled]="optionsLoading() || !!optionsError()"
+    >
+      <app-icon name="plus" [size]="18" />Registrar producto en sucursal
+    </button>
+  </div>
+  <p class="form-intro">
+    Para aumentar, disminuir, transferir o ajustar existencias, utilice Movimientos de inventario.
+    <a routerLink="/admin/movimientos-inventario">Ir a movimientos</a>
+  </p>
+  @if (errorMessage()) {
+    <p class="notice notice--error" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (successMessage()) {
+    <p class="notice notice--success" role="status">{{ successMessage() }}</p>
+  }
+  @if (optionsLoading()) {
+    <p role="status">Cargando catálogos…</p>
+  }
+  @if (optionsError()) {
+    <div class="notice notice--error" role="alert">
+      {{ optionsError() }}
+      <button type="button" (click)="loadOptions()">Reintentar catálogos</button>
+    </div>
+  }
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <label
+      >Sucursal<select formControlName="id_sucursal">
+        <option [ngValue]="null">Todas</option>
+        @for (branch of branches(); track branch.id_sucursal) {
+          <option [ngValue]="branch.id_sucursal">
+            {{ branch.nombre }} · {{ cityName(branch.id_ciudad)
+            }}{{ branch.estado ? '' : ' (Inactiva)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Buscar producto o SKU<input
+        type="search"
+        formControlName="search"
+        maxlength="200"
+        placeholder="Nombre del producto o SKU"
+    /></label>
+    <label
+      >Ciudad<select formControlName="id_ciudad">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of cities(); track item.id_ciudad) {
+          <option [ngValue]="item.id_ciudad">{{ item.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Categoría<select formControlName="id_categoria">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of categories(); track item.id_categoria) {
+          <option [ngValue]="item.id_categoria">{{ item.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Talla<select formControlName="id_talla">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of sizes(); track item.id_talla) {
+          <option [ngValue]="item.id_talla">{{ item.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Color<select formControlName="id_color">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of colors(); track item.id_color) {
+          <option [ngValue]="item.id_color">{{ item.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Producto<select formControlName="id_producto">
+        <option [ngValue]="null">Todos</option>
+        @for (product of products(); track product.id_producto) {
+          <option [ngValue]="product.id_producto">
+            {{ product.nombre }}{{ product.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Variante · SKU · Talla · Color<select formControlName="id_variante_producto">
+        <option [ngValue]="null">Todas</option>
+        @for (
+          variant of variantOptions(filters.controls.id_producto.value);
+          track variant.id_variante_producto
+        ) {
+          <option [ngValue]="variant.id_variante_producto">
+            {{ variant.sku }} · Talla {{ variant.talla }} · {{ variant.color
+            }}{{ variant.estado ? '' : ' (Inactiva)' }}
+          </option>
+        }
+      </select>
+      @if (filters.controls.id_producto.value; as id) {
+        @if (variantLoading()[id]) {
+          <small>Cargando variantes…</small>
+        }
+        @if (!variantLoading()[id] && !variants()[id]) {
+          <button type="button" (click)="loadVariants(id)">Reintentar variantes</button>
+        }
+      }
+    </label>
+    <button class="filter-button" type="submit" [disabled]="loading()">Aplicar</button
+    ><button class="clear-button" type="button" (click)="clearFilters()" [disabled]="loading()">
+      Limpiar
+    </button>
+  </form>
+  <dl class="stock-guide">
+    <div>
+      <dt>Stock actual</dt>
+      <dd>Cantidad física registrada.</dd>
+    </div>
+    <div>
+      <dt>Stock reservado</dt>
+      <dd>Cantidad comprometida por futuras reservas.</dd>
+    </div>
+    <div>
+      <dt>Stock disponible</dt>
+      <dd>Actual menos reservado, con mínimo de cero.</dd>
+    </div>
+    <div>
+      <dt>Stock mínimo</dt>
+      <dd>Valor configurado por administración.</dd>
+    </div>
+  </dl>
+  <section class="table-card" aria-label="Listado de inventario" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <strong>{{ pagination().total }} registros encontrados</strong>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>SKU</th>
+            <th>Talla</th>
+            <th>Color</th>
+            <th>Sucursal</th>
+            <th>Ciudad</th>
+            <th>Stock actual</th>
+            <th>Stock reservado</th>
+            <th>Stock disponible</th>
+            <th>Stock mínimo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="11" class="empty-state" role="status">Cargando inventario…</td>
+            </tr>
+          } @else if (errorMessage()) {
+            <tr>
+              <td colspan="11" class="empty-state">
+                <button type="button" (click)="loadInventory(pagination().page)">
+                  Reintentar listado
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (item of inventory(); track item.id_inventario_sucursal) {
+              <tr>
+                <td>{{ item.producto }}</td>
+                <td>{{ item.sku }}</td>
+                <td>{{ item.talla }}</td>
+                <td>{{ item.color }}</td>
+                <td>{{ item.sucursal }}</td>
+                <td>{{ item.ciudad }}</td>
+                <td>{{ item.stock_actual }}</td>
+                <td>{{ item.stock_reservado }}</td>
+                <td>
+                  <strong>{{ item.stock_disponible }}</strong>
+                </td>
+                <td>{{ item.stock_minimo }}</td>
+                <td>
+                  <div class="row-actions">
+                    <button type="button" (click)="openDetail(item.id_inventario_sucursal)">
+                      Ver detalle</button
+                    ><button type="button" (click)="openDetail(item.id_inventario_sucursal, true)">
+                      Editar mínimo
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="11" class="empty-state">
+                  No se encontraron registros de inventario con estos filtros.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <footer class="pagination">
+      <span
+        >Página {{ pagination().page }} de {{ pagination().total_pages || 1 }} ·
+        {{ pagination().page_size }} por página</span
+      >
+      <div>
+        <button
+          type="button"
+          [disabled]="loading() || pagination().page <= 1"
+          (click)="loadInventory(pagination().page - 1)"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          [disabled]="loading() || pagination().page >= pagination().total_pages"
+          (click)="loadInventory(pagination().page + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </footer>
+  </section>
+</main>
+@if (mode()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar diálogo"
+      (click)="closeModal()"
+      [disabled]="saving()"
+    ></button>
+    <section
+      class="modal inventory-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="inventory-modal-title"
+    >
+      <header class="modal__header">
+        <div>
+          <p>INVENTARIO</p>
+          <h3 id="inventory-modal-title">
+            {{
+              mode() === 'create'
+                ? 'Registrar producto en sucursal'
+                : mode() === 'edit'
+                  ? 'Editar mínimo'
+                  : 'Detalle de inventario'
+            }}
+          </h3>
+        </div>
+        <button
+          type="button"
+          (click)="closeModal()"
+          [disabled]="saving()"
+          aria-label="Cerrar diálogo"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </header>
+      @if (modalError()) {
+        <p class="notice notice--error" role="alert">{{ modalError() }}</p>
+      }
+      @if (mode() === 'create') {
+        <p class="form-intro">
+          El producto se registrará con existencias en cero. Las entradas de mercadería se registran
+          desde Movimientos de inventario.
+        </p>
+        <form [formGroup]="form" (ngSubmit)="submitCreate()">
+          <fieldset class="form-grid" [disabled]="saving()">
+            <label
+              >Sucursal<select formControlName="id_sucursal">
+                <option [ngValue]="null">Selecciona una sucursal</option>
+                @for (branch of branches(); track branch.id_sucursal) {
+                  @if (branch.estado) {
+                    <option [ngValue]="branch.id_sucursal">
+                      {{ branch.nombre }} · {{ cityName(branch.id_ciudad) }}
+                    </option>
+                  }
+                }
+              </select></label
+            >
+            <label
+              >Categoría<select formControlName="id_categoria">
+                <option [ngValue]="null">Selecciona una categoría</option>
+                @for (category of categories(); track category.id_categoria) {
+                  @if (category.estado) {
+                    <option [ngValue]="category.id_categoria">{{ category.nombre }}</option>
+                  }
+                }
+              </select></label
+            >
+            <label
+              >Producto<select formControlName="id_producto">
+                <option [ngValue]="null">
+                  {{
+                    form.controls.id_categoria.value
+                      ? 'Selecciona un producto'
+                      : 'Selecciona primero una categoría'
+                  }}
+                </option>
+                @for (product of createProductOptions(); track product.id_producto) {
+                  <option [ngValue]="product.id_producto">{{ product.nombre }}</option>
+                }
+              </select>
+              @if (form.controls.id_categoria.value && !createProductOptions().length) {
+                <small>No hay productos activos en esta categoría.</small>
+              }
+            </label>
+            <label class="wide"
+              >Variante<select formControlName="id_variante_producto">
+                <option [ngValue]="null">
+                  {{
+                    form.controls.id_producto.value
+                      ? 'Selecciona una variante'
+                      : 'Selecciona primero un producto'
+                  }}
+                </option>
+                @for (
+                  variant of variantOptions(form.controls.id_producto.value, true);
+                  track variant.id_variante_producto
+                ) {
+                  <option [ngValue]="variant.id_variante_producto">
+                    {{ variant.sku }} · Talla {{ variant.talla }} · {{ variant.color }}
+                  </option>
+                }
+              </select>
+              @if (form.controls.id_producto.value; as id) {
+                @if (variantLoading()[id]) {
+                  <small>Cargando variantes…</small>
+                } @else if (!variants()[id]) {
+                  <button type="button" (click)="loadVariants(id)">Reintentar variantes</button>
+                } @else if (!variantOptions(id, true).length) {
+                  <small>No hay variantes activas para este producto.</small>
+                }
+              } @else {
+                <small>Selecciona primero un producto.</small>
+              }
+            </label>
+            <label
+              >Stock mínimo<input type="number" formControlName="stock_minimo" min="0" step="1" />
+              @if (form.controls.stock_minimo.touched && form.controls.stock_minimo.invalid) {
+                <small class="form__error">Introduce un entero mayor o igual a cero.</small>
+              }
+            </label>
+          </fieldset>
+          <footer class="modal__actions">
+            <button class="clear-button" type="button" (click)="closeModal()" [disabled]="saving()">
+              Cancelar</button
+            ><button class="filter-button" type="submit" [disabled]="saving()">
+              {{ saving() ? 'Registrando…' : 'Registrar' }}
+            </button>
+          </footer>
+        </form>
+      } @else {
+        @if (detailLoading()) {
+          <p role="status">Cargando detalle…</p>
+        }
+        @if (detail(); as item) {
+          <dl class="detail-summary">
+            <div>
+              <dt>Sucursal</dt>
+              <dd>{{ item.sucursal }}</dd>
+            </div>
+            <div>
+              <dt>Ciudad</dt>
+              <dd>{{ item.ciudad }}</dd>
+            </div>
+            <div>
+              <dt>Producto</dt>
+              <dd>{{ item.producto }}</dd>
+            </div>
+            <div>
+              <dt>SKU</dt>
+              <dd>{{ item.sku }}</dd>
+            </div>
+            <div>
+              <dt>Talla</dt>
+              <dd>{{ item.talla }}</dd>
+            </div>
+            <div>
+              <dt>Color</dt>
+              <dd>{{ item.color }}</dd>
+            </div>
+            <div>
+              <dt>Estado de sucursal</dt>
+              <dd>
+                <span
+                  class="badge"
+                  [class.badge--active]="item.sucursal_estado"
+                  [class.badge--inactive]="!item.sucursal_estado"
+                  >{{ item.sucursal_estado ? 'Activo' : 'Inactivo' }}</span
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>Estado de producto</dt>
+              <dd>
+                <span
+                  class="badge"
+                  [class.badge--active]="item.producto_estado"
+                  [class.badge--inactive]="!item.producto_estado"
+                  >{{ item.producto_estado ? 'Activo' : 'Inactivo' }}</span
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>Estado de variante</dt>
+              <dd>
+                <span
+                  class="badge"
+                  [class.badge--active]="item.variante_estado"
+                  [class.badge--inactive]="!item.variante_estado"
+                  >{{ item.variante_estado ? 'Activo' : 'Inactivo' }}</span
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>Stock actual</dt>
+              <dd>{{ item.stock_actual }}</dd>
+            </div>
+            <div>
+              <dt>Stock reservado</dt>
+              <dd>{{ item.stock_reservado }}</dd>
+            </div>
+            <div>
+              <dt>Stock disponible</dt>
+              <dd>{{ item.stock_disponible }}</dd>
+            </div>
+            <div>
+              <dt>Stock mínimo</dt>
+              <dd>{{ item.stock_minimo }}</dd>
+            </div>
+            <div>
+              <dt>Fecha de registro</dt>
+              <dd>{{ formatDate(item.created_at) }}</dd>
+            </div>
+            <div>
+              <dt>Última actualización</dt>
+              <dd>{{ formatDate(item.updated_at) }}</dd>
+            </div>
+          </dl>
+          @if (mode() === 'edit') {
+            <form [formGroup]="minimumForm" (ngSubmit)="submitMinimum()">
+              <fieldset class="form-grid" [disabled]="saving()">
+                <label
+                  >Stock mínimo<input
+                    type="number"
+                    formControlName="stock_minimo"
+                    min="0"
+                    step="1"
+                  />
+                  @if (
+                    minimumForm.controls.stock_minimo.touched &&
+                    minimumForm.controls.stock_minimo.invalid
+                  ) {
+                    <small class="form__error">Introduce un entero mayor o igual a cero.</small>
+                  }
+                </label>
+              </fieldset>
+              <footer class="modal__actions">
+                <button
+                  class="clear-button"
+                  type="button"
+                  (click)="closeModal()"
+                  [disabled]="saving()"
+                >
+                  Cancelar</button
+                ><button class="filter-button" type="submit" [disabled]="saving()">
+                  {{ saving() ? 'Guardando…' : 'Guardar mínimo' }}
+                </button>
+              </footer>
+            </form>
+          }
+        }
+      }
+    </section>
+  </div>
+}

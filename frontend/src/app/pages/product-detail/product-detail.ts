@@ -10,10 +10,11 @@ import {
   CatalogVariant,
 } from '../../core/services/catalog.service';
 import { Icon } from '../../shared/components/icon/icon';
+import { CatalogAvailability } from './catalog-availability/catalog-availability';
 
 @Component({
   selector: 'app-product-detail',
-  imports: [Icon, RouterLink],
+  imports: [Icon, RouterLink, CatalogAvailability],
   templateUrl: './product-detail.html',
   styleUrl: './product-detail.scss',
 })

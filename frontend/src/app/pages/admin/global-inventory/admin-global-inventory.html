@@ -1,0 +1,339 @@
+<main class="global-page" aria-labelledby="global-title">
+  <header class="page-heading">
+    <p>INVENTARIO</p>
+    <h2 id="global-title">Inventario global</h2>
+    <span>Consulta las existencias consolidadas de productos entre todas las sucursales.</span>
+  </header>
+  <p class="form-intro">
+    Para consultar o configurar una variante por sucursal, utilice
+    <a routerLink="/admin/inventario">Inventario por sucursal</a>. Las existencias cambian mediante
+    <a routerLink="/admin/movimientos-inventario">Movimientos de inventario</a>.
+  </p>
+  @if (optionsLoading()) {
+    <p role="status">Cargando catálogos…</p>
+  }
+  @if (optionsError()) {
+    <div class="notice" role="alert">
+      {{ optionsError() }}
+      <button type="button" (click)="loadOptions()">Reintentar catálogos</button>
+    </div>
+  }
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <label
+      >Buscar producto o SKU
+      <input
+        type="search"
+        formControlName="search"
+        maxlength="200"
+        placeholder="Nombre del producto o SKU"
+      />
+    </label>
+    <label
+      >Categoría<select formControlName="id_categoria">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of categories(); track item.id_categoria) {
+          <option [ngValue]="item.id_categoria">
+            {{ item.nombre }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Producto<select formControlName="id_producto">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of products(); track item.id_producto) {
+          <option [ngValue]="item.id_producto">
+            {{ item.nombre }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Talla<select formControlName="id_talla">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of sizes(); track item.id_talla) {
+          <option [ngValue]="item.id_talla">
+            {{ item.nombre }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Color<select formControlName="id_color">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of colors(); track item.id_color) {
+          <option [ngValue]="item.id_color">
+            {{ item.nombre }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Ciudad<select formControlName="id_ciudad">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of cities(); track item.id_ciudad) {
+          <option [ngValue]="item.id_ciudad">
+            {{ item.nombre }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <label
+      >Sucursal<select formControlName="id_sucursal">
+        <option [ngValue]="null">Todas las opciones</option>
+        @for (item of branches(); track item.id_sucursal) {
+          <option [ngValue]="item.id_sucursal">
+            {{ item.nombre }} · {{ cityName(item.id_ciudad) }}{{ item.estado ? '' : ' (Inactivo)' }}
+          </option>
+        }
+      </select></label
+    >
+    <div class="filter-actions">
+      <button class="filter-button" type="submit" [disabled]="loading()">Aplicar</button>
+      <button type="button" (click)="clearFilters()" [disabled]="loading()">Limpiar</button>
+    </div>
+  </form>
+  <p class="form-intro">
+    Los totales del listado corresponden a las ciudades y sucursales seleccionadas.
+  </p>
+  @if (errorMessage()) {
+    <p class="notice" role="alert">{{ errorMessage() }}</p>
+  }
+  <section class="table-card" aria-label="Resumen global por variante" [attr.aria-busy]="loading()">
+    <div class="table-card__meta" role="status">
+      @if (!loading() && !errorMessage()) {
+        <strong>{{ pagination().total }} variantes encontradas</strong>
+      }
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Tabla de inventario global">
+      <table class="global-table">
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col">SKU</th>
+            <th scope="col">Talla</th>
+            <th scope="col">Color</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Stock actual</th>
+            <th scope="col">Reservado</th>
+            <th scope="col">Disponible</th>
+            <th scope="col">Sucursales</th>
+            <th scope="col">Con stock</th>
+            <th scope="col">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="11" class="empty-state" role="status">Cargando inventario global…</td>
+            </tr>
+          } @else if (errorMessage()) {
+            <tr>
+              <td colspan="11" class="empty-state">
+                <button type="button" (click)="loadInventory(pagination().page)">
+                  Reintentar listado
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (item of inventory(); track item.variante.id_variante_producto) {
+              <tr>
+                <td>
+                  {{ item.producto.nombre
+                  }}<span class="badge" [class.badge--active]="item.producto.estado">{{
+                    item.producto.estado ? 'Activo' : 'Inactivo'
+                  }}</span>
+                </td>
+                <td>
+                  {{ item.variante.sku
+                  }}<span class="badge" [class.badge--active]="item.variante.estado">{{
+                    item.variante.estado ? 'Activo' : 'Inactivo'
+                  }}</span>
+                </td>
+                <td>{{ item.talla.nombre }}</td>
+                <td>{{ item.color.nombre }}</td>
+                <td>{{ item.categoria.nombre }}</td>
+                <td>{{ item.total_stock_actual }}</td>
+                <td>{{ item.total_stock_reservado }}</td>
+                <td>
+                  <strong>{{ item.total_stock_disponible }}</strong>
+                </td>
+                <td>{{ item.cantidad_sucursales }}</td>
+                <td>{{ item.cantidad_sucursales_con_stock }}</td>
+                <td>
+                  <button
+                    type="button"
+                    (click)="openDetail(item.variante.id_variante_producto, $event)"
+                    aria-controls="global-detail"
+                    [attr.aria-expanded]="detailId() === item.variante.id_variante_producto"
+                  >
+                    Ver detalle
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="11" class="empty-state">No se encontraron registros de inventario.</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <footer class="pagination">
+      <span
+        >Página {{ pagination().page }} de {{ pagination().total_pages || 1 }} ·
+        {{ pagination().page_size }} por página</span
+      >
+      <div>
+        <button
+          type="button"
+          [disabled]="loading() || pagination().page <= 1"
+          (click)="loadInventory(pagination().page - 1)"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          [disabled]="loading() || pagination().page >= pagination().total_pages"
+          (click)="loadInventory(pagination().page + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </footer>
+  </section>
+  @if (detailId(); as id) {
+    <section
+      #detailPanel
+      id="global-detail"
+      class="detail-panel"
+      tabindex="-1"
+      aria-labelledby="detail-title"
+      [attr.aria-busy]="detailLoading()"
+      (keydown.escape)="closeDetail()"
+    >
+      <header class="detail-heading">
+        <h3 id="detail-title">Detalle de inventario global</h3>
+        <button type="button" (click)="closeDetail()">Cerrar detalle</button>
+      </header>
+      <p class="form-intro">
+        Este detalle incluye todas las sucursales de la variante, independientemente de los filtros
+        del listado.
+      </p>
+      @if (detailLoading()) {
+        <p role="status">Cargando detalle…</p>
+      }
+      @if (detailError()) {
+        <div class="notice" role="alert">
+          {{ detailError() }}
+          <button type="button" (click)="openDetail(id)">Reintentar detalle</button>
+        </div>
+      }
+      @if (detail(); as item) {
+        <dl class="detail-summary">
+          <div>
+            <dt>Producto</dt>
+            <dd>{{ item.producto.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Categoría</dt>
+            <dd>{{ item.categoria.nombre }}</dd>
+          </div>
+          <div>
+            <dt>SKU</dt>
+            <dd>{{ item.variante.sku }}</dd>
+          </div>
+          <div>
+            <dt>Talla</dt>
+            <dd>{{ item.talla.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Color</dt>
+            <dd>{{ item.color.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Estado producto</dt>
+            <dd>
+              <span class="badge" [class.badge--active]="item.producto.estado">{{
+                item.producto.estado ? 'Activo' : 'Inactivo'
+              }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Estado variante</dt>
+            <dd>
+              <span class="badge" [class.badge--active]="item.variante.estado">{{
+                item.variante.estado ? 'Activo' : 'Inactivo'
+              }}</span>
+            </dd>
+          </div>
+        </dl>
+        <dl class="stock-summary">
+          <div>
+            <dt>Stock global actual</dt>
+            <dd>{{ item.total_stock_actual }}</dd>
+          </div>
+          <div>
+            <dt>Stock global reservado</dt>
+            <dd>{{ item.total_stock_reservado }}</dd>
+          </div>
+          <div>
+            <dt>Stock global disponible</dt>
+            <dd>{{ item.total_stock_disponible }}</dd>
+          </div>
+          <div>
+            <dt>Cantidad de sucursales</dt>
+            <dd>{{ item.cantidad_sucursales }}</dd>
+          </div>
+          <div>
+            <dt>Sucursales con stock</dt>
+            <dd>{{ item.cantidad_sucursales_con_stock }}</dd>
+          </div>
+        </dl>
+        <h4>Desglose por sucursal</h4>
+        @if (item.sucursales.length) {
+          <div
+            class="table-scroll"
+            tabindex="0"
+            role="region"
+            aria-label="Inventario de cada sucursal"
+          >
+            <table class="branch-table">
+              <thead>
+                <tr>
+                  <th scope="col">Sucursal</th>
+                  <th scope="col">Ciudad</th>
+                  <th scope="col">Stock actual</th>
+                  <th scope="col">Reservado</th>
+                  <th scope="col">Disponible</th>
+                  <th scope="col">Stock mínimo</th>
+                  <th scope="col">Estado sucursal</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (branch of item.sucursales; track branch.id_inventario_sucursal) {
+                  <tr>
+                    <td>{{ branch.nombre_sucursal }}</td>
+                    <td>{{ branch.nombre_ciudad }}</td>
+                    <td>{{ branch.stock_actual }}</td>
+                    <td>{{ branch.stock_reservado }}</td>
+                    <td>{{ branch.stock_disponible }}</td>
+                    <td>{{ branch.stock_minimo }}</td>
+                    <td>
+                      <span class="badge" [class.badge--active]="branch.estado_sucursal">{{
+                        branch.estado_sucursal ? 'Activo' : 'Inactivo'
+                      }}</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p role="status">No hay inventario registrado para esta variante.</p>
+        }
+      }
+    </section>
+  }
+</main>

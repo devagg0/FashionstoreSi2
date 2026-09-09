@@ -1,0 +1,229 @@
+:host {
+  display: block;
+}
+.global-page {
+  max-width: 1400px;
+  min-width: 0;
+  margin: auto;
+}
+.page-heading {
+  margin-bottom: 24px;
+}
+.page-heading p {
+  color: #c87d55;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+h2 {
+  margin: 0 0 8px;
+  font: 650 clamp(1.75rem, 3vw, 2.35rem)/1.1 var(--font-display);
+}
+.page-heading span,
+.form-intro {
+  color: rgb(43 38 37 / 60%);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+a {
+  color: #74452f;
+  font-weight: 700;
+}
+button {
+  padding: 9px 12px;
+  min-height: 40px;
+  border: 1px solid rgb(43 38 37 / 16%);
+  border-radius: 8px;
+  background: white;
+  color: #2b2625;
+  font: 700 0.75rem var(--font-body);
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+.filter-button {
+  background: #2b2625;
+  color: white;
+  border-color: #2b2625;
+}
+.filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 13px;
+  padding: 18px;
+  margin: 18px 0;
+  border: 1px solid rgb(43 38 37 / 10%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 72%);
+}
+label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: rgb(43 38 37 / 65%);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+input,
+select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 45px;
+  padding: 10px 12px;
+  border: 1px solid rgb(43 38 37 / 16%);
+  border-radius: 8px;
+  background: white;
+  color: #2b2625;
+  font: 0.8rem var(--font-body);
+}
+:focus-visible {
+  outline: 2px solid #c87d55;
+  outline-offset: 2px;
+}
+.filter-actions {
+  display: flex;
+  gap: 8px;
+}
+.notice {
+  margin: 16px 0;
+  padding: 13px 15px;
+  border: 1px solid rgb(200 125 85 / 30%);
+  border-radius: 10px;
+  background: rgb(200 125 85 / 9%);
+  color: #74452f;
+  font-size: 0.8rem;
+}
+.table-card,
+.detail-panel {
+  border: 1px solid rgb(43 38 37 / 10%);
+  border-radius: 14px;
+  background: white;
+  overflow: hidden;
+}
+.table-card__meta {
+  padding: 18px 22px;
+  font-size: 0.8rem;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.global-table {
+  min-width: 1100px;
+}
+.branch-table {
+  min-width: 720px;
+}
+th {
+  padding: 13px 16px;
+  background: rgb(244 235 225 / 58%);
+  color: rgb(43 38 37 / 65%);
+  font-size: 0.65rem;
+  text-align: left;
+  text-transform: uppercase;
+}
+td {
+  padding: 16px;
+  border-top: 1px solid rgb(43 38 37 / 8%);
+  color: #2b2625;
+  font-size: 0.77rem;
+  overflow-wrap: anywhere;
+}
+.badge {
+  display: block;
+  width: fit-content;
+  margin-top: 5px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgb(43 38 37 / 8%);
+  color: rgb(43 38 37 / 65%);
+}
+.badge--active {
+  background: rgb(99 135 103 / 13%);
+  color: #466749;
+}
+.empty-state {
+  padding: 54px 20px;
+  text-align: center;
+}
+.pagination,
+.detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.pagination {
+  padding: 16px 20px;
+  border-top: 1px solid rgb(43 38 37 / 9%);
+  font-size: 0.72rem;
+}
+.pagination div {
+  display: flex;
+  gap: 8px;
+}
+.detail-panel {
+  margin-top: 24px;
+  padding: 22px;
+}
+h3 {
+  margin: 0;
+  font: 650 1.35rem var(--font-display);
+}
+h4 {
+  font-size: 0.85rem;
+}
+.detail-summary,
+.stock-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  font-size: 0.8rem;
+}
+dt {
+  margin-bottom: 5px;
+  color: rgb(43 38 37 / 65%);
+}
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.stock-summary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: rgb(244 235 225 / 58%);
+  padding: 18px;
+  border-radius: 10px;
+}
+.stock-summary dd {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+@media (max-width: 920px) {
+  .filters,
+  .detail-summary,
+  .stock-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .filters,
+  .detail-summary {
+    grid-template-columns: 1fr;
+  }
+  .pagination,
+  .detail-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .detail-panel {
+    padding: 16px;
+  }
+}

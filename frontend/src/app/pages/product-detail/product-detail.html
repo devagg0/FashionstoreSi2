@@ -127,41 +127,12 @@
             </div>
           </div>
 
-          <div class="availability-panel">
-            @if (!branchId()) {
-              <app-icon name="map-pin" [size]="20" />
-              <div>
-                <strong>Consulta disponibilidad</strong
-                ><span>Selecciona una sucursal desde el catálogo para conocer el stock.</span>
-              </div>
-            } @else if (selectedVariant(); as variant) {
-              <app-icon
-                [name]="
-                  variant.disponibilidad_sucursal?.cantidad_disponible ? 'circle-check' : 'ban'
-                "
-                [size]="20"
-              />
-              <div>
-                <strong [class]="availabilityClass(variant)">{{
-                  availabilityLabel(variant)
-                }}</strong>
-                <span>
-                  @if (variant.disponibilidad_sucursal?.cantidad_disponible; as quantity) {
-                    {{ quantity }} unidades disponibles
-                  } @else {
-                    Variante {{ variant.sku }}
-                  }
-                </span>
-              </div>
-            } @else {
-              <app-icon name="store" [size]="20" />
-              <div>
-                <strong>Selecciona color y talla</strong
-                ><span>Te mostraremos la disponibilidad exacta de la variante.</span>
-              </div>
-            }
-          </div>
-
+          <app-catalog-availability
+            [productId]="current.id_producto"
+            [variantId]="selectedVariant()?.id_variante_producto ?? null"
+            [branchId]="branchId()"
+            [cityId]="cityId()"
+          />
           <button class="future-purchase" type="button" disabled>
             Compra disponible próximamente
           </button>

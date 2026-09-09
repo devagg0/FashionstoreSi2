@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.admin_branches import router as admin_branches_router
+from app.routers.admin_inventory import router as admin_inventory_router
+from app.routers.admin_global_inventory import router as admin_global_inventory_router
+from app.routers.admin_inventory_movements import router as admin_inventory_movements_router
 from app.routers.admin_employee_branches import router as admin_employee_branches_router
 from app.routers.admin_categories import router as admin_categories_router
 from app.routers.admin_sizes import router as admin_sizes_router
@@ -14,6 +17,7 @@ from app.routers.admin_suppliers import router as admin_suppliers_router
 from app.routers.admin_products import router as admin_products_router
 from app.routers.admin_promotions import router as admin_promotions_router
 from app.routers.catalog import router as catalog_router
+from app.routers.catalog_availability import router as catalog_availability_router
 from app.routers.auth import router as auth_router
 
 
@@ -43,6 +47,7 @@ app.include_router(admin_suppliers_router)
 app.include_router(admin_products_router)
 app.include_router(admin_promotions_router)
 app.include_router(catalog_router)
+app.include_router(catalog_availability_router)
 app.include_router(admin_seasons_router)
 app.include_router(admin_collections_router)
 app.include_router(auth_router)
@@ -52,6 +57,9 @@ app.include_router(admin_categories_router)
 app.include_router(admin_sizes_router)
 app.include_router(admin_colors_router)
 app.include_router(admin_branches_router)
+app.include_router(admin_inventory_router)
+app.include_router(admin_global_inventory_router)
+app.include_router(admin_inventory_movements_router)
 app.include_router(admin_employee_branches_router)
 
 

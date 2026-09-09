@@ -1,0 +1,553 @@
+<main class="movements-page" aria-labelledby="movements-title">
+  <div class="page-heading">
+    <div>
+      <p>INVENTARIO</p>
+      <h2 id="movements-title">Movimientos de inventario</h2>
+      <span>Registra y consulta entradas, salidas, transferencias y ajustes.</span>
+    </div>
+    <button
+      class="page-heading__action"
+      type="button"
+      (click)="openCreate()"
+      [disabled]="optionsLoading() || !!optionsError()"
+    >
+      <app-icon name="plus" [size]="18" />Registrar movimiento
+    </button>
+  </div>
+  @if (errorMessage()) {
+    <p class="notice notice--error" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (successMessage()) {
+    <p class="notice notice--success" role="status">{{ successMessage() }}</p>
+  }
+  @if (optionsLoading()) {
+    <p role="status">Cargando sucursales y productos…</p>
+  }
+  @if (optionsError()) {
+    <div class="notice notice--error" role="alert">
+      {{ optionsError() }}
+      <button type="button" (click)="loadOptions()">Reintentar catálogos</button>
+    </div>
+  }
+  <form class="filters" [formGroup]="filters" (ngSubmit)="applyFilters()">
+    <label
+      >Buscar<input
+        type="search"
+        formControlName="search"
+        maxlength="200"
+        placeholder="Buscar movimientos"
+    /></label>
+    <label
+      >Tipo<select formControlName="tipo_movimiento">
+        <option value="">Todos</option>
+        @for (type of types; track type) {
+          <option [value]="type">{{ label(type) }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Estado<select formControlName="estado">
+        <option value="">Todos</option>
+        @for (state of states; track state) {
+          <option [value]="state">{{ state }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Sucursal<select formControlName="id_sucursal">
+        <option [ngValue]="null">Todas</option>
+        @for (branch of branches(); track branch.id_sucursal) {
+          <option [ngValue]="branch.id_sucursal">{{ branch.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Producto<select [formControl]="filterProduct">
+        <option [ngValue]="null">Todos</option>
+        @for (product of products(); track product.id_producto) {
+          <option [ngValue]="product.id_producto">{{ product.nombre }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Variante · SKU · Talla · Color<select formControlName="id_variante_producto">
+        <option [ngValue]="null">Todas las variantes</option>
+        @for (variant of variantOptions(filterProduct.value); track variant.id_variante_producto) {
+          <option [ngValue]="variant.id_variante_producto">
+            {{ variant.sku }} · {{ variant.talla }} · {{ variant.color }}
+          </option>
+        }
+      </select>
+      @if (filterProduct.value && variantLoading()[filterProduct.value!]) {
+        <small>Cargando variantes…</small>
+      }
+      @if (
+        filterProduct.value &&
+        !variantLoading()[filterProduct.value!] &&
+        !variants()[filterProduct.value!]
+      ) {
+        <button type="button" (click)="loadVariants(filterProduct.value!)">
+          Reintentar variantes
+        </button>
+      }
+    </label>
+    <label>Fecha desde<input type="datetime-local" formControlName="fecha_desde" /></label>
+    <label>Fecha hasta<input type="datetime-local" formControlName="fecha_hasta" /></label>
+    <button class="filter-button" type="submit" [disabled]="loading()">Aplicar</button
+    ><button class="clear-button" type="button" (click)="clearFilters()" [disabled]="loading()">
+      Limpiar
+    </button>
+  </form>
+  <section class="table-card" aria-label="Listado de movimientos" [attr.aria-busy]="loading()">
+    <div class="table-card__meta">
+      <strong>{{ pagination().total }} movimientos encontrados</strong>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Sucursal origen</th>
+            <th>Sucursal destino</th>
+            <th>Responsable</th>
+            <th>Motivo</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="9" class="empty-state" role="status">Cargando movimientos…</td>
+            </tr>
+          } @else {
+            @for (movement of movements(); track movement.id_movimiento_inventario) {
+              <tr>
+                <td>{{ movement.id_movimiento_inventario }}</td>
+                <td>{{ formatDate(movement.fecha_movimiento) }}</td>
+                <td>{{ label(movement.tipo_movimiento) }}</td>
+                <td>
+                  <span [class]="'badge badge--' + movement.estado">{{ movement.estado }}</span>
+                </td>
+                <td>{{ movement.sucursal_origen || '—' }}</td>
+                <td>{{ movement.sucursal_destino || '—' }}</td>
+                <td>
+                  {{ movement.nombre_empleado }}<small>{{ label(movement.rol) }}</small>
+                </td>
+                <td>{{ movement.motivo || '—' }}</td>
+                <td>
+                  <div class="row-actions">
+                    <button type="button" (click)="viewDetail(movement.id_movimiento_inventario)">
+                      Ver detalle
+                    </button>
+                    @if (movement.estado === 'PENDIENTE') {
+                      <button type="button" (click)="openAction(movement, 'confirm')">
+                        Confirmar</button
+                      ><button type="button" (click)="openAction(movement, 'cancel')">
+                        Anular
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="9" class="empty-state">No se encontraron movimientos.</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button
+        type="button"
+        [disabled]="loading() || pagination().page <= 1"
+        (click)="loadMovements(pagination().page - 1)"
+      >
+        Anterior</button
+      ><span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span
+      ><button
+        type="button"
+        [disabled]="loading() || pagination().page >= pagination().total_pages"
+        (click)="loadMovements(pagination().page + 1)"
+      >
+        Siguiente
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (createOpen()) {
+  <div class="modal-layer">
+    <button
+      class="modal-backdrop"
+      type="button"
+      aria-label="Cerrar registro"
+      (click)="closeCreate()"
+    ></button>
+    <section
+      class="modal movement-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-title"
+    >
+      <header class="modal__header">
+        <div>
+          <p>INVENTARIO</p>
+          <h3 id="create-title">Registrar movimiento</h3>
+        </div>
+        <button
+          type="button"
+          (click)="closeCreate()"
+          [disabled]="saving()"
+          aria-label="Cerrar registro"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </header>
+      <p class="form-intro">El movimiento se registrará en estado PENDIENTE.</p>
+      <form [formGroup]="form" (ngSubmit)="submitMovement()">
+        <fieldset [disabled]="saving()" class="form-grid">
+          <label
+            >Tipo de movimiento<select formControlName="tipo_movimiento">
+              @for (type of types; track type) {
+                <option [value]="type">{{ label(type) }}</option>
+              }
+            </select></label
+          >
+          @if (hasOrigin()) {
+            <label
+              >Sucursal origen<select formControlName="id_sucursal_origen">
+                <option [ngValue]="null">Selecciona una sucursal</option>
+                @for (branch of branches(); track branch.id_sucursal) {
+                  @if (branch.estado) {
+                    <option
+                      [ngValue]="branch.id_sucursal"
+                      [disabled]="branch.id_sucursal === form.controls.id_sucursal_destino.value"
+                    >
+                      {{ branch.nombre }}
+                    </option>
+                  }
+                }
+              </select></label
+            >
+          }
+          @if (hasDestination()) {
+            <label
+              >Sucursal destino<select formControlName="id_sucursal_destino">
+                <option [ngValue]="null">Selecciona una sucursal</option>
+                @for (branch of branches(); track branch.id_sucursal) {
+                  @if (branch.estado) {
+                    <option
+                      [ngValue]="branch.id_sucursal"
+                      [disabled]="branch.id_sucursal === form.controls.id_sucursal_origen.value"
+                    >
+                      {{ branch.nombre }}
+                    </option>
+                  }
+                }
+              </select></label
+            >
+          }
+          @if (form.hasError('sameBranch')) {
+            <p class="form__error">Origen y destino deben ser diferentes.</p>
+          }
+          <label
+            >Empleado responsable<select formControlName="id_empleado_sucursal">
+              <option [ngValue]="null">Selecciona un responsable</option>
+              @for (responsible of responsibleOptions(); track responsible.id_empleado_sucursal) {
+                <option [ngValue]="responsible.id_empleado_sucursal">
+                  {{ responsible.nombre_empleado }} · {{ label(responsible.rol) }} ·
+                  {{ responsible.nombre_sucursal }}
+                </option>
+              }
+            </select>
+            <small>Asignado a la sucursal de {{ hasOrigin() ? 'origen' : 'destino' }}.</small>
+            @if (responsibleLoading()) {
+              <small role="status">Cargando responsables…</small>
+            } @else if (!responsibleOptions().length) {
+              <small
+                >No hay responsables disponibles. Selecciona una sucursal o revisa sus asignaciones
+                activas.</small
+              >
+            }
+            <button
+              type="button"
+              class="clear-button"
+              (click)="loadResponsible()"
+              [disabled]="responsibleLoading()"
+            >
+              Actualizar responsables
+            </button>
+          </label>
+          <label class="wide"
+            >Motivo (opcional)<textarea formControlName="motivo" maxlength="200" rows="2"></textarea
+            ><small>Máximo 200 caracteres.</small></label
+          >
+          <div class="wide" formArrayName="detalles">
+            <h4>Detalles de variantes</h4>
+            @for (row of details.controls; track row; let i = $index) {
+              <fieldset class="detail-row" [formGroupName]="i">
+                <legend>Detalle {{ i + 1 }}</legend>
+                <label
+                  >Producto<select formControlName="id_producto" (change)="selectProduct(i)">
+                    <option [ngValue]="null">Selecciona un producto</option>
+                    @for (product of products(); track product.id_producto) {
+                      @if (product.estado) {
+                        <option [ngValue]="product.id_producto">{{ product.nombre }}</option>
+                      }
+                    }
+                  </select></label
+                >
+                <label
+                  >Variante · SKU · Talla · Color<select formControlName="id_variante_producto">
+                    <option [ngValue]="null">Selecciona una variante</option>
+                    @for (
+                      variant of variantOptions(row.controls.id_producto.value, true);
+                      track variant.id_variante_producto
+                    ) {
+                      <option [ngValue]="variant.id_variante_producto">
+                        {{ variant.sku }} · {{ variant.talla }} · {{ variant.color }}
+                      </option>
+                    }
+                  </select>
+                  @if (row.controls.id_producto.value; as productId) {
+                    @if (variantLoading()[productId]) {
+                      <small role="status">Cargando variantes…</small>
+                    } @else if (!variants()[productId]) {
+                      <button type="button" (click)="loadVariants(productId)">
+                        Reintentar variantes
+                      </button>
+                    } @else if (!variantOptions(productId, true).length) {
+                      <small>Este producto no tiene variantes activas.</small>
+                    }
+                  }
+                </label>
+                <label
+                  >Cantidad<input type="number" formControlName="cantidad" min="1" step="1" />
+                  @if (row.controls.cantidad.touched && row.controls.cantidad.invalid) {
+                    <small class="form__error">Introduce un entero mayor que cero.</small>
+                  }
+                </label>
+                <label
+                  >Costo unitario (opcional)<input
+                    type="number"
+                    formControlName="costo_unitario"
+                    min="0"
+                    max="99999999.99"
+                    step="0.01"
+                  />
+                  @if (row.controls.costo_unitario.touched && row.controls.costo_unitario.invalid) {
+                    <small class="form__error"
+                      >Costo no negativo, hasta 8 enteros y 2 decimales.</small
+                    >
+                  }
+                </label>
+                <button type="button" class="clear-button" (click)="removeDetail(i)">
+                  Quitar detalle {{ i + 1 }}
+                </button>
+              </fieldset>
+            }
+            @if (form.hasError('duplicateVariant')) {
+              <p class="form__error">No se puede repetir una variante en el mismo movimiento.</p>
+            }
+            @if (!details.length) {
+              <p class="form__error">Agrega al menos un detalle.</p>
+            }
+            <button type="button" class="filter-button" (click)="addDetail()">
+              Agregar detalle
+            </button>
+          </div>
+        </fieldset>
+        @if (modalError()) {
+          <p class="notice notice--error" role="alert">{{ modalError() }}</p>
+        }
+        <div class="modal__actions">
+          <button
+            class="modal-button modal-button--secondary"
+            type="button"
+            (click)="closeCreate()"
+            [disabled]="saving()"
+          >
+            Cancelar</button
+          ><button
+            class="modal-button modal-button--primary"
+            type="submit"
+            [disabled]="saving() || responsibleLoading() || !details.length"
+          >
+            {{ saving() ? 'Registrando…' : 'Registrar movimiento' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (detailOpen()) {
+  <div class="modal-layer">
+    <button
+      type="button"
+      class="modal-backdrop"
+      aria-label="Cerrar detalle"
+      (click)="closeDetail()"
+    ></button>
+    <section
+      class="modal movement-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-title"
+    >
+      <header class="modal__header">
+        <h3 id="detail-title">Detalle de movimiento</h3>
+        <button
+          type="button"
+          aria-label="Cerrar detalle"
+          (click)="closeDetail()"
+          [disabled]="saving()"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </header>
+      @if (detailLoading()) {
+        <p role="status">Cargando detalle…</p>
+      }
+      @if (modalError()) {
+        <p class="notice notice--error" role="alert">{{ modalError() }}</p>
+      }
+      @if (detail(); as movement) {
+        <dl class="detail-summary">
+          <div>
+            <dt>ID</dt>
+            <dd>{{ movement.id_movimiento_inventario }}</dd>
+          </div>
+          <div>
+            <dt>Tipo</dt>
+            <dd>{{ label(movement.tipo_movimiento) }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>
+              <span [class]="'badge badge--' + movement.estado">{{ movement.estado }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Fecha</dt>
+            <dd>{{ formatDate(movement.fecha_movimiento) }}</dd>
+          </div>
+          <div>
+            <dt>Origen</dt>
+            <dd>{{ movement.sucursal_origen || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Destino</dt>
+            <dd>{{ movement.sucursal_destino || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Responsable</dt>
+            <dd>{{ movement.nombre_empleado }} · {{ label(movement.rol) }}</dd>
+          </div>
+          <div>
+            <dt>Motivo</dt>
+            <dd>{{ movement.motivo || '—' }}</dd>
+          </div>
+        </dl>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Producto</th>
+                <th>Talla</th>
+                <th>Color</th>
+                <th>Cantidad</th>
+                <th>Costo unitario</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of movement.detalles; track row.id_variante_producto) {
+                <tr>
+                  <td>{{ row.sku }}</td>
+                  <td>{{ row.producto }}</td>
+                  <td>{{ row.talla }}</td>
+                  <td>{{ row.color }}</td>
+                  <td>{{ row.cantidad }}</td>
+                  <td>{{ row.costo_unitario === null ? '—' : row.costo_unitario }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (movement.estado === 'PENDIENTE') {
+          <div class="modal__actions">
+            <button
+              type="button"
+              class="modal-button modal-button--secondary"
+              (click)="openAction(movement, 'cancel')"
+            >
+              Anular</button
+            ><button
+              type="button"
+              class="modal-button modal-button--primary"
+              (click)="openAction(movement, 'confirm')"
+            >
+              Confirmar
+            </button>
+          </div>
+        }
+      }
+    </section>
+  </div>
+}
+@if (action(); as pending) {
+  <div class="modal-layer status-layer">
+    <button
+      type="button"
+      class="modal-backdrop"
+      aria-label="Cerrar confirmación"
+      (click)="closeAction()"
+    ></button>
+    <section
+      class="modal modal--compact"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="action-title"
+    >
+      <h3 id="action-title">
+        {{
+          pending.kind === 'confirm' ? '¿Confirmar este movimiento?' : '¿Anular este movimiento?'
+        }}
+      </h3>
+      <p>Movimiento #{{ pending.movement.id_movimiento_inventario }}</p>
+      <p>
+        {{
+          pending.kind === 'confirm'
+            ? 'Esta operación modificará el inventario y no podrá confirmarse nuevamente.'
+            : 'El movimiento será anulado y no modificará el stock.'
+        }}
+      </p>
+      @if (actionError()) {
+        <p class="notice notice--error" role="alert">{{ actionError() }}</p>
+      }
+      <div class="modal__actions">
+        <button
+          type="button"
+          class="modal-button modal-button--secondary"
+          (click)="closeAction()"
+          [disabled]="saving()"
+        >
+          Volver</button
+        ><button
+          type="button"
+          class="modal-button modal-button--primary"
+          (click)="executeAction()"
+          [disabled]="saving()"
+        >
+          {{ saving() ? 'Procesando…' : pending.kind === 'confirm' ? 'Confirmar' : 'Anular' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

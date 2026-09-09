@@ -68,6 +68,19 @@
         <app-icon name="users" [size]="20" />
         <span>Asignación de empleados</span>
       </a>
+      <p>INVENTARIO</p>
+      <a routerLink="/admin/inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="bag" [size]="20" />
+        <span>Inventario por sucursal</span>
+      </a>
+      <a routerLink="/admin/movimientos-inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="bag" [size]="20" />
+        <span>Movimientos de inventario</span>
+      </a>
+      <a routerLink="/admin/inventario-global" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="bag" [size]="20" />
+        <span>Inventario global</span>
+      </a>
     </nav>
 
     <div class="admin-sidebar__footer">
