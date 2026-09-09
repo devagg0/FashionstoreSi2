@@ -1,0 +1,12 @@
+:host { display: block; min-width: 0; margin-top: 24px; }
+section { padding: clamp(14px, 3vw, 22px); background: var(--color-white); border: 1px solid var(--color-clay-soft); }
+h2 { margin: 0 0 16px; color: var(--color-espresso); font-size: 1rem; }
+.branches { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+article { min-width: 0; padding: 14px; background: var(--color-linen); overflow-wrap: anywhere; }
+h3 { margin: 0; font-size: 0.9rem; }
+p, small { color: var(--color-muted); font-size: 0.8rem; line-height: 1.6; }
+p { margin: 6px 0; }
+strong { display: block; margin-top: 12px; color: var(--color-espresso); font-size: 0.85rem; }
+.empty { color: var(--color-muted); }
+button { margin-top: 12px; padding: 10px 16px; background: var(--color-espresso); color: var(--color-white); border: 0; font: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--color-espresso); outline-offset: 3px; }

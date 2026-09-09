@@ -48,6 +48,21 @@ export const routes: Routes = [
       import('./layout/admin-layout/admin-layout').then(({ AdminLayout }) => AdminLayout),
     children: [
       {
+        path: 'inventario-global',
+        loadComponent: () => import('./pages/admin/global-inventory/admin-global-inventory').then(({ AdminGlobalInventory }) => AdminGlobalInventory),
+        title: 'Inventario global | FashionStore',
+      },
+      {
+        path: 'inventario',
+        loadComponent: () => import('./pages/admin/inventory/admin-inventory').then(({ AdminInventory }) => AdminInventory),
+        title: 'Inventario por sucursal | FashionStore',
+      },
+      {
+        path: 'movimientos-inventario',
+        loadComponent: () => import('./pages/admin/inventory-movements/admin-inventory-movements').then(({ AdminInventoryMovements }) => AdminInventoryMovements),
+        title: 'Movimientos de inventario | FashionStore',
+      },
+      {
         path: 'productos',
         loadComponent: () =>
           import('./pages/admin/products/admin-products').then(

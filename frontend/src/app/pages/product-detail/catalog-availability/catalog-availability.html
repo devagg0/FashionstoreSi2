@@ -1,0 +1,33 @@
+<section aria-label="Disponibilidad por sucursal" [attr.aria-busy]="loading()">
+  <h2>Disponibilidad por sucursal</h2>
+  <div aria-live="polite" aria-atomic="true">
+    @if (variantId() === null) {
+      <p>Selecciona talla y color para consultar disponibilidad.</p>
+    } @else if (loading()) {
+      <p role="status">Cargando disponibilidad...</p>
+    } @else if (errorMessage()) {
+      <p role="alert">{{ errorMessage() }}</p>
+      <button type="button" (click)="retry()">Reintentar</button>
+    } @else {
+      <div class="branches">
+        @for (item of rows(); track item.id_sucursal + ':' + item.variante.id_variante_producto) {
+          <article>
+            <h3>{{ item.nombre_sucursal }}</h3>
+            <p>{{ item.nombre_ciudad }}</p>
+            <p>Talla {{ item.variante.talla.nombre }} · {{ item.variante.color.nombre }}</p>
+            <small>SKU: {{ item.variante.sku }}</small>
+            <strong [class.empty]="item.stock_disponible === 0">
+              @if (item.stock_disponible === 0) {
+                Sin stock
+              } @else {
+                Disponible: {{ item.stock_disponible }} {{ item.stock_disponible === 1 ? 'unidad' : 'unidades' }}
+              }
+            </strong>
+          </article>
+        } @empty {
+          <p>No hay disponibilidad registrada para esta variante.</p>
+        }
+      </div>
+    }
+  </div>
+</section>
