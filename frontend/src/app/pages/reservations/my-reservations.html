@@ -1,0 +1,79 @@
+<main id="main-content" class="reservations-page">
+  <div class="shell reservations-shell">
+    <header class="reservations-heading">
+      <div><p>TU CUENTA</p><h1>Mis reservas</h1></div>
+      <a class="button button--outline" routerLink="/catalogo">Explorar catálogo</a>
+    </header>
+
+    <section class="reservations-toolbar" aria-label="Filtros de reservas">
+      <label>Estado
+        <select [formControl]="state">
+          <option value="">Todos los estados</option>
+          @for (item of states; track item) { <option [value]="item">{{ stateLabel(item) }}</option> }
+        </select>
+      </label>
+      <span>{{ pagination().total }} {{ pagination().total === 1 ? 'reserva' : 'reservas' }}</span>
+    </section>
+
+    @if (successMessage()) { <p class="reservation-message reservation-message--success" role="status">{{ successMessage() }}</p> }
+    @if (errorMessage()) {
+      <section class="reservation-state" role="alert">
+        <p>{{ errorMessage() }}</p><button class="button button--outline" type="button" (click)="load(pagination().page)">Reintentar</button>
+      </section>
+    } @else if (loading()) {
+      <div class="reservation-loading" role="status"><span></span><span></span><span></span></div>
+    } @else {
+      <div class="reservation-list">
+        @for (reservation of reservations(); track reservation.id_reserva) {
+          <article class="reservation-card">
+            <div class="reservation-card__top">
+              <div><small>CÓDIGO DE RESERVA</small><strong>{{ reservation.codigo }}</strong></div>
+              <span class="reservation-status" [attr.data-state]="reservation.estado">{{ stateLabel(reservation.estado) }}</span>
+            </div>
+            <dl>
+              <div><dt>Sucursal</dt><dd>{{ reservation.sucursal.nombre }} · {{ reservation.sucursal.ciudad.nombre }}</dd></div>
+              <div><dt>Atención programada</dt><dd>{{ formatDate(reservation.fecha_atencion_programada) }}</dd></div>
+              <div><dt>Válida hasta</dt><dd>{{ formatDate(reservation.fecha_expiracion) }}</dd></div>
+              <div><dt>Prendas</dt><dd>{{ reservation.cantidad_prendas }}</dd></div>
+            </dl>
+            <div class="reservation-card__bottom">
+              <strong>{{ formatMoney(reservation.total) }}</strong>
+              <div>
+                @if (reservation.cancelable) { <button type="button" (click)="askCancel(reservation)">Cancelar</button> }
+                <a [routerLink]="['/mis-reservas', reservation.id_reserva]">Ver detalle</a>
+              </div>
+            </div>
+          </article>
+        } @empty {
+          <section class="reservation-empty">
+            <span><app-icon name="bag" [size]="28" /></span>
+            <h2>No hay reservas para mostrar</h2>
+            <p>Cuando reserves una prenda, podrás seguir su estado desde aquí.</p>
+            <a class="button button--solid" routerLink="/catalogo">Ir al catálogo</a>
+          </section>
+        }
+      </div>
+      @if (pagination().total_pages > 1) {
+        <nav class="reservation-pagination" aria-label="Paginación">
+          <button type="button" [disabled]="pagination().page <= 1" (click)="load(pagination().page - 1)">Anterior</button>
+          <span>Página {{ pagination().page }} de {{ pagination().total_pages }}</span>
+          <button type="button" [disabled]="pagination().page >= pagination().total_pages" (click)="load(pagination().page + 1)">Siguiente</button>
+        </nav>
+      }
+    }
+  </div>
+</main>
+
+@if (pendingCancellation(); as reservation) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar confirmación" (click)="closeConfirmation()"></button>
+    <section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="cancel-title">
+      <div class="modal__header"><div><small>CONFIRMAR ACCIÓN</small><h3 id="cancel-title">¿Cancelar esta reserva?</h3></div></div>
+      <p>Se liberarán {{ reservation.cantidad_prendas }} prendas reservadas en {{ reservation.sucursal.nombre }}. Esta acción no se puede deshacer.</p>
+      <div class="reservation-modal-actions">
+        <button class="button button--outline" type="button" [disabled]="cancelling()" (click)="closeConfirmation()">Volver</button>
+        <button class="button button--solid" type="button" [disabled]="cancelling()" (click)="cancel()">{{ cancelling() ? 'Cancelando…' : 'Cancelar reserva' }}</button>
+      </div>
+    </section>
+  </div>
+}

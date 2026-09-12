@@ -1,0 +1,21 @@
+<section class="staff-page staff-profile-page" aria-labelledby="staff-profile-title">
+  <header class="staff-page-heading"><div><p>CUENTA OPERATIVA</p><h2 id="staff-profile-title">Mi perfil</h2><span>Información de identidad y alcance de acceso</span></div></header>
+  @if (errorMessage()) { <div class="staff-message staff-message--error" role="alert">{{ errorMessage() }}</div> }
+  @if (user(); as currentUser) {
+    <div class="staff-profile-grid">
+      <article class="staff-profile-card">
+        <span class="staff-profile-avatar" aria-hidden="true">{{ currentUser.nombre.charAt(0) }}{{ currentUser.apellido.charAt(0) }}</span>
+        <div><small>PERSONAL DE SUCURSAL</small><h3>{{ currentUser.nombre }} {{ currentUser.apellido }}</h3><p>{{ currentUser.correo }}</p></div>
+      </article>
+      <dl class="staff-profile-details">
+        <div><dt>Nombre</dt><dd>{{ currentUser.nombre }}</dd></div>
+        <div><dt>Apellido</dt><dd>{{ currentUser.apellido }}</dd></div>
+        <div><dt>Correo</dt><dd>{{ currentUser.correo }}</dd></div>
+        <div><dt>Rol</dt><dd>{{ currentUser.rol }}</dd></div>
+        <div><dt>Sucursal asignada</dt><dd>@if (loading()) { Consultando… } @else { {{ branch()?.nombre ?? 'No disponible en la respuesta actual' }} }</dd></div>
+        @if (cargo(currentUser); as jobTitle) { <div><dt>Cargo</dt><dd>{{ jobTitle }}</dd></div> }
+      </dl>
+    </div>
+    <p class="staff-readonly-banner"><app-icon name="shield" [size]="17" /> El rol y la sucursal no pueden modificarse desde este panel.</p>
+  }
+</section>

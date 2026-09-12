@@ -38,6 +38,10 @@ class Reservation(Base):
             "fecha_expiracion > created_at",
             name="ck_reserva_fecha_expiracion",
         ),
+        CheckConstraint(
+            "fecha_expiracion > fecha_atencion_programada",
+            name="ck_reserva_expiracion_programada",
+        ),
         Index("ix_reserva_cliente_created_at", "id_cliente", "created_at"),
         Index("ix_reserva_sucursal_estado", "id_sucursal", "estado"),
     )
@@ -62,6 +66,11 @@ class Reservation(Base):
         server_default=text("'PENDIENTE'"),
     )
     fecha_expiracion: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    fecha_atencion_programada: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        comment="Fecha y hora elegida por el cliente para acudir a la sucursal",
+    )
     fecha_atencion: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )

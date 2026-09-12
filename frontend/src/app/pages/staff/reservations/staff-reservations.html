@@ -1,0 +1,51 @@
+<section class="staff-page" aria-labelledby="reservations-title">
+  <header class="staff-page-heading">
+    <div><p>ATENCIÓN EN TIENDA</p><h2 id="reservations-title">Reservas</h2><span>{{ branch()?.nombre ?? 'Tu sucursal asignada' }}</span></div>
+  </header>
+
+  <form class="staff-filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
+    <label class="staff-search-field">
+      <span>Código de reserva</span>
+      <div><app-icon name="search" [size]="18" /><input type="search" formControlName="codigo" placeholder="RSV-2026…" maxlength="50" /></div>
+    </label>
+    <label><span>Estado</span><select formControlName="estado"><option value="">Todos</option>@for (state of states; track state) { <option [value]="state">{{ stateLabel(state) }}</option> }</select></label>
+    <label><span>Fecha programada</span><input type="date" formControlName="fechaProgramada" /></label>
+    <div class="staff-filter-actions"><button class="staff-button staff-button--primary" type="submit">Aplicar filtros</button><button class="staff-button" type="button" (click)="clearFilters()">Limpiar</button></div>
+  </form>
+
+  @if (errorMessage()) {
+    <div class="staff-message staff-message--error" role="alert"><span>{{ errorMessage() }}</span><button type="button" (click)="load()"><app-icon name="refresh" [size]="17" /> Reintentar</button></div>
+  }
+
+  @if (loading()) {
+    <div class="staff-table-card staff-list-loading" aria-label="Cargando reservas" role="status">
+      @for (row of [1, 2, 3, 4]; track row) { <span></span> }
+    </div>
+  } @else if (!errorMessage() && reservations().length === 0) {
+    <section class="staff-empty-state"><app-icon name="search" [size]="28" /><h3>Sin resultados</h3><p>No hay reservas que coincidan con los filtros aplicados.</p><button class="staff-button" type="button" (click)="clearFilters()">Ver todas</button></section>
+  } @else if (reservations().length > 0) {
+    <div class="staff-table-card">
+      <div class="staff-reservation-table staff-reservation-table--header" aria-hidden="true"><span>Código</span><span>Cliente</span><span>Programada</span><span>Estado</span><span>Prendas</span><span>Total</span><span>Sucursal</span><span></span></div>
+      @for (reservation of reservations(); track reservation.id_reserva) {
+        <article class="staff-reservation-table">
+          <div data-label="Código"><strong>{{ reservation.codigo }}</strong></div>
+          <div data-label="Cliente"><strong>{{ reservation.cliente.nombre }} {{ reservation.cliente.apellido }}</strong><small>{{ reservation.cliente.correo }}</small></div>
+          <div data-label="Programada">{{ formatDate(reservation.fecha_atencion_programada) }}</div>
+          <div data-label="Estado"><span class="staff-status" [attr.data-state]="reservation.estado">{{ stateLabel(reservation.estado) }}</span></div>
+          <div data-label="Prendas">{{ reservation.cantidad_prendas }}</div>
+          <div data-label="Total"><strong>{{ formatMoney(reservation.total) }}</strong></div>
+          <div data-label="Sucursal">{{ reservation.sucursal.nombre }}</div>
+          <div><a class="staff-row-action" [routerLink]="['/staff/reservas', reservation.id_reserva]">Ver detalle <app-icon name="chevron-right" [size]="15" /></a></div>
+        </article>
+      }
+    </div>
+
+    @if (!codeSearchActive() && pagination().total_pages > 1) {
+      <nav class="staff-pagination" aria-label="Paginación">
+        <button type="button" [disabled]="pagination().page <= 1" (click)="load(pagination().page - 1)"><app-icon name="chevron-left" [size]="16" /> Anterior</button>
+        <span>Página {{ pagination().page }} de {{ pagination().total_pages }}</span>
+        <button type="button" [disabled]="pagination().page >= pagination().total_pages" (click)="load(pagination().page + 1)">Siguiente <app-icon name="chevron-right" [size]="16" /></button>
+      </nav>
+    }
+  }
+</section>

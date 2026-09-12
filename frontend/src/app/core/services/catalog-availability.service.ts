@@ -21,6 +21,9 @@ export interface BranchAvailability {
   };
   id_sucursal: number;
   nombre_sucursal: string;
+  direccion: string;
+  hora_apertura: string | null;
+  hora_cierre: string | null;
   id_ciudad: number;
   nombre_ciudad: string;
   stock_actual: number;

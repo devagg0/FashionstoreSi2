@@ -1,0 +1,28 @@
+<section class="staff-page" aria-labelledby="availability-title">
+  <header class="staff-page-heading"><div><p>CONSULTA DE STOCK</p><h2 id="availability-title">Disponibilidad</h2><span>{{ branch()?.nombre ?? 'Tu sucursal asignada' }} · Solo lectura</span></div></header>
+
+  <form class="staff-availability-search" (ngSubmit)="load(1)">
+    <label><span>Buscar producto o SKU</span><div><app-icon name="search" [size]="18" /><input type="search" [formControl]="search" placeholder="Producto o SKU" /></div></label>
+    <button class="staff-button staff-button--primary" type="submit">Buscar</button>
+  </form>
+
+  @if (errorMessage()) { <div class="staff-message staff-message--error" role="alert"><span>{{ errorMessage() }}</span><button type="button" (click)="load()"><app-icon name="refresh" [size]="17" /> Reintentar</button></div> }
+
+  @if (loading()) {
+    <div class="staff-table-card staff-list-loading" role="status" aria-label="Cargando disponibilidad">@for (row of [1, 2, 3, 4]; track row) { <span></span> }</div>
+  } @else if (!errorMessage() && rows().length === 0) {
+    <section class="staff-empty-state"><app-icon name="search" [size]="28" /><h3>Sin disponibilidad para mostrar</h3><p>No encontramos prendas que coincidan con tu búsqueda.</p></section>
+  } @else if (rows().length > 0) {
+    <div class="staff-table-card">
+      <div class="staff-availability-table staff-availability-table--header" aria-hidden="true"><span>Producto</span><span>Talla</span><span>Color</span><span>SKU</span><span>Stock disponible</span></div>
+      @for (row of rows(); track row.id) {
+        <article class="staff-availability-table"><div data-label="Producto"><strong>{{ row.producto }}</strong></div><div data-label="Talla">{{ row.talla }}</div><div data-label="Color"><span class="staff-color-dot" [style.background]="row.codigoHex ?? '#ddd'"></span>{{ row.color }}</div><div data-label="SKU"><code>{{ row.sku }}</code></div><div data-label="Stock disponible"><strong class="staff-stock" [class.staff-stock--empty]="row.stockDisponible === 0">{{ row.stockDisponible }}</strong></div></article>
+      }
+    </div>
+    @if (totalPages() > 1) {
+      <nav class="staff-pagination" aria-label="Paginación"><button type="button" [disabled]="page() <= 1" (click)="load(page() - 1)"><app-icon name="chevron-left" [size]="16" /> Anterior</button><span>Página {{ page() }} de {{ totalPages() }}</span><button type="button" [disabled]="page() >= totalPages()" (click)="load(page() + 1)">Siguiente <app-icon name="chevron-right" [size]="16" /></button></nav>
+    }
+  }
+
+  <p class="staff-readonly-banner"><app-icon name="lock" [size]="17" /> Esta consulta no permite modificar existencias ni stock reservado.</p>
+</section>

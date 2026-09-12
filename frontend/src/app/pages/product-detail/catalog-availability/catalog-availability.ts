@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { BranchAvailability, CatalogAvailabilityService } from '../../../core/services/catalog-availability.service';
 
 @Component({
@@ -12,6 +12,8 @@ export class CatalogAvailability {
   readonly variantId = input<number | null>(null);
   readonly branchId = input<number>();
   readonly cityId = input<number>();
+  readonly refreshKey = input(0);
+  readonly availabilityChange = output<BranchAvailability[]>();
   private readonly service = inject(CatalogAvailabilityService);
   private readonly attempt = signal(0);
   protected readonly rows = signal<BranchAvailability[]>([]);
@@ -24,8 +26,10 @@ export class CatalogAvailability {
       const variantId = this.variantId();
       const branchId = this.branchId();
       const cityId = this.cityId();
+      this.refreshKey();
       this.attempt();
       this.rows.set([]);
+      this.availabilityChange.emit([]);
       this.errorMessage.set('');
       this.loading.set(false);
       if (variantId === null) return;
@@ -35,6 +39,7 @@ export class CatalogAvailability {
       }).subscribe({
         next: (response) => {
           this.rows.set(response.data.disponibilidad);
+          this.availabilityChange.emit(response.data.disponibilidad);
           this.loading.set(false);
         },
         error: (error: HttpErrorResponse) => {
@@ -51,4 +56,5 @@ export class CatalogAvailability {
   protected retry(): void {
     this.attempt.update((value) => value + 1);
   }
+
 }

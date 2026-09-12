@@ -1,0 +1,70 @@
+<main id="main-content" class="reservation-detail-page">
+  <div class="shell reservation-detail-shell">
+    <a class="reservation-back" routerLink="/mis-reservas"><app-icon name="chevron-left" [size]="15" /> Mis reservas</a>
+    @if (successMessage()) { <p class="detail-message detail-message--success" role="status">{{ successMessage() }}</p> }
+    @if (loading()) {
+      <div class="detail-loading" role="status"><span></span><span></span></div>
+    } @else if (errorMessage()) {
+      <section class="detail-error" role="alert">
+        <span><app-icon name="ban" [size]="28" /></span><h1>No pudimos mostrar la reserva</h1><p>{{ errorMessage() }}</p>
+        <div><a class="button button--outline" routerLink="/mis-reservas">Volver</a><button class="button button--solid" type="button" (click)="load()">Reintentar</button></div>
+      </section>
+    } @else if (reservation(); as item) {
+      <header class="detail-heading">
+        <div><p>RESERVA {{ item.codigo }}</p><h1>Detalle de reserva</h1></div>
+        <span class="reservation-status" [attr.data-state]="item.estado">{{ stateLabel(item.estado) }}</span>
+      </header>
+
+      <div class="detail-layout">
+        <section class="detail-products" aria-labelledby="products-title">
+          <h2 id="products-title">Prendas reservadas</h2>
+          @for (product of item.items; track product.id_variante_producto) {
+            <article class="reserved-product">
+              <div class="reserved-product__image">
+                @if (product.imagen_principal && !failedImages().has(product.id_variante_producto)) {
+                  <img [src]="product.imagen_principal" [alt]="product.producto" (error)="imageFailed(product.id_variante_producto)" />
+                } @else { <strong>FS</strong> }
+              </div>
+              <div class="reserved-product__copy">
+                <small>{{ product.sku }}</small><h3>{{ product.producto }}</h3>
+                <p>{{ product.color.nombre }} · Talla {{ product.talla.nombre }}</p>
+                <span>{{ product.cantidad }} × {{ formatMoney(product.precio_unitario) }}</span>
+              </div>
+              <strong class="reserved-product__subtotal">{{ formatMoney(product.subtotal) }}</strong>
+            </article>
+          }
+        </section>
+
+        <aside class="detail-summary">
+          <h2>Información de retiro</h2>
+          <dl>
+            <div><dt>Sucursal</dt><dd>{{ item.sucursal.nombre }}</dd></div>
+            <div><dt>Dirección</dt><dd>{{ item.sucursal.direccion }}</dd></div>
+            <div><dt>Ciudad</dt><dd>{{ item.sucursal.ciudad.nombre }}</dd></div>
+            <div><dt>Atención programada</dt><dd>{{ formatDate(item.fecha_atencion_programada) }}</dd></div>
+            <div><dt>Reserva válida hasta</dt><dd>{{ formatDate(item.fecha_expiracion) }}</dd></div>
+          </dl>
+          <div class="detail-total"><span>Total reservado</span><strong>{{ formatMoney(item.total) }}</strong></div>
+          @if (item.cancelable) {
+            <p class="detail-note">Las prendas permanecerán reservadas hasta la fecha de expiración.</p>
+            <button class="button button--outline detail-cancel" type="button" (click)="confirmCancel.set(true)">Cancelar reserva</button>
+          }
+        </aside>
+      </div>
+    }
+  </div>
+</main>
+
+@if (confirmCancel() && reservation(); as item) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar confirmación" (click)="closeConfirmation()"></button>
+    <section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="detail-cancel-title">
+      <div class="modal__header"><div><small>CONFIRMAR ACCIÓN</small><h3 id="detail-cancel-title">¿Cancelar esta reserva?</h3></div></div>
+      <p>El stock de {{ item.cantidad_prendas }} prendas será liberado inmediatamente. Esta acción no se puede deshacer.</p>
+      <div class="detail-modal-actions">
+        <button class="button button--outline" type="button" [disabled]="cancelling()" (click)="closeConfirmation()">Volver</button>
+        <button class="button button--solid" type="button" [disabled]="cancelling()" (click)="cancel()">{{ cancelling() ? 'Cancelando…' : 'Cancelar reserva' }}</button>
+      </div>
+    </section>
+  </div>
+}

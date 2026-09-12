@@ -1,5 +1,6 @@
 @use './app/layout/auth-layout/auth-layout';
 @use './app/pages/catalog/catalog-global';
+@use './app/pages/staff/staff';
 
 :root {
   --color-espresso: #2b2625;
@@ -148,6 +149,30 @@ img {
   white-space: nowrap;
 }
 
+/* CU17 vive en el detalle publico, pero se mantiene global para no duplicar
+   ni ampliar el presupuesto CSS del componente consolidado de CU12. */
+.reservation-selector { display: grid; gap: 13px; margin-top: 14px; padding: 20px; border: 1px solid var(--color-line); background: var(--color-white); }
+.reservation-selector > div > span { color: var(--color-terracotta); font-size: .61rem; font-weight: 750; letter-spacing: .12em; }
+.reservation-selector h2 { margin: 5px 0 0; font: 650 1.15rem var(--font-display); }
+.reservation-selector p { margin: 0; color: var(--color-muted); font-size: .73rem; line-height: 1.5; }
+.reservation-selector label { display: grid; grid-template-columns: 90px 74px 1fr; align-items: center; gap: 10px; font-size: .7rem; font-weight: 700; }
+.reservation-selector label.reservation-selector__branch { grid-template-columns: 90px 1fr; }
+.reservation-selector select { min-height: 40px; padding: 0 10px; border: 1px solid var(--color-line); background: var(--color-white); color: var(--color-espresso); }
+.reservation-selector input { width: 74px; height: 40px; padding: 0 10px; border: 1px solid var(--color-line); color: var(--color-espresso); }
+.reservation-selector label small { color: var(--color-muted); font-size: .62rem; font-weight: 500; }
+.reservation-selector .button { width: 100%; }
+.reservation-selector__error { padding: 10px; background: #f8ece8; color: #8a4c42 !important; }
+.reservation-selector__success { padding: 10px; background: #e8f1e8; color: #3f6847 !important; }
+.reservation-selector__hint { padding: 10px 0; }
+.reservation-selector__context { display: grid; gap: 5px; padding: 14px; background: var(--color-clay-soft); }
+.reservation-selector__context > span { color: var(--color-terracotta); font-size: .58rem; font-weight: 750; letter-spacing: .1em; }
+.reservation-selector__context strong { font: 650 .9rem var(--font-display); }
+.reservation-selector__context small { color: var(--color-muted); font-size: .62rem; }
+@media (max-width: 600px) {
+  .reservation-selector label { grid-template-columns: 1fr 74px; }
+  .reservation-selector label small { grid-column: 1 / -1; }
+}
+
 /* Modales del panel administrativo. Se mantienen globales para compartirlos
    sin incrementar el presupuesto CSS del componente de usuarios. */
 .modal-layer {
@@ -196,6 +221,30 @@ img {
   margin: 0;
   font: 650 1.28rem var(--font-display);
   letter-spacing: -0.03em;
+}
+.modal__header small {
+  color: var(--color-terracotta);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+.modal > p {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.reservation-modal-actions,
+.detail-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+@media (max-width: 480px) {
+  .reservation-modal-actions,
+  .detail-modal-actions {
+    flex-direction: column-reverse;
+  }
 }
 .detail-identity {
   display: flex;
