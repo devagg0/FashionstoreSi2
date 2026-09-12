@@ -1,0 +1,87 @@
+<main id="main-content" class="reservation-checkout-page">
+  <div class="shell reservation-checkout-shell">
+    <header class="checkout-heading">
+      <div><p>RESERVA EN TIENDA</p><h1>Tu reserva</h1></div>
+      <a class="button button--outline" routerLink="/catalogo">Continuar explorando</a>
+    </header>
+
+    @if (!items().length) {
+      <section class="checkout-empty">
+        <span><app-icon name="bag" [size]="28" /></span>
+        <h2>Aún no elegiste prendas</h2>
+        <p>Para iniciar una reserva, selecciona variante, sucursal, fecha, horario y cantidad desde el detalle de un producto.</p>
+        <a class="button button--solid" routerLink="/catalogo">Explorar catálogo</a>
+      </section>
+    } @else {
+      <div class="checkout-layout">
+        <section class="checkout-items" aria-labelledby="checkout-items-title">
+          <h2 id="checkout-items-title">Prendas seleccionadas</h2>
+          @for (item of items(); track item.id_variante_producto) {
+            <article class="checkout-item">
+              <div class="checkout-item__image">
+                @if (item.imagen_principal) { <img [src]="item.imagen_principal" [alt]="item.producto" /> }
+                @else { <strong>FS</strong> }
+              </div>
+              <div class="checkout-item__copy">
+                <small>{{ item.sku }}</small><h3>{{ item.producto }}</h3>
+                <p>{{ item.color }} · Talla {{ item.talla }}</p>
+                <span>{{ formatMoney(item.precio_referencia) }} precio de referencia</span>
+              </div>
+              <label>Cantidad
+                <input type="number" min="1" [value]="item.cantidad" (change)="updateQuantity(item.id_variante_producto, $event)" />
+              </label>
+              <button class="checkout-item__remove" type="button" (click)="remove(item.id_variante_producto)">Eliminar</button>
+            </article>
+          }
+        </section>
+
+        <aside class="checkout-form">
+          <p>CONTEXTO DE LA RESERVA</p><h2>Tu visita</h2>
+          @if (loadingAvailability()) {
+            <div class="checkout-loading" role="status">Comprobando disponibilidad…</div>
+          }
+
+          @if (context(); as current) {
+            @if (!editingContext()) {
+              <div class="checkout-context">
+                <span>Sucursal</span><strong>{{ current.nombre_sucursal }} · {{ current.nombre_ciudad }}</strong>
+                <small>{{ current.direccion }}</small>
+                <span>Fecha y horario</span><strong>{{ formatContextDate(current) }} · {{ current.horario }}</strong>
+                <small>Horario de la sucursal: {{ current.hora_apertura.slice(0, 5) }} - {{ current.hora_cierre.slice(0, 5) }}</small>
+              </div>
+              <button class="checkout-change" type="button" [disabled]="loadingAvailability()" (click)="beginContextChange()">
+                Cambiar sucursal/horario
+              </button>
+            } @else {
+              <app-reservation-schedule-picker
+                [branches]="branches()"
+                [initialContext]="current"
+                (selectionChange)="scheduleChanged($event)"
+              />
+              <div class="checkout-change-actions">
+                <button class="button button--outline" type="button" (click)="editingContext.set(false)">Conservar actual</button>
+                <button class="button button--solid" type="button" [disabled]="!pendingSchedule()" (click)="applyContextChange()">Aplicar cambio</button>
+              </div>
+            }
+          }
+
+          @if (!branches().length && !loadingAvailability()) {
+            <p class="checkout-warning">No hay una sucursal con disponibilidad suficiente para todas las prendas.</p>
+          }
+          @if (context() && !contextScheduleValid()) {
+            <p class="checkout-warning">La fecha u hora guardada ya no está disponible. Usa “Cambiar sucursal/horario” antes de confirmar.</p>
+          }
+          @if (branchesWithoutSchedule()) {
+            <p class="checkout-warning">{{ branchesWithoutSchedule() }} sucursal(es) no se ofrecen porque no tienen un horario válido configurado.</p>
+          }
+          @if (errorMessage()) { <p class="checkout-error" role="alert">{{ errorMessage() }}</p> }
+          <div class="checkout-total"><span>Total de referencia</span><strong>{{ formatMoney(previewTotal()) }}</strong></div>
+          <small class="checkout-note">Al confirmar, el servidor vuelve a validar y bloquear todas las variantes en una única transacción.</small>
+          <button class="button button--solid checkout-submit" type="button" [disabled]="!canSubmit()" (click)="confirm()">
+            {{ saving() ? 'Confirmando…' : 'Confirmar reserva' }}
+          </button>
+        </aside>
+      </div>
+    }
+  </div>
+</main>

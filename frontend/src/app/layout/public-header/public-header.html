@@ -61,6 +61,9 @@
               <span>{{ currentUser.rol }}</span>
             </div>
             <div class="account-dropdown__actions">
+              @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
+                <a routerLink="/mis-reservas" (click)="closeMenus()">Reservas</a>
+              }
               <a routerLink="/perfil" (click)="closeMenus()">Mi perfil</a>
               <button type="button" (click)="logout()">Cerrar sesión</button>
             </div>
@@ -72,9 +75,10 @@
           <span>Iniciar sesión</span>
         </a>
       }
-      <button class="icon-button" type="button" aria-label="Carrito, próximamente">
+      <a class="icon-button" routerLink="/reservar" [attr.aria-label]="'Reserva (' + reservationItemCount() + ')'">
         <app-icon name="bag" [size]="21" />
-      </button>
+        @if (reservationItemCount()) { <span class="sr-only">Reserva ({{ reservationItemCount() }})</span> }
+      </a>
     </div>
   </div>
 </header>
@@ -128,6 +132,9 @@
                 <span>{{ currentUser.rol }}</span>
               </div>
               <div class="account-dropdown__actions">
+                @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
+                  <a routerLink="/mis-reservas" (click)="closeMobile()">Reservas</a>
+                }
                 <a routerLink="/perfil" (click)="closeMobile()">Mi perfil</a>
                 <button type="button" (click)="logout()">Cerrar sesión</button>
               </div>

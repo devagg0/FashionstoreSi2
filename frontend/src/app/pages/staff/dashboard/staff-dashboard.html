@@ -1,0 +1,39 @@
+<section class="staff-page" aria-labelledby="staff-dashboard-title">
+  <header class="staff-page-heading">
+    <div>
+      <p>VISTA OPERATIVA</p>
+      <h2 id="staff-dashboard-title">Resumen de atención</h2>
+      <span>{{ branch()?.nombre ?? 'Reservas de tu sucursal asignada' }}</span>
+    </div>
+    <a class="staff-heading-action" routerLink="/staff/reservas">
+      Gestionar reservas <app-icon name="chevron-right" [size]="17" />
+    </a>
+  </header>
+
+  @if (errorMessage()) {
+    <div class="staff-message staff-message--error" role="alert">
+      <span>{{ errorMessage() }}</span>
+      <button type="button" (click)="loadSummary()"><app-icon name="refresh" [size]="17" /> Reintentar</button>
+    </div>
+  }
+
+  <div class="staff-summary-grid" [attr.aria-busy]="loading()">
+    @if (loading()) {
+      @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+        <article class="staff-summary-card staff-skeleton" aria-hidden="true"><span></span><span></span><span></span></article>
+      }
+    } @else {
+      @for (card of cards(); track card.label) {
+        <article class="staff-summary-card">
+          <span class="staff-summary-card__icon"><app-icon [name]="card.icon" [size]="22" /></span>
+          <div><p>{{ card.label }}</p><strong>{{ card.value }}</strong><span>{{ card.helper }}</span></div>
+        </article>
+      }
+    }
+  </div>
+
+  <article class="staff-scope-card">
+    <span><app-icon name="shield" [size]="24" /></span>
+    <div><small>ALCANCE DE SEGURIDAD</small><h3>Información limitada a tu asignación</h3><p>La sucursal se resuelve desde el backend. Este panel no permite seleccionar ni alterar el alcance.</p></div>
+  </article>
+</section>

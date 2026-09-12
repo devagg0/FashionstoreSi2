@@ -1,5 +1,6 @@
 """Contrato publico de CU13, sin paginacion ni datos administrativos."""
 
+from datetime import time
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -25,6 +26,9 @@ class BranchAvailabilityData(BaseModel):
     variante: AvailabilityVariantData
     id_sucursal: int
     nombre_sucursal: str
+    direccion: str
+    hora_apertura: time | None
+    hora_cierre: time | None
     id_ciudad: int
     nombre_ciudad: str
     stock_actual: int

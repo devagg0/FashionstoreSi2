@@ -130,12 +130,62 @@
           <app-catalog-availability
             [productId]="current.id_producto"
             [variantId]="selectedVariant()?.id_variante_producto ?? null"
-            [branchId]="branchId()"
+            [branchId]="reservationContext()?.id_sucursal ?? branchId()"
             [cityId]="cityId()"
+            [refreshKey]="availabilityRefresh()"
+            (availabilityChange)="availabilityChanged($event)"
           />
-          <button class="future-purchase" type="button" disabled>
-            Compra disponible próximamente
-          </button>
+          @if (selectedVariant()) {
+            <section class="reservation-selector" aria-labelledby="reservation-selector-title">
+              <div>
+                <span>RESERVA EN TIENDA</span>
+                <h2 id="reservation-selector-title">Añade esta prenda</h2>
+              </div>
+              @if (reservationMaximum() > 0) {
+                @if (reservationContext(); as context) {
+                  <div class="reservation-selector__context">
+                    <span>RESERVA ACTUAL</span>
+                    <strong>{{ context.nombre_sucursal }} · {{ context.nombre_ciudad }}</strong>
+                    <p>{{ formatContextDate(context) }} · {{ context.horario }}</p>
+                    <small>Esta prenda se comprobará en la misma sucursal.</small>
+                  </div>
+                } @else {
+                  <p>La primera prenda establece la sucursal y el horario para toda la reserva.</p>
+                  <app-reservation-schedule-picker
+                    [branches]="eligibleReservationBranches()"
+                    (selectionChange)="scheduleChanged($event)"
+                  />
+                }
+                <label>
+                  Cantidad
+                  <input
+                    type="number"
+                    min="1"
+                    [max]="reservationMaximum()"
+                    [value]="reservationQuantity()"
+                    (input)="updateReservationQuantity($event)"
+                  />
+                  <small>Máximo que puedes añadir: {{ reservationMaximum() }}</small>
+                </label>
+                @if (reservationError()) { <p class="reservation-selector__error" role="alert">{{ reservationError() }}</p> }
+                @if (reservationSuccess()) {
+                  <p class="reservation-selector__success" role="status">{{ reservationSuccess() }}</p>
+                  <a class="button button--outline" routerLink="/reservar">Revisar {{ reservationItemCount() }} prendas</a>
+                }
+                @if (isClient()) {
+                  <button class="button button--solid" type="button" (click)="addToReservation()">
+                    {{ reservationContext() ? 'Añadir a esta reserva' : 'Añadir a reserva' }}
+                  </button>
+                } @else if (!currentUser()) {
+                  <a class="button button--solid" routerLink="/login">Inicia sesión para reservar</a>
+                } @else {
+                  <p class="reservation-selector__hint">Las reservas están disponibles para cuentas de cliente.</p>
+                }
+              } @else {
+                <p class="reservation-selector__hint">Esta variante no tiene disponibilidad para reservar.</p>
+              }
+            </section>
+          }
 
           @if (current.colecciones.length) {
             <div class="collections">

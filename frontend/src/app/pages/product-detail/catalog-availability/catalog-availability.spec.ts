@@ -13,6 +13,7 @@ const url = `${environment.apiUrl}/api/catalog/products/10/availability`;
 const variant = { id_variante_producto: 25, sku: 'CAM-M-BLA', estado: true,
   talla: { id_talla: 3, nombre: 'M' }, color: { id_color: 4, nombre: 'Blanco', codigo_hex: '#FFFFFF' } };
 const row: BranchAvailability = { variante: variant, id_sucursal: 901, nombre_sucursal: 'Centro',
+  direccion: 'Av. Principal', hora_apertura: '08:00:00', hora_cierre: '20:00:00',
   id_ciudad: 902, nombre_ciudad: 'Santa Cruz', stock_actual: 20, stock_reservado: 8, stock_disponible: 12 };
 const response = (rows: BranchAvailability[] = [row]) => ({ success: true,
   data: { producto: { id_producto: 10, nombre: 'Camisa', estado: true }, disponibilidad: rows }, message: '' });
@@ -131,8 +132,8 @@ describe('CatalogAvailability CU13', () => {
   });
 });
 
-describe('ProductDetail integration CU13', () => {
-  it('uses public CU12 size/color buttons to request the variant without login or reservations', () => {
+describe('ProductDetail integration CU13/CU17', () => {
+  it('uses public CU12 size/color buttons and keeps CU17 behind client authentication', () => {
     localStorage.clear();
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
     const http = TestBed.inject(HttpTestingController);
@@ -166,7 +167,9 @@ describe('ProductDetail integration CU13', () => {
     http.expectOne(`${url}?id_variante_producto=26`).flush(response([]));
     const route = routes.find((r) => r.path === 'catalogo/producto/:id')!;
     expect(route.canActivate).toBeUndefined();
-    expect(fixture.nativeElement.querySelector('.future-purchase').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.future-purchase')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.reservation-selector')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Esta variante no tiene disponibilidad');
     http.verify();
   });
 });

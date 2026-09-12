@@ -58,6 +58,8 @@ class CatalogAvailabilityService:
                 estado=row["variante_estado"],
             ),
             id_sucursal=row["id_sucursal"], nombre_sucursal=row["nombre_sucursal"],
+            direccion=row["direccion"], hora_apertura=row["hora_apertura"],
+            hora_cierre=row["hora_cierre"],
             id_ciudad=row["id_ciudad"], nombre_ciudad=row["nombre_ciudad"],
             stock_actual=row["stock_actual"], stock_reservado=row["stock_reservado"],
             # Reutilizacion exacta de CU12 sin modificar sus archivos.

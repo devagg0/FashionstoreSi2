@@ -1,0 +1,64 @@
+<section class="staff-page" aria-labelledby="reservation-detail-title">
+  <a class="staff-back-link" routerLink="/staff/reservas"><app-icon name="chevron-left" [size]="15" /> Volver a reservas</a>
+
+  @if (successMessage()) { <div class="staff-message staff-message--success" role="status"><app-icon name="circle-check" [size]="18" /> {{ successMessage() }}</div> }
+
+  @if (loading()) {
+    <div class="staff-detail-loading" role="status" aria-label="Cargando reserva"><span></span><span></span><span></span></div>
+  } @else if (errorMessage() && !reservation()) {
+    <section class="staff-empty-state" role="alert"><app-icon name="ban" [size]="30" /><h2>Reserva no disponible</h2><p>{{ errorMessage() }}</p><div><a class="staff-button" routerLink="/staff/reservas">Volver</a><button class="staff-button staff-button--primary" type="button" (click)="load()">Reintentar</button></div></section>
+  } @else if (reservation(); as item) {
+    @if (errorMessage()) { <div class="staff-message staff-message--error" role="alert">{{ errorMessage() }}</div> }
+    <header class="staff-detail-heading">
+      <div><p>RESERVA</p><h2 id="reservation-detail-title">{{ item.codigo }}</h2><span>{{ item.cliente.nombre }} {{ item.cliente.apellido }}</span></div>
+      <span class="staff-status" [attr.data-state]="item.estado">{{ stateLabel(item.estado) }}</span>
+    </header>
+
+    <div class="staff-detail-grid">
+      <section class="staff-detail-products" aria-labelledby="reserved-products-title">
+        <div class="staff-section-title"><div><small>PRENDAS</small><h3 id="reserved-products-title">Artículos reservados</h3></div><strong>{{ item.cantidad_prendas }} prendas</strong></div>
+        @for (product of item.prendas; track product.id_variante_producto) {
+          <article class="staff-reserved-product">
+            <div class="staff-product-image">
+              @if (imageFor(product.id_producto, product.imagen_principal); as image) {
+                @if (!failedImages().has(product.id_variante_producto)) { <img [src]="image" [alt]="product.producto" (error)="imageFailed(product.id_variante_producto)" /> } @else { <strong>FS</strong> }
+              } @else { <strong>FS</strong> }
+            </div>
+            <div class="staff-product-copy"><small>{{ product.sku }}</small><h4>{{ product.producto }}</h4><p><span class="staff-color-dot" [style.background]="product.color.codigo_hex ?? '#ddd'"></span>{{ product.color.nombre }} · Talla {{ product.talla.nombre }}</p><span>{{ product.cantidad }} × {{ formatMoney(product.precio_reservado) }}</span></div>
+            <strong>{{ formatMoney(product.subtotal) }}</strong>
+          </article>
+        }
+      </section>
+
+      <aside class="staff-detail-summary">
+        <h3>Información de atención</h3>
+        <dl>
+          <div><dt>Cliente</dt><dd>{{ item.cliente.nombre }} {{ item.cliente.apellido }}<small>{{ item.cliente.correo }}</small>@if (item.cliente.telefono) { <small>{{ item.cliente.telefono }}</small> }</dd></div>
+          <div><dt>Sucursal</dt><dd>{{ item.sucursal.nombre }}<small>{{ item.sucursal.direccion }}, {{ item.sucursal.ciudad.nombre }}</small></dd></div>
+          <div><dt>Programada</dt><dd>{{ formatDate(item.fecha_atencion_programada) }}</dd></div>
+          <div><dt>Expira</dt><dd>{{ formatDate(item.fecha_expiracion) }}</dd></div>
+        </dl>
+        <div class="staff-detail-total"><span>Total reservado</span><strong>{{ formatMoney(item.total) }}</strong></div>
+        @if (item.estado === 'PENDIENTE') {
+          <button class="staff-button staff-button--primary staff-detail-action" type="button" (click)="askAction('confirm')">Confirmar preparación</button>
+        } @else if (item.estado === 'CONFIRMADA') {
+          <button class="staff-button staff-button--primary staff-detail-action" type="button" (click)="askAction('attend')">Marcar como atendida</button>
+        } @else {
+          <p class="staff-readonly-note"><app-icon name="lock" [size]="17" /> Reserva en modo solo lectura.</p>
+        }
+      </aside>
+    </div>
+  }
+</section>
+
+@if (pendingAction() && reservation(); as item) {
+  <div class="modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar confirmación" (click)="closeModal()"></button>
+    <section class="modal modal--compact" role="alertdialog" aria-modal="true" aria-labelledby="staff-action-title">
+      <span class="confirm-icon"><app-icon name="circle-check" [size]="25" /></span>
+      <div class="modal__header"><div><small>CONFIRMAR ACCIÓN</small><h3 id="staff-action-title">{{ actionTitle() }}</h3></div></div>
+      <p>{{ actionCopy() }}</p><p><strong>{{ item.codigo }}</strong> · {{ item.cliente.nombre }} {{ item.cliente.apellido }}</p>
+      <div class="modal__actions"><button class="modal-button modal-button--secondary" type="button" [disabled]="processing()" (click)="closeModal()">Volver</button><button class="modal-button modal-button--primary" type="button" [disabled]="processing()" (click)="runAction()">{{ processing() ? 'Procesando…' : 'Confirmar' }}</button></div>
+    </section>
+  </div>
+}

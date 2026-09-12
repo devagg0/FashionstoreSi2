@@ -31,6 +31,7 @@ class CatalogAvailabilityRepository:
             Size.id_talla, Size.nombre.label("talla"),
             Color.id_color, Color.nombre.label("color"), Color.codigo_hex,
             Branch.id_sucursal, Branch.nombre.label("nombre_sucursal"),
+            Branch.direccion, Branch.hora_apertura, Branch.hora_cierre,
             City.id_ciudad, City.nombre.label("nombre_ciudad"),
             BranchInventory.stock_actual, BranchInventory.stock_reservado,
         ).select_from(BranchInventory).join(

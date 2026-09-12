@@ -1,6 +1,8 @@
 import { inject } from '@angular/core';
 import { Router, Routes } from '@angular/router';
 import { adminChildGuard, adminGuard } from './core/guards/admin.guard';
+import { clientGuard } from './core/guards/client.guard';
+import { staffChildGuard, staffGuard } from './core/guards/staff.guard';
 import { SessionService } from './core/services/session.service';
 
 export const routes: Routes = [
@@ -39,6 +41,81 @@ export const routes: Routes = [
         ({ ProductDetail }) => ProductDetail,
       ),
     title: 'Detalle de producto | FashionStore',
+  },
+  {
+    path: 'reservar',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/reservations/reservation-checkout').then(
+        ({ ReservationCheckout }) => ReservationCheckout,
+      ),
+    title: 'Tu reserva | FashionStore',
+  },
+  {
+    path: 'mis-reservas',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/reservations/my-reservations').then(
+        ({ MyReservations }) => MyReservations,
+      ),
+    title: 'Reservas | FashionStore',
+  },
+  {
+    path: 'mis-reservas/:id',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/reservations/reservation-detail').then(
+        ({ ReservationDetailPage }) => ReservationDetailPage,
+      ),
+    title: 'Detalle de reserva | FashionStore',
+  },
+  {
+    path: 'staff',
+    canActivate: [staffGuard],
+    canActivateChild: [staffChildGuard],
+    loadComponent: () =>
+      import('./layout/staff-layout/staff-layout').then(({ StaffLayout }) => StaffLayout),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      {
+        path: 'inicio',
+        loadComponent: () =>
+          import('./pages/staff/dashboard/staff-dashboard').then(
+            ({ StaffDashboard }) => StaffDashboard,
+          ),
+        title: 'Inicio de sucursal | FashionStore',
+      },
+      {
+        path: 'reservas',
+        loadComponent: () =>
+          import('./pages/staff/reservations/staff-reservations').then(
+            ({ StaffReservations }) => StaffReservations,
+          ),
+        title: 'Reservas de sucursal | FashionStore',
+      },
+      {
+        path: 'reservas/:id',
+        loadComponent: () =>
+          import('./pages/staff/reservation-detail/staff-reservation-detail').then(
+            ({ StaffReservationDetailPage }) => StaffReservationDetailPage,
+          ),
+        title: 'Detalle de reserva | FashionStore',
+      },
+      {
+        path: 'disponibilidad',
+        loadComponent: () =>
+          import('./pages/staff/availability/staff-availability').then(
+            ({ StaffAvailability }) => StaffAvailability,
+          ),
+        title: 'Disponibilidad de sucursal | FashionStore',
+      },
+      {
+        path: 'perfil',
+        loadComponent: () =>
+          import('./pages/staff/profile/staff-profile').then(({ StaffProfile }) => StaffProfile),
+        title: 'Mi perfil | FashionStore',
+      },
+    ],
   },
   {
     path: 'admin',

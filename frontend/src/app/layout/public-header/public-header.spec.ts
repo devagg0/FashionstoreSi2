@@ -56,6 +56,21 @@ describe('PublicHeader', () => {
     expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).toContain(
       'CLIENTE',
     );
+    expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).toContain(
+      'Reservas',
+    );
+    expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).not.toContain(
+      'Prendas para reservar',
+    );
+    expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).not.toContain(
+      'Mis reservas',
+    );
+    expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).not.toContain(
+      'Prendas para reservar',
+    );
+    expect(fixture.nativeElement.querySelector('.account-dropdown')?.textContent).not.toContain(
+      'Mis reservas',
+    );
 
     fixture.nativeElement.querySelector('.account-dropdown button').click();
     fixture.detectChanges();

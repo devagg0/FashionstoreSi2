@@ -66,8 +66,8 @@ describe('ProductDetail CU12', () => {
     expect(page['availabilityLabel'](detail.variantes[0])).toBe('Pocas unidades');
   });
 
-  it('does not expose a functional purchase action', () => {
-    const purchase = fixture.nativeElement.querySelector('.future-purchase') as HTMLButtonElement;
-    expect(purchase.disabled).toBe(true);
+  it('keeps the reservation selector separate from the future purchase flow', () => {
+    expect(fixture.nativeElement.querySelector('.future-purchase')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.reservation-selector')).toBeNull();
   });
 });

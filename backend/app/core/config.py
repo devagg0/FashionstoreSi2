@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: SecretStr = Field(min_length=32)
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = Field(default=60, gt=0)
+    RESERVATION_GRACE_MINUTES: int = Field(default=60, gt=0, le=1440)
+    RESERVATION_SLOT_MINUTES: int = Field(default=30, gt=0, le=120)
+    APP_TIMEZONE: str = Field(default="America/La_Paz", min_length=1)
     BREVO_API_KEY: SecretStr = Field(min_length=1)
     BREVO_SENDER_EMAIL: EmailStr
     BREVO_SENDER_NAME: str = Field(min_length=1, max_length=100)

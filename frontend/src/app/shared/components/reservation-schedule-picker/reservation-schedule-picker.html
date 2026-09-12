@@ -1,0 +1,64 @@
+<div class="schedule-picker">
+  <label class="schedule-picker__branch">
+    <span>Sucursal</span>
+    <select [value]="selectedBranchId() ?? ''" (change)="chooseBranch($event)">
+      <option value="">Selecciona una sucursal</option>
+      @for (branch of branches(); track branch.id_sucursal) {
+        <option [value]="branch.id_sucursal">
+          {{ branch.nombre_sucursal }} · {{ branch.nombre_ciudad }}
+        </option>
+      }
+    </select>
+  </label>
+
+  @if (selectedBranch(); as branch) {
+    <div class="schedule-picker__store-hours">
+      <span>Horario de la sucursal</span>
+      <strong>{{ shortTime(branch.hora_apertura) }} - {{ shortTime(branch.hora_cierre) }}</strong>
+      <small>{{ branch.direccion }}</small>
+    </div>
+
+    <fieldset>
+      <legend>Fecha de atención · próximos 7 días</legend>
+      <div class="schedule-picker__days">
+        @for (day of days; track day.value) {
+          <button
+            type="button"
+            [class.is-active]="selectedDate() === day.value"
+            [attr.aria-pressed]="selectedDate() === day.value"
+            (click)="chooseDay(day)"
+          >
+            <span>{{ day.weekday }}</span>
+            <strong>{{ day.day }}</strong>
+            <small>{{ day.month }}</small>
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Horarios disponibles</legend>
+      @if (slots().length) {
+        <div class="schedule-picker__slots">
+          @for (slot of slots(); track slot) {
+            <button
+              type="button"
+              [class.is-active]="selectedTime() === slot"
+              [attr.aria-pressed]="selectedTime() === slot"
+              (click)="chooseTime(slot)"
+            >{{ slot }}</button>
+          }
+        </div>
+      } @else {
+        <p class="schedule-picker__empty">No quedan horarios disponibles para este día.</p>
+      }
+    </fieldset>
+
+    @if (selectedTime()) {
+      <div class="schedule-picker__selected">
+        <span>Horario seleccionado</span><strong>{{ selectedTime() }}</strong>
+      </div>
+    }
+  }
+</div>
+

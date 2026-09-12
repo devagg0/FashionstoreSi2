@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import time
 from types import SimpleNamespace
 from urllib.parse import urlencode, urlsplit
 from unittest import TestCase
@@ -24,6 +25,7 @@ def row(**changes):
         id_variante_producto=25, sku="CAM-OXF-M-BLANCO", variante_estado=True,
         id_talla=3, talla="M", id_color=4, color="Blanco", codigo_hex="#FFFFFF",
         id_sucursal=1, nombre_sucursal="Centro", id_ciudad=2, nombre_ciudad="La Paz",
+        direccion="Av. Principal", hora_apertura=time(8), hora_cierre=time(20),
         stock_actual=20, stock_reservado=0,
     ) | changes
 
@@ -107,6 +109,8 @@ class AvailabilityServiceTests(TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual((result[0].nombre_sucursal, result[0].nombre_ciudad),
                          ("Centro", "La Paz"))
+        self.assertEqual((result[0].hora_apertura, result[0].hora_cierre),
+                         (time(8), time(20)))
 
     def test_multiple_branches_preserve_query_order(self):
         self.repo.list_availability.return_value = [row(), row(id_sucursal=2, nombre_sucursal="Norte")]

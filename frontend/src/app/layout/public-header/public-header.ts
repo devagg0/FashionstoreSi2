@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { SessionService } from '../../core/services/session.service';
+import { ReservationSelectionService } from '../../core/services/reservation-selection.service';
 import { Icon } from '../../shared/components/icon/icon';
 
 interface NavigationGroup {
@@ -19,10 +20,12 @@ export class PublicHeader {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly reservationSelection = inject(ReservationSelectionService);
 
   protected readonly mobileOpen = signal(false);
   protected readonly openDropdown = signal<string | null>(null);
   protected readonly user = this.sessionService.currentUser;
+  protected readonly reservationItemCount = this.reservationSelection.itemCount;
   protected readonly navigation: readonly NavigationGroup[] = [
     {
       label: 'Hombre',

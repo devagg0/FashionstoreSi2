@@ -1,0 +1,68 @@
+<div class="staff-shell" [class.sidebar-is-open]="sidebarOpen()">
+  <button
+    class="staff-backdrop"
+    type="button"
+    aria-label="Cerrar navegación"
+    (click)="closeSidebar()"
+  ></button>
+
+  <aside id="staff-sidebar" class="staff-sidebar" aria-label="Navegación de sucursal">
+    <div class="staff-sidebar__brand">
+      <a routerLink="/staff/inicio" (click)="closeSidebar()">FASHIONSTORE</a>
+      <span>OPERACIÓN DE SUCURSAL</span>
+    </div>
+
+    <nav class="staff-navigation">
+      <p>MENÚ PRINCIPAL</p>
+      <a routerLink="/staff/inicio" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" /><span>Inicio</span>
+      </a>
+      <a routerLink="/staff/reservas" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="bag" [size]="20" /><span>Reservas</span>
+      </a>
+      <a routerLink="/staff/disponibilidad" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="search" [size]="20" /><span>Disponibilidad</span>
+      </a>
+      <a routerLink="/staff/perfil" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="user" [size]="20" /><span>Mi perfil</span>
+      </a>
+    </nav>
+
+    <div class="staff-sidebar__footer">
+      <button type="button" (click)="logout()">
+        <app-icon name="log-out" [size]="20" /><span>Cerrar sesión</span>
+      </button>
+      <p>FashionStore · Atención en tienda</p>
+    </div>
+  </aside>
+
+  <div class="staff-workspace">
+    <header class="staff-topbar">
+      <div class="staff-topbar__section">
+        <button
+          class="staff-topbar__menu"
+          type="button"
+          aria-label="Abrir navegación"
+          aria-controls="staff-sidebar"
+          [attr.aria-expanded]="sidebarOpen()"
+          (click)="toggleSidebar()"
+        >
+          <app-icon name="menu" [size]="22" />
+        </button>
+        <div><span>Panel de sucursal</span><h1>{{ sectionTitle() }}</h1></div>
+      </div>
+
+      @if (user(); as currentUser) {
+        <a class="staff-identity" routerLink="/staff/perfil" aria-label="Abrir mi perfil">
+          <span class="staff-identity__copy">
+            <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+            <small>{{ branch()?.nombre ?? 'Sucursal asignada' }} · {{ currentUser.rol }}</small>
+          </span>
+          <span class="staff-identity__avatar" aria-hidden="true">{{ initials() }}</span>
+        </a>
+      }
+    </header>
+
+    <main id="main-content" class="staff-main"><router-outlet /></main>
+  </div>
+</div>
