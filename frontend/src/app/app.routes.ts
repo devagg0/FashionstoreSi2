@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { Router, Routes } from '@angular/router';
 import { adminChildGuard, adminGuard } from './core/guards/admin.guard';
 import { clientGuard } from './core/guards/client.guard';
+import { cashierGuard } from './core/guards/cashier.guard';
 import { staffChildGuard, staffGuard } from './core/guards/staff.guard';
 import { SessionService } from './core/services/session.service';
 
@@ -43,6 +44,12 @@ export const routes: Routes = [
     title: 'Detalle de producto | FashionStore',
   },
   {
+    path: 'carrito',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/cart/cart').then(({ Cart }) => Cart),
+    title: 'Mi carrito | FashionStore',
+  },
+  {
     path: 'reservar',
     canActivate: [clientGuard],
     loadComponent: () =>
@@ -77,6 +84,12 @@ export const routes: Routes = [
       import('./layout/staff-layout/staff-layout').then(({ StaffLayout }) => StaffLayout),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      {
+        path: 'ventas/nueva',
+        canActivate: [cashierGuard],
+        loadComponent: () => import('./pages/staff/sales/new-sale/new-sale').then(({ NewSale }) => NewSale),
+        title: 'Nueva venta | FashionStore',
+      },
       {
         path: 'inicio',
         loadComponent: () =>

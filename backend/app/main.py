@@ -19,7 +19,9 @@ from app.routers.admin_promotions import router as admin_promotions_router
 from app.routers.catalog import router as catalog_router
 from app.routers.catalog_availability import router as catalog_availability_router
 from app.routers.client_reservations import router as client_reservations_router
+from app.routers.client_cart import router as client_cart_router
 from app.routers.staff_reservations import router as staff_reservations_router
+from app.routers.staff_sales import router as staff_sales_router
 from app.routers.auth import router as auth_router
 
 
@@ -51,7 +53,9 @@ app.include_router(admin_promotions_router)
 app.include_router(catalog_router)
 app.include_router(catalog_availability_router)
 app.include_router(client_reservations_router)
+app.include_router(client_cart_router)
 app.include_router(staff_reservations_router)
+app.include_router(staff_sales_router)
 app.include_router(admin_seasons_router)
 app.include_router(admin_collections_router)
 app.include_router(auth_router)

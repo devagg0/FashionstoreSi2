@@ -463,3 +463,9 @@
     flex-direction: column;
   }
 }
+:host .cart-add { display: grid; gap: 12px; margin: 20px 0; }
+:host .cart-add p { margin: 0; font-size: .85rem; line-height: 1.5; }
+:host .cart-add [role='alert'] { color: #8a4038; }
+:host .cart-add [role='status'] { color: #3f6847; }
+:host .cart-add a { color: var(--color-terracotta); }
+:host .cart-add button:disabled { opacity: .55; cursor: wait; }

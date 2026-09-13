@@ -29,6 +29,7 @@ export class StaffLayout implements OnInit {
   protected readonly branch = this.reservations.branch;
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
+    if (url.startsWith('/staff/ventas/nueva')) return 'Nueva venta';
     if (url.startsWith('/staff/reservas/')) return 'Detalle de reserva';
     if (url.startsWith('/staff/reservas')) return 'Reservas';
     if (url.startsWith('/staff/disponibilidad')) return 'Disponibilidad';
