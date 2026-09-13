@@ -26,6 +26,16 @@ describe('PublicHeader', () => {
     localStorage.clear();
   });
 
+  it('CU19 keeps cart accessible in desktop and mobile navigation alongside reservations', () => {
+    const fixture = TestBed.createComponent(PublicHeader); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.header-actions a[href="/carrito"]').textContent).toContain('Carrito');
+    expect(fixture.nativeElement.querySelector('a[href="/reservar"]')).not.toBeNull();
+    fixture.nativeElement.querySelector('.mobile-menu-trigger').click(); fixture.detectChanges();
+    const link = fixture.nativeElement.querySelector('.mobile-panel a[href="/carrito"]'); expect(link).not.toBeNull();
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    link.click(); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.mobile-panel')).toBeNull();
+  });
+
   it('reacts to login and logout without reloading the page', () => {
     const sessionService = TestBed.inject(SessionService);
     const router = TestBed.inject(Router);

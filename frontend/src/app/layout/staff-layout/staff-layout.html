@@ -17,6 +17,11 @@
       <a routerLink="/staff/inicio" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="dashboard" [size]="20" /><span>Inicio</span>
       </a>
+      @if (user()?.rol?.toUpperCase() === 'CAJERO') {
+        <a routerLink="/staff/ventas/nueva" routerLinkActive="is-active" (click)="closeSidebar()">
+          <app-icon name="bag" [size]="20" /><span>Nueva venta</span>
+        </a>
+      }
       <a routerLink="/staff/reservas" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="bag" [size]="20" /><span>Reservas</span>
       </a>

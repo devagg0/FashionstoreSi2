@@ -1,0 +1,83 @@
+<main id="main-content" class="cart-page">
+  <div class="shell cart-shell">
+    <header class="cart-heading">
+      <div><p>FASHIONSTORE</p><h1>Mi carrito</h1></div>
+      <a class="button button--outline" routerLink="/catalogo">Continuar explorando</a>
+    </header>
+    @if (error()) {
+      <p class="cart-error" role="alert">{{ error() }} <a routerLink="/login">Iniciar sesión</a></p>
+    }
+    @if (loading()) {
+      <p class="cart-loading" role="status">Cargando carrito...</p>
+    } @else if (cart(); as current) {
+      @if (!current.items.length) {
+        <section class="cart-empty">
+          <app-icon name="bag" [size]="32" />
+          <h2>Tu carrito está vacío</h2>
+          <p>Explora nuestro catálogo y agrega tus prendas favoritas.</p>
+          <a class="button button--solid" routerLink="/catalogo">Ver catálogo</a>
+        </section>
+      } @else {
+        <div class="cart-layout">
+          <section aria-label="Artículos del carrito">
+            @for (item of current.items; track item.id_variante_producto) {
+              <article class="cart-item" [attr.aria-busy]="!!pending()[item.id_variante_producto]">
+                <div class="cart-image">
+                  @if (item.imagen_principal && !failedImages().has(item.id_variante_producto)) {
+                    <img [src]="item.imagen_principal" [alt]="item.nombre_producto" loading="lazy" (error)="imageFailed(item.id_variante_producto)" />
+                  } @else { <span aria-label="Imagen no disponible">FS</span> }
+                </div>
+                <div class="cart-copy">
+                  <small>{{ item.sku }}</small><h2>{{ item.nombre_producto }}</h2>
+                  <p>Talla {{ item.talla.nombre }} · {{ item.color.nombre }}</p>
+                  <p class="cart-price">
+                    @if (discounted(item)) { <s>{{ money(item.precio_base) }}</s> }
+                    <strong>{{ money(item.precio_final) }}</strong>
+                  </p>
+                  @if (item.promocion) { <small>{{ item.promocion.nombre }}</small> }
+                  <p class="cart-availability" [class.cart-warning]="inactive(item) || item.disponibilidad_actual < item.cantidad">{{ availability(item) }}</p>
+                </div>
+                <div class="cart-controls">
+                  <div class="quantity-controls">
+                    <button type="button" [attr.aria-label]="'Disminuir cantidad de ' + item.nombre_producto" [disabled]="blocked(item) || inactive(item) || item.cantidad <= 1" (click)="updateQuantity(item, item.cantidad - 1)">−</button>
+                    <input type="number" min="1" max="2147483647" step="1" [attr.aria-label]="'Cantidad de ' + item.nombre_producto" [value]="item.cantidad" [disabled]="blocked(item) || inactive(item)" (change)="quantityChanged(item, $event)" />
+                    <button type="button" [attr.aria-label]="'Aumentar cantidad de ' + item.nombre_producto" [disabled]="blocked(item) || inactive(item)" (click)="updateQuantity(item, item.cantidad + 1)">+</button>
+                  </div>
+                  <p>Subtotal: <strong>{{ money(item.subtotal_linea) }}</strong></p>
+                  <button class="cart-remove" type="button" [attr.aria-label]="'Eliminar ' + item.nombre_producto + ' del carrito'" [disabled]="blocked(item)" (click)="removeItem(item)">{{ pending()[item.id_variante_producto] === 'removing' ? 'Eliminando...' : 'Eliminar' }}</button>
+                  @if (pending()[item.id_variante_producto] === 'updating') { <span role="status">Actualizando...</span> }
+                </div>
+                @if (itemErrors()[item.id_variante_producto]) { <p class="cart-error cart-item-error" role="alert">{{ itemErrors()[item.id_variante_producto] }}</p> }
+              </article>
+            }
+            <div class="cart-actions">
+              <button class="button button--outline" type="button" [disabled]="busy() || clearing()" (click)="askClear()">{{ clearing() ? 'Vaciando...' : 'Vaciar carrito' }}</button>
+              <button class="cart-remove" type="button" [disabled]="busy() || clearing()" (click)="load()">Actualizar carrito</button>
+            </div>
+          </section>
+          <aside class="cart-summary" aria-labelledby="summary-title">
+            <h2 id="summary-title">Resumen de compra</h2>
+            <dl>
+              <div><dt>Productos</dt><dd>{{ current.cantidad_items }}</dd></div>
+              <div><dt>Unidades</dt><dd>{{ current.cantidad_unidades }}</dd></div>
+              <div><dt>Subtotal</dt><dd>{{ money(current.subtotal) }}</dd></div>
+              <div><dt>Descuentos</dt><dd>{{ money(current.descuento_total) }}</dd></div>
+              <div class="cart-total"><dt>Total</dt><dd>{{ money(current.total) }}</dd></div>
+            </dl>
+            <p>Los precios y la disponibilidad pueden cambiar. Agregar prendas al carrito no reserva stock.</p>
+          </aside>
+        </div>
+      }
+    } @else {
+      <button class="button button--solid" type="button" (click)="load()">Reintentar</button>
+    }
+  </div>
+</main>
+<dialog #clearDialog class="modal modal--compact cart-dialog" aria-labelledby="clear-title" (cancel)="clearing() && $event.preventDefault()">
+  <h3 id="clear-title">Vaciar carrito</h3>
+  <p>¿Deseas eliminar todos los productos del carrito?</p>
+  <div class="modal__actions">
+    <button class="modal-button modal-button--secondary" type="button" autofocus [disabled]="clearing()" (click)="closeDialog()">Cancelar</button>
+    <button class="modal-button modal-button--primary" type="button" [disabled]="clearing()" (click)="clearCart()">{{ clearing() ? 'Vaciando...' : 'Vaciar carrito' }}</button>
+  </div>
+</dialog>

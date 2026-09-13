@@ -1,7 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
+import { Subject } from 'rxjs';
+import { CartResponse, ClientCartService } from '../../core/services/client-cart.service';
+import { SessionService } from '../../core/services/session.service';
+import { ReservationSelectionService } from '../../core/services/reservation-selection.service';
 import { CatalogProductDetail } from '../../core/services/catalog.service';
 import { ProductDetail } from './product-detail';
 
@@ -46,6 +50,7 @@ describe('ProductDetail CU12', () => {
   let page: ProductDetail;
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
@@ -56,6 +61,55 @@ describe('ProductDetail CU12', () => {
     page['errorMessage'].set('');
     page['loading'].set(false);
     fixture.detectChanges();
+  });
+
+  afterEach(() => { localStorage.clear(); sessionStorage.clear(); });
+
+  function client() {
+    const session = TestBed.inject(SessionService);
+    session.saveAccessToken('token');
+    session.saveUser({ id_usuario: 1, nombre: 'Ana', apellido: 'Pérez', correo: 'a@b.com', rol: 'CLIENTE' });
+  }
+
+  it('CU19 requires both size and color', () => {
+    client(); const add = vi.spyOn(TestBed.inject(ClientCartService), 'addItem');
+    page['addToCart'](); expect(page['cartError']()).toBe('Selecciona una talla y un color.');
+    page['selectColor'](2); page['addToCart'](); expect(add).not.toHaveBeenCalled();
+  });
+
+  it('CU19 sends the selected variant with quantity one, waits for success and prevents duplicate sends', () => {
+    client(); page['selectColor'](2); page['selectSize'](1);
+    const response = new Subject<CartResponse>();
+    const add = vi.spyOn(TestBed.inject(ClientCartService), 'addItem').mockReturnValue(response);
+    const reservations = TestBed.inject(ReservationSelectionService).items();
+    page['addToCart'](); page['addToCart'](); fixture.detectChanges();
+    expect(add).toHaveBeenCalledExactlyOnceWith(9, 1); expect(page['cartSuccess']()).toBe('');
+    expect(fixture.nativeElement.querySelector('.cart-add button').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.cart-add').textContent).toContain('Agregando...');
+    response.next({ success: true, data: { id_carrito: 1, estado: 'ACTIVO', items: [], cantidad_items: 1, cantidad_unidades: 1, subtotal: '100', descuento_total: '0', total: '100' }, message: 'OK' }); response.complete(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cart-add').textContent).toContain('Producto agregado al carrito');
+    expect(page['addingToCart']()).toBe(false);
+    expect(TestBed.inject(ReservationSelectionService).items()).toEqual(reservations);
+  });
+
+  it('CU19 displays the real stock conflict without reporting success', () => {
+    client(); page['selectColor'](2); page['selectSize'](1);
+    const response = new Subject<CartResponse>(); vi.spyOn(TestBed.inject(ClientCartService), 'addItem').mockReturnValue(response);
+    page['addToCart'](); response.error(new HttpErrorResponse({ status: 409, error: { message: 'Stock insuficiente para esta variante.' } })); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cart-add [role="alert"]').textContent).toBe('Stock insuficiente para esta variante.');
+    expect(page['cartSuccess']()).toBe(''); expect(page['addingToCart']()).toBe(false);
+  });
+
+  it('CU19 redirects guests to login without creating an anonymous cart', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const add = vi.spyOn(TestBed.inject(ClientCartService), 'addItem');
+    page['addToCart'](); expect(navigate).toHaveBeenCalledWith(['/login']); expect(add).not.toHaveBeenCalled();
+  });
+
+  it('CU19 rejects authenticated non-client accounts', () => {
+    client(); const session = TestBed.inject(SessionService); session.saveUser({ ...session.getUser()!, rol: 'ADMIN' });
+    const add = vi.spyOn(TestBed.inject(ClientCartService), 'addItem'); page['addToCart']();
+    expect(page['cartError']()).toContain('cuentas de cliente'); expect(add).not.toHaveBeenCalled();
   });
 
   it('identifies a variant from the selected color and size', () => {

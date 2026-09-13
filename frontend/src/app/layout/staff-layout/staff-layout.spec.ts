@@ -30,6 +30,8 @@ describe('StaffLayout CU18', () => {
 
   it('shows only the operational sidebar for cashier', () => {
     const text = fixture.nativeElement.querySelector('.staff-sidebar').textContent;
+    expect(text).toContain('Nueva venta');
+    expect(fixture.nativeElement.querySelector('a[href="/staff/ventas/nueva"]')).toBeTruthy();
     for (const item of ['Inicio', 'Reservas', 'Disponibilidad', 'Mi perfil', 'Cerrar sesión']) expect(text).toContain(item);
     for (const forbidden of ['Usuarios', 'Ciudades', 'Promociones', 'Inventario global']) expect(text).not.toContain(forbidden);
   });
@@ -42,6 +44,7 @@ describe('StaffLayout CU18', () => {
     expect(text).toContain('Disponibilidad');
     expect(text).not.toContain('Inventario');
     expect(text).not.toContain('Usuarios');
+    expect(text).not.toContain('Nueva venta');
   });
 
   it('opens and closes the responsive sidebar', () => {

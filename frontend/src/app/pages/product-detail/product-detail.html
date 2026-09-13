@@ -127,6 +127,17 @@
             </div>
           </div>
 
+          <section class="cart-add" aria-label="Carrito de compras">
+            <button class="button button--solid" type="button" [disabled]="addingToCart()" (click)="addToCart()">
+              {{ addingToCart() ? 'Agregando...' : 'Agregar al carrito' }}
+            </button>
+            @if (cartError()) { <p role="alert">{{ cartError() }}</p> }
+            @if (cartSuccess()) {
+              <p role="status">{{ cartSuccess() }}</p>
+              <a routerLink="/carrito">Ver carrito</a>
+            }
+          </section>
+
           <app-catalog-availability
             [productId]="current.id_producto"
             [variantId]="selectedVariant()?.id_variante_producto ?? null"

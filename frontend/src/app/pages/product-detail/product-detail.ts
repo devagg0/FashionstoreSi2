@@ -15,6 +15,7 @@ import {
   ReservationSelectionService,
 } from '../../core/services/reservation-selection.service';
 import { SessionService } from '../../core/services/session.service';
+import { ClientCartService, cartErrorMessage } from '../../core/services/client-cart.service';
 import { Icon } from '../../shared/components/icon/icon';
 import {
   ReservationSchedulePicker,
@@ -35,6 +36,10 @@ export class ProductDetail {
   private readonly destroyRef = inject(DestroyRef);
   private readonly reservationSelection = inject(ReservationSelectionService);
   private readonly session = inject(SessionService);
+  private readonly cartService = inject(ClientCartService);
+  protected readonly addingToCart = signal(false);
+  protected readonly cartError = signal('');
+  protected readonly cartSuccess = signal('');
 
   protected readonly product = signal<CatalogProductDetail | null>(null);
   protected readonly loading = signal(true);
@@ -132,6 +137,7 @@ export class ProductDetail {
   }
 
   protected selectColor(colorId: number): void {
+    this.cartError.set(''); this.cartSuccess.set('');
     this.resetReservationSelection();
     this.selectedColorId.set(colorId);
     const sizeId = this.selectedSizeId();
@@ -139,6 +145,7 @@ export class ProductDetail {
   }
 
   protected selectSize(sizeId: number): void {
+    this.cartError.set(''); this.cartSuccess.set('');
     this.resetReservationSelection();
     this.selectedSizeId.set(sizeId);
     const colorId = this.selectedColorId();
@@ -230,6 +237,34 @@ export class ProductDetail {
     return this.currentUser()?.rol.toUpperCase() === 'CLIENTE';
   }
 
+  protected addToCart(): void {
+    if (this.addingToCart()) return;
+    this.cartError.set(''); this.cartSuccess.set('');
+    if (!this.session.getAccessToken() || !this.currentUser()) {
+      void this.router.navigate(['/login']);
+      return;
+    }
+    if (!this.isClient()) {
+      this.cartError.set('El carrito está disponible para cuentas de cliente.');
+      return;
+    }
+    const variant = this.selectedVariant();
+    if (!variant) {
+      this.cartError.set('Selecciona una talla y un color.');
+      return;
+    }
+    this.addingToCart.set(true);
+    this.cartService.addItem(variant.id_variante_producto, 1)
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.addingToCart.set(false)))
+      .subscribe({
+        next: () => this.cartSuccess.set('Producto agregado al carrito'),
+        error: (error: HttpErrorResponse) => {
+          this.cartError.set(cartErrorMessage(error));
+          if (error.status === 401) void this.router.navigate(['/login']);
+        },
+      });
+  }
+
   protected addToReservation(): void {
     const variant = this.selectedVariant();
     const product = this.product();
@@ -282,6 +317,7 @@ export class ProductDetail {
   }
 
   private loadProduct(productId: number): void {
+    this.cartError.set(''); this.cartSuccess.set('');
     this.loading.set(true);
     this.errorMessage.set('');
     this.product.set(null);

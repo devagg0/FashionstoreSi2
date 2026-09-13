@@ -1,0 +1,406 @@
+<section class="staff-page sale-page">
+  <header class="staff-page-heading">
+    <div>
+      <p>ATENCIÓN EN TIENDA</p>
+      <h2>Nueva venta</h2>
+      <span>Registra las prendas. El pago se realizará posteriormente en caja.</span>
+    </div>
+  </header>
+  @if (error()) {
+    <p class="sale-message error" role="alert">{{ error() }}</p>
+  }
+  @if (uncertain()) {
+    <section class="sale-panel recovery" aria-labelledby="recovery-title">
+      <h3 id="recovery-title">Verificar intento de venta</h3>
+      <p>
+        La venta ya pudo registrarse. No crees otra venta para esta misma compra. La clave del
+        intento se conserva en esta pestaña.
+      </p>
+      @if (attempt(); as current) {
+        <p>
+          Referencia del intento: <code>{{ current.key }}</code>
+        </p>
+        @if (!current.duplicate) {
+          <button type="button" [disabled]="busy()" (click)="retryAttempt()">
+            {{ creatingSale() ? 'Verificando…' : 'Reintentar con la misma clave' }}
+          </button>
+        }
+      }
+      <p>
+        Si obtuviste el ID de la venta registrada, consúltalo para recuperar el resultado. El
+        backend no permite buscar por la clave del intento.
+      </p>
+      <form class="search-row" (ngSubmit)="consultSale()">
+        <label for="sale-id"
+          >ID de venta<input
+            id="sale-id"
+            name="saleId"
+            inputmode="numeric"
+            [(ngModel)]="saleId"
+            [disabled]="busy()" /></label
+        ><button [disabled]="busy() || !saleId">
+          {{ consultingSale() ? 'Consultando…' : 'Consultar venta' }}
+        </button>
+      </form>
+    </section>
+  } @else if (result(); as sale) {
+    <section class="sale-panel sale-success" aria-live="polite">
+      <span class="sale-badge">{{ sale.estado }}</span>
+      <h3>Venta registrada</h3>
+      <dl>
+        <div>
+          <dt>Número</dt>
+          <dd>{{ sale.numero_venta }}</dd>
+        </div>
+        <div>
+          <dt>Sucursal</dt>
+          <dd>{{ sale.sucursal.nombre }}</dd>
+        </div>
+        <div>
+          <dt>Total</dt>
+          <dd>{{ money(sale.total) }}</dd>
+        </div>
+        <div>
+          <dt>Movimiento de inventario</dt>
+          <dd>{{ sale.movimiento.tipo_movimiento }} / {{ sale.movimiento.estado }}</dd>
+        </div>
+      </dl>
+      @if (sale.estado === 'PENDIENTE') {
+        <p>Venta registrada. Pendiente de pago en caja.</p>
+        <p class="sale-badge">Pago pendiente</p>
+      }
+      <button class="primary" type="button" (click)="newSale()">Nueva venta</button>
+    </section>
+  } @else {
+    <section class="sale-panel sale-context" [attr.aria-busy]="loadingBranches()">
+      @if (loadingBranches()) {
+        <p role="status">Cargando sucursales…</p>
+      } @else if (!branches().length) {
+        <p>No hay sucursales disponibles para registrar ventas.</p>
+        <button type="button" (click)="loadBranches()">Volver a cargar sucursales</button>
+      } @else {
+        @if (branches().length > 1) {
+          <label for="branch"
+            >Sucursal<select
+              id="branch"
+              [ngModel]="branchId()"
+              (ngModelChange)="changeBranch($event)"
+              [disabled]="busy() || locked() || !!reservation()"
+            >
+              <option [ngValue]="null">Selecciona una sucursal</option>
+              @for (b of branches(); track b.id_sucursal) {
+                <option [ngValue]="b.id_sucursal">
+                  {{ b.nombre }} · {{ b.ciudad }} · {{ b.direccion }}
+                </option>
+              }
+            </select></label
+          >
+        }
+        @if (branch(); as b) {
+          <p>
+            <strong>Sucursal: {{ b.nombre }}</strong
+            ><br />{{ b.ciudad }} · {{ b.direccion }}
+          </p>
+        }
+      }
+      <div class="sale-modes" role="group" aria-label="Tipo de venta">
+        <button
+          type="button"
+          [attr.aria-pressed]="mode() === 'direct'"
+          [disabled]="busy() || locked()"
+          (click)="changeMode('direct')"
+        >
+          Venta directa</button
+        ><button
+          type="button"
+          [attr.aria-pressed]="mode() === 'reservation'"
+          [disabled]="busy() || locked()"
+          (click)="changeMode('reservation')"
+        >
+          Desde reserva
+        </button>
+      </div>
+    </section>
+    <div class="sale-grid">
+      <section class="sale-panel sale-products" aria-labelledby="products-title">
+        <h3 id="products-title">
+          {{ mode() === 'direct' ? 'Productos' : 'Prendas de la reserva' }}
+        </h3>
+        @if (mode() === 'direct') {
+          <form class="search-row" (ngSubmit)="searchProducts()">
+            <label for="product-search"
+              >Buscar por nombre o SKU<input
+                id="product-search"
+                name="search"
+                [(ngModel)]="search"
+                maxlength="150"
+                [disabled]="locked() || searchingProducts()"
+                placeholder="Camisa Oxford o SKU" /></label
+            ><button [disabled]="!branch() || locked() || searchingProducts()">Buscar</button>
+          </form>
+          @if (searchingProducts()) {
+            <p role="status">Buscando productos y variantes…</p>
+          }
+          @if (notice()) {
+            <p role="status">{{ notice() }}</p>
+          }
+          <div class="search-results">
+            @for (p of products(); track p.id_producto) {
+              <button
+                class="product-result"
+                type="button"
+                (click)="selectProduct(p.id_producto)"
+                [disabled]="locked() || searchingProducts()"
+              >
+                <span>{{ p.nombre }}</span
+                ><small>{{ money(p.precio_final) }} · Ver variantes</small>
+              </button>
+            }
+          </div>
+          @if (totalPages > 1 && products().length) {
+            <nav class="pagination" aria-label="Páginas de productos">
+              <button
+                type="button"
+                [disabled]="page <= 1 || locked() || searchingProducts()"
+                (click)="searchProducts(page - 1)"
+              >
+                Anterior</button
+              ><span>{{ page }} / {{ totalPages }}</span
+              ><button
+                type="button"
+                [disabled]="page >= totalPages || locked() || searchingProducts()"
+                (click)="searchProducts(page + 1)"
+              >
+                Siguiente
+              </button>
+            </nav>
+          }
+          @if (selectedProduct(); as p) {
+            <section class="variant-picker">
+              <h4>{{ p.nombre }}</h4>
+              <p>
+                Precio de catálogo: {{ money(p.precio_final) }}. Confirma el precio en la
+                cotización.
+              </p>
+              @for (v of p.variantes; track v.id_variante_producto) {
+                <div class="variant-option">
+                  <span
+                    >{{ v.talla.nombre }} · {{ v.color.nombre }}<small>SKU {{ v.sku }}</small>
+                    @if (v.disponibilidad_sucursal; as a) {
+                      <small>Disponible en sucursal: {{ a.cantidad_disponible }}</small>
+                    }</span
+                  ><button
+                    type="button"
+                    [disabled]="locked()"
+                    (click)="addVariant(v)"
+                    [attr.aria-label]="
+                      'Agregar ' + p.nombre + ' ' + v.talla.nombre + ' ' + v.color.nombre
+                    "
+                  >
+                    Agregar
+                  </button>
+                </div>
+              }
+              @if (!p.variantes.length) {
+                <p>Este producto no tiene variantes disponibles.</p>
+              }
+            </section>
+          }
+        } @else {
+          <form class="search-row" (ngSubmit)="searchReservation()">
+            <label for="reservation-code"
+              >Código de reserva<input
+                id="reservation-code"
+                name="code"
+                [(ngModel)]="code"
+                [disabled]="busy() || locked()" /></label
+            ><button [disabled]="busy() || locked() || !code.trim()">Buscar</button>
+          </form>
+          @if (searchingReservation()) {
+            <p role="status">Buscando reserva…</p>
+          }
+          @if (reservation(); as r) {
+            <section class="reservation-info">
+              <h4>{{ r.codigo }}</h4>
+              <dl>
+                <div>
+                  <dt>Cliente</dt>
+                  <dd>{{ r.cliente.nombre }} {{ r.cliente.apellido }}</dd>
+                </div>
+                <div>
+                  <dt>Sucursal</dt>
+                  <dd>{{ r.sucursal.nombre }}</dd>
+                </div>
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{{ r.estado }}</dd>
+                </div>
+                <div>
+                  <dt>Atención programada</dt>
+                  <dd>{{ r.fecha_atencion_programada | date: 'dd/MM/yyyy HH:mm' : '-0400' }}</dd>
+                </div>
+              </dl>
+              <p>
+                Selecciona cuántas prendas comprar. Cero significa que esa prenda no se incluye en
+                la venta.
+              </p>
+            </section>
+          }
+        }
+        <div class="sale-lines">
+          @for (line of lines(); track line.id_variante_producto) {
+            <article class="sale-line">
+              <div class="line-image">
+                @if (line.imagen) {
+                  <img
+                    [src]="line.imagen"
+                    [alt]="line.producto"
+                    (error)="imageFailed(line.id_variante_producto)"
+                  />
+                } @else {
+                  <span>Sin imagen</span>
+                }
+              </div>
+              <div class="line-info">
+                <h4>{{ line.producto }}</h4>
+                <p>{{ line.talla }} · {{ line.color }}</p>
+                <small>SKU {{ line.sku }}</small>
+                <p>
+                  {{ mode() === 'reservation' ? 'Precio reservado' : 'Precio de catálogo' }}:
+                  {{ money(line.precio) }}
+                </p>
+                @if (line.reservado !== undefined) {
+                  <strong>Reservado: {{ line.reservado }}</strong>
+                }
+              </div>
+              <div class="line-controls">
+                <span>{{ mode() === 'reservation' ? 'Comprar' : 'Cantidad' }}</span>
+                <div class="quantity">
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Disminuir cantidad de ' + line.producto"
+                    [disabled]="locked() || line.cantidad <= (mode() === 'direct' ? 1 : 0)"
+                    (click)="setQuantity(line.id_variante_producto, line.cantidad - 1)"
+                  >
+                    −</button
+                  ><output [attr.aria-label]="'Cantidad de ' + line.producto">{{
+                    line.cantidad
+                  }}</output
+                  ><button
+                    type="button"
+                    [attr.aria-label]="'Aumentar cantidad de ' + line.producto"
+                    [disabled]="locked() || line.cantidad >= (line.reservado ?? 2147483647)"
+                    (click)="setQuantity(line.id_variante_producto, line.cantidad + 1)"
+                  >
+                    +
+                  </button>
+                </div>
+                @if (mode() === 'direct') {
+                  <button
+                    class="remove"
+                    type="button"
+                    [disabled]="locked()"
+                    (click)="removeLine(line.id_variante_producto)"
+                    [attr.aria-label]="'Eliminar ' + line.producto"
+                  >
+                    Eliminar
+                  </button>
+                } @else if (line.cantidad === 0) {
+                  <small>No se incluye en la venta</small>
+                }
+              </div>
+              @for (q of quote()?.detalles ?? []; track q.id_variante_producto) {
+                @if (q.id_variante_producto === line.id_variante_producto) {
+                  <div class="line-quote">
+                    <span>Precio cotizado: {{ money(q.precio_unitario) }}</span
+                    ><span>Disponible: {{ q.cantidad_disponible }}</span>
+                    @if (q.id_promocion !== null) {
+                      <span
+                        >Promoción #{{ q.id_promocion }} · Descuento por unidad:
+                        {{ money(q.descuento_unitario) }}</span
+                      >
+                    }
+                    <strong>Subtotal: {{ money(q.subtotal_linea) }}</strong>
+                  </div>
+                }
+              }
+            </article>
+          }
+          @if (!lines().length && !searchingReservation()) {
+            <p class="empty">
+              {{
+                mode() === 'direct'
+                  ? 'Busca un producto y agrega una variante para comenzar.'
+                  : 'Busca una reserva ATENDIDA para seleccionar las prendas.'
+              }}
+            </p>
+          }
+        </div>
+      </section>
+      <aside
+        class="sale-panel sale-summary"
+        aria-labelledby="summary-title"
+        [attr.aria-busy]="quoting() || creatingSale()"
+      >
+        <h3 id="summary-title">Resumen</h3>
+        <p>{{ units() }} {{ units() === 1 ? 'unidad seleccionada' : 'unidades seleccionadas' }}</p>
+        @if (!units()) {
+          <p>Selecciona al menos una prenda para la venta.</p>
+        }
+        @if (stale()) {
+          <p role="status">Cotización desactualizada. Vuelve a cotizar antes de registrar.</p>
+        }
+        @if (quote(); as q) {
+          <dl>
+            <div>
+              <dt>Subtotal</dt>
+              <dd>{{ money(q.subtotal) }}</dd>
+            </div>
+            <div>
+              <dt>Descuento</dt>
+              <dd>{{ money(q.descuento_total) }}</dd>
+            </div>
+            <div class="total">
+              <dt>TOTAL</dt>
+              <dd>{{ money(q.total) }}</dd>
+            </div>
+          </dl>
+        } @else {
+          <p>Los importes se mostrarán al cotizar.</p>
+        }
+        <button type="button" [disabled]="!canQuote()" (click)="quoteSale()">
+          {{ quoting() ? 'Cotizando…' : 'Cotizar venta' }}
+        </button>
+        <button
+          class="primary register-sale"
+          type="button"
+          [disabled]="!canCreate()"
+          (click)="createSale()"
+        >
+          {{ creatingSale() ? 'Registrando venta…' : 'Registrar venta' }}
+        </button>
+        <p class="payment-note">Se creará una venta PENDIENTE. Esta operación no procesa pagos.</p>
+      </aside>
+    </div>
+  }
+  <dialog
+    #modeDialog
+    class="mode-dialog"
+    (cancel)="pendingMode.set(null)"
+    aria-labelledby="mode-title"
+    aria-describedby="mode-copy"
+  >
+    <section
+      class="sale-panel"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="mode-title"
+      aria-describedby="mode-copy"
+    >
+      <h3 id="mode-title">Cambiar tipo de venta</h3>
+      <p id="mode-copy">Se eliminarán las prendas y la cotización actuales.</p>
+      <button type="button" (click)="pendingMode.set(null)">Conservar venta actual</button
+      ><button type="button" (click)="confirmMode()">Limpiar y cambiar modo</button>
+    </section>
+  </dialog>
+</section>

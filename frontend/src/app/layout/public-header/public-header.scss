@@ -221,3 +221,17 @@
 .mobile-panel details[open] summary app-icon {
   transform: rotate(180deg);
 }
+:host .cart-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-espresso); font-size: .85rem; text-decoration: none; }
+:host .cart-link:hover { color: var(--color-terracotta); }
+@media (max-width: 1100px) and (min-width: 921px) {
+  :host .header-inner { gap: 12px; }
+  :host .desktop-nav { gap: 14px; }
+  :host .header-actions { gap: 6px; }
+  :host .account-trigger > span { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 920px) {
+  :host .header-inner { gap: 6px; grid-template-columns: auto minmax(0, 1fr) auto; }
+  :host .header-actions { gap: 2px; }
+  :host .cart-link { font-size: .75rem; }
+}
+@media (max-width: 380px) { :host .brand { font-size: .78rem; letter-spacing: .06em; } }
