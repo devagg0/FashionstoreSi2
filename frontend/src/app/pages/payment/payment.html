@@ -1,0 +1,410 @@
+<main id="main-content" class="payment-page">
+  <div class="shell">
+    <a class="back-link" [routerLink]="back()">← Volver al resumen</a>
+    <header class="heading">
+      <div>
+        <p class="eyebrow">FASHIONSTORE · CHECKOUT</p>
+        <h1>Finalizar pago</h1>
+        <p>
+          {{
+            completed()
+              ? 'Tu venta está completada. Gracias por elegir FashionStore.'
+              : 'Tu venta está pendiente. Elige cómo finalizar tu compra.'
+          }}
+        </p>
+      </div>
+      <span class="badge" [class.success]="completed()">{{ status() }}</span>
+    </header>
+    <ol class="steps" aria-label="Progreso de compra">
+      <li>✓ Resumen de venta</li>
+      <li [class.active]="!completed()">{{ completed() ? '✓' : '02' }} Pago</li>
+      <li [class.active]="completed()">03 Comprobante</li>
+    </ol>
+    @if (completed() && sale()) {
+      <p><a class="button button--solid" [routerLink]="[back().startsWith('/staff') ? '/staff/ventas' : '/mis-compras', id, 'comprobante']">Ver comprobante</a></p>
+    }
+    @if (error()) {
+      <section class="notice error" role="alert">
+        <strong>No pudimos completar la operación</strong>
+        <p>{{ error() }}</p>
+        @if (expired()) {
+          <a routerLink="/login">Iniciar sesión</a>
+        }
+        @if (attempt() && !expired()) {
+          <button type="button" (click)="retry()" [disabled]="busy()">
+            Verificar / reintentar el mismo pago
+          </button>
+        }
+        <div class="recovery">
+          <label for="payment-id">¿Tienes un pago registrado? Consulta su ID</label
+          ><input
+            #paymentId
+            id="payment-id"
+            inputmode="numeric"
+            type="number"
+            min="1"
+            placeholder="ID de pago"
+          /><button
+            type="button"
+            (click)="recover(paymentId.value)"
+            [disabled]="busy() || expired()"
+          >
+            Consultar
+          </button>
+        </div>
+      </section>
+    }
+    @if (returnMessage() && !completed()) {
+      <section class="notice pending" role="status">
+        <p>{{ returnMessage() }}</p>
+      </section>
+    }
+    @if (completed() && !payment()) {
+      <section class="notice success" role="status">
+        <h2>Esta venta ya está completada</h2>
+        <p>No admite nuevos pagos.</p>
+      </section>
+    }
+    @if (busy()) {
+      <div class="progress" role="status">
+        <span class="spinner"></span
+        >{{
+          redirecting()
+            ? 'Redirigiendo a Stripe Checkout…'
+            : loading()
+              ? 'Recuperando el estado de tu pago…'
+              : 'Procesando tu pago. Espera un momento…'
+        }}
+      </div>
+    }
+    @if (sale(); as current) {
+      <div class="payment-layout" [attr.aria-busy]="busy()">
+        <div class="content">
+          @if (payment(); as result) {
+            @if (completed() && result.estado === 'APROBADO') {
+              <section class="notice success receipt" role="status">
+                <span class="result-icon">✓</span>
+                <p class="eyebrow">PAGO APROBADO</p>
+                <h2>Pago realizado correctamente</h2>
+                <p>Venta COMPLETADA · {{ current.numero }}</p>
+                <p>Conserva este resumen como comprobante del pago.</p>
+                <dl>
+                  <div>
+                    <dt>Pago</dt>
+                    <dd>#{{ result.id_pago }}</dd>
+                  </div>
+                  <div>
+                    <dt>Método</dt>
+                    <dd>{{ result.medio }}</dd>
+                  </div>
+                  <div>
+                    <dt>Importe aprobado</dt>
+                    <dd>{{ money(result.monto) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Fecha</dt>
+                    <dd>{{ date(result.fecha_aprobacion) }}</dd>
+                  </div>
+                  @if (result.referencia_externa) {
+                    <div>
+                      <dt>Referencia</dt>
+                      <dd>{{ result.referencia_externa }}</dd>
+                    </div>
+                  }
+                </dl>
+                <a
+                  class="button button--solid"
+                  [routerLink]="current.canal === 'DIGITAL' ? '/catalogo' : '/staff/ventas/nueva'"
+                  >{{
+                    current.canal === 'DIGITAL' ? 'Seguir explorando' : 'Registrar otra venta'
+                  }}</a
+                >
+              </section>
+            } @else if (completed()) {
+              <section class="notice pending" role="status">
+                <h2>Esta venta ya está completada</h2>
+                <p>No admite nuevos pagos. Estado del pago consultado: {{ result.estado }}.</p>
+              </section>
+            } @else if (terminal()) {
+              <section class="notice error" role="status">
+                <h2>
+                  {{
+                    result.estado === 'RECHAZADO'
+                      ? 'El pago fue rechazado'
+                      : 'Intento ' + result.estado.toLowerCase()
+                  }}
+                </h2>
+                <p>Tu venta continúa pendiente. Puedes intentar nuevamente con otro método.</p>
+                <button
+                  class="button button--outline"
+                  type="button"
+                  (click)="newAttempt()"
+                  [disabled]="busy()"
+                >
+                  Iniciar nuevo intento
+                </button>
+              </section>
+            } @else {
+              <div class="notice pending" role="status">
+                <strong>Pago #{{ result.id_pago }} · PENDIENTE</strong>
+                <p>La venta se completará únicamente cuando el pago sea aprobado.</p>
+                <button
+                  type="button"
+                  (click)="refresh(result.proveedor === 'STRIPE')"
+                  [disabled]="busy()"
+                >
+                  {{
+                    result.proveedor === 'STRIPE' ? 'Sincronizar con Stripe' : 'Consultar estado'
+                  }}
+                </button>
+              </div>
+            }
+          }
+          @if (!completed() && status() === 'PENDIENTE' && !terminal()) {
+            <section class="card">
+              <p class="eyebrow">ELIGE CÓMO PAGAR</p>
+              <h2>Método de pago</h2>
+              <div class="method-grid" role="group" aria-label="Métodos de pago">
+                @for (option of methods(); track option) {
+                  <button
+                    type="button"
+                    class="method"
+                    [class.selected]="method() === option"
+                    [attr.aria-pressed]="method() === option"
+                    [disabled]="!canPay() || !!attempt()"
+                    (click)="choose(option)"
+                  >
+                    <span class="method-icon" aria-hidden="true">{{
+                      option === 'EFECTIVO' ? 'Bs' : option === 'QR' ? '▦' : '▰'
+                    }}</span
+                    ><strong>{{
+                      option === 'TARJETA' ? 'Tarjeta' : option === 'QR' ? 'QR' : 'Efectivo'
+                    }}</strong
+                    ><small>{{
+                      option === 'TARJETA'
+                        ? 'Stripe · modo TEST'
+                        : option === 'QR'
+                          ? 'Pago con QR'
+                          : 'Confirmación en caja'
+                    }}</small
+                    ><span class="selection" aria-hidden="true">{{
+                      method() === option ? '●' : '○'
+                    }}</span>
+                  </button>
+                }
+              </div>
+            </section>
+            <section class="card method-panel">
+              @switch (method()) {
+                @case ('EFECTIVO') {
+                  <p class="eyebrow">PAGO EN CAJA</p>
+                  <h2>Confirmar el efectivo recibido</h2>
+                  <p>Verifica el importe antes de registrar el pago de esta venta.</p>
+                  <div class="amount-box">
+                    <span>Monto a cobrar</span><strong>{{ money(current.total) }}</strong>
+                  </div>
+                  <button
+                    class="button button--solid"
+                    type="button"
+                    [disabled]="!canPay()"
+                    (click)="open('APROBADO')"
+                  >
+                    Confirmar pago en efectivo
+                  </button>
+                }
+                @case ('QR') {
+                  <p class="eyebrow">PAGO QR</p>
+                  <h2>Escanea y confirma tu pago</h2>
+                  <p>Escanea el QR para realizar el pago.</p>
+                  <div class="qr-ticket">
+                    <div class="qr-art">
+                      @if (payment(); as qrPayment) {
+                        <svg
+                          viewBox="0 0 29 29"
+                          role="img"
+                          aria-label="QR de demostración de la operación"
+                        >
+                          <rect width="29" height="29" fill="white" />
+                          @for (cell of qrCells(); track $index) {
+                            <rect
+                              [attr.x]="cell.x"
+                              [attr.y]="cell.y"
+                              width="1"
+                              height="1"
+                              fill="#152b27"
+                            />
+                          }
+                        </svg>
+                      } @else {
+                        <span aria-hidden="true">▦</span>
+                      }
+                    </div>
+                    <div>
+                      <strong>{{ current.numero }}</strong>
+                      <p>
+                        {{
+                          payment() ? 'Pago #' + payment()!.id_pago : 'Genera tu referencia de pago'
+                        }}
+                      </p>
+                      <b>{{ money(payment()?.monto ?? current.total) }}</b>
+                      @if (payment()) {
+                        <small class="qr-reference"
+                          >Operación: {{ payment()!.clave_idempotencia }}</small
+                        >
+                      }
+                    </div>
+                  </div>
+                  <p class="footnote">
+                    QR visual de demostración académica. No realiza transferencias bancarias.
+                  </p>
+                  @if (!payment()) {
+                    <button
+                      class="button button--solid"
+                      type="button"
+                      [disabled]="!canPay()"
+                      (click)="prepareQr()"
+                    >
+                      Generar QR de pago
+                    </button>
+                  } @else {
+                    <button
+                      class="button button--solid"
+                      type="button"
+                      [disabled]="!canPay()"
+                      (click)="open('APROBADO')"
+                    >
+                      Ya realicé el pago
+                    </button>
+                  }
+                }
+                @case ('TARJETA') {
+                  <p class="eyebrow">STRIPE CHECKOUT · TEST</p>
+                  <h2>Paga con tarjeta de forma segura</h2>
+                  <p>
+                    Introduce tus datos exclusivamente en Stripe Checkout. FashionStore no solicita
+                    ni almacena datos de tarjeta.
+                  </p>
+                  <div class="amount-box">
+                    <span>Total a pagar</span><strong>{{ money(current.total) }}</strong>
+                  </div>
+                  <button
+                    class="button button--solid"
+                    type="button"
+                    [disabled]="!canPay()"
+                    (click)="confirm()"
+                  >
+                    Pagar con tarjeta
+                  </button>
+                  <p class="footnote">Entorno de prueba TEST. No se cobra dinero real.</p>
+                }
+              }
+            </section>
+          }
+          <section class="card products">
+            <p class="eyebrow">TU SELECCIÓN</p>
+            <h2>
+              Productos de la venta <span>{{ current.items.length }}</span>
+            </h2>
+            @for (item of current.items; track item.id) {
+              <article class="product">
+                <div class="product-image">
+                  @if (item.imagen) {
+                    <img [src]="item.imagen" [alt]="item.nombre" (error)="item.imagen = null" />
+                  } @else {
+                    <span aria-hidden="true">◇</span>
+                  }
+                </div>
+                <div>
+                  <h3>{{ item.nombre }}</h3>
+                  <p>Talla {{ item.talla || '—' }} · Color {{ item.color || '—' }}</p>
+                  <small>Cantidad: {{ item.cantidad }} · {{ money(item.precio) }} / unidad</small>
+                </div>
+                <strong>{{ money(item.subtotal) }}</strong>
+              </article>
+            }
+          </section>
+        </div>
+        <aside class="card summary">
+          <p class="eyebrow">RESUMEN DE LA VENTA</p>
+          <h2>{{ current.numero }}</h2>
+          <dl>
+            <div>
+              <dt>Sucursal</dt>
+              <dd>{{ current.sucursal }}</dd>
+            </div>
+            <div>
+              <dt>Canal</dt>
+              <dd>{{ current.canal }}</dd>
+            </div>
+            <div>
+              <dt>Fecha</dt>
+              <dd>{{ date(current.fecha) }}</dd>
+            </div>
+            <div>
+              <dt>Estado</dt>
+              <dd>{{ status() }}</dd>
+            </div>
+            <div>
+              <dt>Moneda</dt>
+              <dd>BOB · Bs</dd>
+            </div>
+          </dl>
+          <div class="divider"></div>
+          <dl class="totals">
+            <div>
+              <dt>Subtotal</dt>
+              <dd>{{ money(current.subtotal) }}</dd>
+            </div>
+            <div>
+              <dt>Descuento</dt>
+              <dd>− {{ money(current.descuento) }}</dd>
+            </div>
+            <div class="total">
+              <dt>Total final</dt>
+              <dd>{{ money(payment()?.monto ?? current.total) }}</dd>
+            </div>
+          </dl>
+          <p class="summary-note">
+            {{
+              completed()
+                ? '✓ Pago aprobado y venta completada'
+                : 'La aprobación del pago confirma tu compra.'
+            }}
+          </p>
+          <small>FashionStore · Moda para tu estilo</small>
+        </aside>
+      </div>
+    }
+  </div>
+  <dialog #confirmation (cancel)="close()" aria-labelledby="confirm-title">
+    <div class="modal-content">
+      <p class="eyebrow">CONFIRMACIÓN</p>
+      <h2 id="confirm-title">
+        {{ method() === 'QR' ? '¿Ya realizaste el pago?' : '¿Confirmar el efectivo recibido?' }}
+      </h2>
+      <p>
+        {{
+          method() === 'QR'
+            ? 'Consultaremos al sistema para verificar tu pago. La venta solo se completará si se aprueba.'
+            : 'Verifica el importe recibido antes de completar la venta.'
+        }}
+      </p>
+      <div class="amount-box">
+        <span>{{ method() }} · {{ sale()?.numero }}</span
+        ><strong>{{ money(sale()?.total ?? '0') }}</strong>
+      </div>
+      <div class="actions">
+        <button autofocus class="button button--outline" type="button" (click)="close()">
+          Volver</button
+        ><button
+          class="button button--solid"
+          type="button"
+          [disabled]="!canPay()"
+          (click)="confirm()"
+        >
+          {{ method() === 'QR' ? 'Verificar pago' : 'Confirmar pago' }}
+        </button>
+      </div>
+    </div>
+  </dialog>
+</main>

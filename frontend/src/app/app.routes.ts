@@ -8,6 +8,42 @@ import { SessionService } from './core/services/session.service';
 
 export const routes: Routes = [
   {
+    path: 'mis-compras/:id/comprobante',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/receipt/receipt').then(m => m.ReceiptPage),
+    title: 'Comprobante de venta | FashionStore',
+  },
+  {
+    path: 'mis-compras',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/purchases/purchases').then((m) => m.PurchasesPage),
+    title: 'Mis compras | FashionStore',
+  },
+  {
+    path: 'mis-compras/:id',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/purchases/purchases').then((m) => m.PurchasesPage),
+    title: 'Detalle de compra | FashionStore',
+  },
+  {
+    path: 'compra/:id/pago',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/payment/payment').then((m) => m.PaymentPage),
+    title: 'Finalizar pago | FashionStore',
+  },
+  {
+    path: 'compra',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/checkout/checkout').then(({ Checkout }) => Checkout),
+    title: 'Procesar compra | FashionStore',
+  },
+  {
+    path: 'compra/:id',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/checkout/checkout').then(({ Checkout }) => Checkout),
+    title: 'Compra pendiente | FashionStore',
+  },
+  {
     path: '',
     loadComponent: () => import('./pages/home/home').then(({ Home }) => Home),
     title: 'FashionStore | Moda para tu estilo',
@@ -38,9 +74,7 @@ export const routes: Routes = [
   {
     path: 'catalogo/producto/:id',
     loadComponent: () =>
-      import('./pages/product-detail/product-detail').then(
-        ({ ProductDetail }) => ProductDetail,
-      ),
+      import('./pages/product-detail/product-detail').then(({ ProductDetail }) => ProductDetail),
     title: 'Detalle de producto | FashionStore',
   },
   {
@@ -62,9 +96,7 @@ export const routes: Routes = [
     path: 'mis-reservas',
     canActivate: [clientGuard],
     loadComponent: () =>
-      import('./pages/reservations/my-reservations').then(
-        ({ MyReservations }) => MyReservations,
-      ),
+      import('./pages/reservations/my-reservations').then(({ MyReservations }) => MyReservations),
     title: 'Reservas | FashionStore',
   },
   {
@@ -83,11 +115,26 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./layout/staff-layout/staff-layout').then(({ StaffLayout }) => StaffLayout),
     children: [
+      {
+        path: 'ventas/:id/comprobante',
+        data: { audience: 'staff' },
+        loadComponent: () => import('./pages/receipt/receipt').then(m => m.ReceiptPage),
+        title: 'Comprobante de venta | FashionStore',
+      },
+      { path: 'devoluciones', canActivate: [cashierGuard], loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Devoluciones | FashionStore' },
+      { path: 'devoluciones/:id', canActivate: [cashierGuard], loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Detalle de devoluci?n | FashionStore' },
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      {
+        path: 'ventas/:id/pago',
+        canActivate: [cashierGuard],
+        loadComponent: () => import('./pages/payment/payment').then((m) => m.PaymentPage),
+        title: 'Finalizar pago | FashionStore',
+      },
       {
         path: 'ventas/nueva',
         canActivate: [cashierGuard],
-        loadComponent: () => import('./pages/staff/sales/new-sale/new-sale').then(({ NewSale }) => NewSale),
+        loadComponent: () =>
+          import('./pages/staff/sales/new-sale/new-sale').then(({ NewSale }) => NewSale),
         title: 'Nueva venta | FashionStore',
       },
       {
@@ -137,19 +184,30 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./layout/admin-layout/admin-layout').then(({ AdminLayout }) => AdminLayout),
     children: [
+      { path: 'devoluciones', loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Devoluciones | FashionStore' },
+      { path: 'devoluciones/:id', loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Detalle de devoluci?n | FashionStore' },
       {
         path: 'inventario-global',
-        loadComponent: () => import('./pages/admin/global-inventory/admin-global-inventory').then(({ AdminGlobalInventory }) => AdminGlobalInventory),
+        loadComponent: () =>
+          import('./pages/admin/global-inventory/admin-global-inventory').then(
+            ({ AdminGlobalInventory }) => AdminGlobalInventory,
+          ),
         title: 'Inventario global | FashionStore',
       },
       {
         path: 'inventario',
-        loadComponent: () => import('./pages/admin/inventory/admin-inventory').then(({ AdminInventory }) => AdminInventory),
+        loadComponent: () =>
+          import('./pages/admin/inventory/admin-inventory').then(
+            ({ AdminInventory }) => AdminInventory,
+          ),
         title: 'Inventario por sucursal | FashionStore',
       },
       {
         path: 'movimientos-inventario',
-        loadComponent: () => import('./pages/admin/inventory-movements/admin-inventory-movements').then(({ AdminInventoryMovements }) => AdminInventoryMovements),
+        loadComponent: () =>
+          import('./pages/admin/inventory-movements/admin-inventory-movements').then(
+            ({ AdminInventoryMovements }) => AdminInventoryMovements,
+          ),
         title: 'Movimientos de inventario | FashionStore',
       },
       {
@@ -170,7 +228,10 @@ export const routes: Routes = [
       },
       {
         path: 'proveedores',
-        loadComponent: () => import('./pages/admin/suppliers/admin-suppliers').then(({ AdminSuppliers }) => AdminSuppliers),
+        loadComponent: () =>
+          import('./pages/admin/suppliers/admin-suppliers').then(
+            ({ AdminSuppliers }) => AdminSuppliers,
+          ),
         title: 'Proveedores | FashionStore',
       },
       {
@@ -202,25 +263,33 @@ export const routes: Routes = [
       {
         path: 'sucursales',
         loadComponent: () =>
-          import('./pages/admin/branches/admin-branches').then(({ AdminBranches }) => AdminBranches),
+          import('./pages/admin/branches/admin-branches').then(
+            ({ AdminBranches }) => AdminBranches,
+          ),
         title: 'Gestión de sucursales | FashionStore',
       },
       {
         path: 'temporadas-colecciones',
         loadComponent: () =>
-          import('./pages/admin/season-collection-config/admin-season-collection-config').then(({ AdminSeasonCollectionConfig }) => AdminSeasonCollectionConfig),
+          import('./pages/admin/season-collection-config/admin-season-collection-config').then(
+            ({ AdminSeasonCollectionConfig }) => AdminSeasonCollectionConfig,
+          ),
         title: 'Temporadas y colecciones | FashionStore',
       },
       {
         path: 'configuracion-catalogo',
         loadComponent: () =>
-          import('./pages/admin/catalog-config/admin-catalog-config').then(({ AdminCatalogConfig }) => AdminCatalogConfig),
+          import('./pages/admin/catalog-config/admin-catalog-config').then(
+            ({ AdminCatalogConfig }) => AdminCatalogConfig,
+          ),
         title: 'Configuración de catálogo | FashionStore',
       },
       {
         path: 'asignaciones-sucursal',
         loadComponent: () =>
-          import('./pages/admin/employee-branches/admin-employee-branches').then(({ AdminEmployeeBranches }) => AdminEmployeeBranches),
+          import('./pages/admin/employee-branches/admin-employee-branches').then(
+            ({ AdminEmployeeBranches }) => AdminEmployeeBranches,
+          ),
         title: 'Asignación de empleados | FashionStore',
       },
       {

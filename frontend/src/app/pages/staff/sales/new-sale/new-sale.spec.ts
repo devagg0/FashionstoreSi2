@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { environment } from '../../../../../environments/environment';
 import { SessionService } from '../../../../core/services/session.service';
 import { CatalogProductDetail } from '../../../../core/services/catalog.service';
@@ -136,7 +137,7 @@ describe('NewSale CU20', () => {
     localStorage.clear();
     sessionStorage.clear();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     const session = TestBed.inject(SessionService);
     session.saveAccessToken('token');
@@ -165,6 +166,14 @@ describe('NewSale CU20', () => {
     http.verify();
     localStorage.clear();
     sessionStorage.clear();
+  });
+  it('offers the staff receipt from a completed sale', () => {
+    http.expectOne(`${url}/branches`).flush({ success: true, data: [branch] });
+    page.result.set({ ...sale, estado: 'COMPLETADA' });
+    fixture.detectChanges();
+    const link = fixture.nativeElement.querySelector('a.primary') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Ver comprobante');
+    expect(link.getAttribute('href')).toBe(`/staff/ventas/${sale.id_venta}/comprobante`);
   });
   function branches(data = [branch]) {
     http.expectOne(url + '/branches').flush({ success: true, data });

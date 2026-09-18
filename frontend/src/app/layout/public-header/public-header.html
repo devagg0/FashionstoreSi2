@@ -32,9 +32,12 @@
               routerLink="/catalogo"
               [queryParams]="{ seccion: group.section }"
               (click)="openDropdown.set(null)"
-            >Ver todo</a>
+              >Ver todo</a
+            >
             @for (item of group.items; track item) {
-              <a routerLink="/" fragment="categorias" (click)="openDropdown.set(null)">{{ item }}</a>
+              <a routerLink="/" fragment="categorias" (click)="openDropdown.set(null)">{{
+                item
+              }}</a>
             }
           </div>
         </div>
@@ -64,6 +67,7 @@
             <div class="account-dropdown__actions">
               @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
                 <a routerLink="/mis-reservas" (click)="closeMenus()">Reservas</a>
+                <a routerLink="/mis-compras" (click)="closeMenus()">Mis compras</a>
               }
               <a routerLink="/perfil" (click)="closeMenus()">Mi perfil</a>
               <button type="button" (click)="logout()">Cerrar sesión</button>
@@ -76,9 +80,15 @@
           <span>Iniciar sesión</span>
         </a>
       }
-      <a class="icon-button" routerLink="/reservar" [attr.aria-label]="'Reserva (' + reservationItemCount() + ')'">
+      <a
+        class="icon-button"
+        routerLink="/reservar"
+        [attr.aria-label]="'Reserva (' + reservationItemCount() + ')'"
+      >
         <app-icon name="bag" [size]="21" />
-        @if (reservationItemCount()) { <span class="sr-only">Reserva ({{ reservationItemCount() }})</span> }
+        @if (reservationItemCount()) {
+          <span class="sr-only">Reserva ({{ reservationItemCount() }})</span>
+        }
       </a>
     </div>
   </div>
@@ -109,7 +119,12 @@
             <app-icon name="chevron-down" [size]="17" />
           </summary>
           <div>
-            <a routerLink="/catalogo" [queryParams]="{ seccion: group.section }" (click)="closeMobile()">Ver todo</a>
+            <a
+              routerLink="/catalogo"
+              [queryParams]="{ seccion: group.section }"
+              (click)="closeMobile()"
+              >Ver todo</a
+            >
             @for (item of group.items; track item) {
               <a routerLink="/" fragment="categorias" (click)="closeMobile()">{{ item }}</a>
             }
@@ -136,6 +151,7 @@
               <div class="account-dropdown__actions">
                 @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
                   <a routerLink="/mis-reservas" (click)="closeMobile()">Reservas</a>
+                  <a routerLink="/mis-compras" (click)="closeMobile()">Mis compras</a>
                 }
                 <a routerLink="/perfil" (click)="closeMobile()">Mi perfil</a>
                 <button type="button" (click)="logout()">Cerrar sesión</button>

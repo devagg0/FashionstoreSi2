@@ -16,7 +16,7 @@ describe('staffGuard CU18', () => {
     expect(route?.canActivate).toEqual([staffGuard]);
     expect(route?.canActivateChild).toEqual([staffChildGuard]);
     expect(route?.children?.map((child) => child.path)).toEqual([
-      '', 'ventas/nueva', 'inicio', 'reservas', 'reservas/:id', 'disponibilidad', 'perfil',
+      'ventas/:id/comprobante', 'devoluciones', 'devoluciones/:id', '', 'ventas/:id/pago', 'ventas/nueva', 'inicio', 'reservas', 'reservas/:id', 'disponibilidad', 'perfil',
     ]);
   });
 

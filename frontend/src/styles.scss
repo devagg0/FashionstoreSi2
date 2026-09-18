@@ -835,3 +835,26 @@ img {
     animation: none;
   }
 }
+// CU25: aislar el comprobante y quitar el espacio del layout durante impresion.
+@media print {
+  @page { size: A4; margin: 15mm; }
+  body:has(.sale-receipt) {
+    background: white !important;
+    color: black;
+  }
+  body:has(.sale-receipt) *:not(:has(.sale-receipt)):not(.sale-receipt):not(.sale-receipt *) {
+    display: none !important;
+  }
+  body:has(.sale-receipt) *:has(.sale-receipt) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    position: static !important;
+    transform: none !important;
+    background: white !important;
+  }
+}

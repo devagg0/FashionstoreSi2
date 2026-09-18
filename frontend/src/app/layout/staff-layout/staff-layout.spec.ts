@@ -32,7 +32,7 @@ describe('StaffLayout CU18', () => {
     const text = fixture.nativeElement.querySelector('.staff-sidebar').textContent;
     expect(text).toContain('Nueva venta');
     expect(fixture.nativeElement.querySelector('a[href="/staff/ventas/nueva"]')).toBeTruthy();
-    for (const item of ['Inicio', 'Reservas', 'Disponibilidad', 'Mi perfil', 'Cerrar sesión']) expect(text).toContain(item);
+    for (const item of ['Inicio', 'Reservas', 'Devoluciones', 'Disponibilidad', 'Mi perfil', 'Cerrar sesión']) expect(text).toContain(item);
     for (const forbidden of ['Usuarios', 'Ciudades', 'Promociones', 'Inventario global']) expect(text).not.toContain(forbidden);
   });
 
@@ -45,6 +45,7 @@ describe('StaffLayout CU18', () => {
     expect(text).not.toContain('Inventario');
     expect(text).not.toContain('Usuarios');
     expect(text).not.toContain('Nueva venta');
+    expect(text).not.toContain('Devoluciones');
   });
 
   it('opens and closes the responsive sidebar', () => {

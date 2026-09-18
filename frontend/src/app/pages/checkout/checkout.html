@@ -1,0 +1,83 @@
+<main id="main-content" class="cart-page">
+  <div class="shell cart-shell">
+    <header class="cart-heading">
+      <div><p>FASHIONSTORE</p><h1>{{ sale() ? 'Compra pendiente' : 'Revisa tu compra' }}</h1></div>
+      <a class="button button--outline" [routerLink]="sale() ? '/catalogo' : '/carrito'">{{ sale() ? 'Ver catálogo' : 'Volver al carrito' }}</a>
+    </header>
+    @if (error()) {
+      <p class="cart-error" role="alert">{{ error() }}
+        @if (sessionExpired()) { <a routerLink="/login">Iniciar sesión</a> }
+      </p>
+      @if (!uncertain() && !sessionExpired()) {
+        <button type="button" class="button button--outline" [disabled]="loading() || saving()" (click)="load()">Actualizar resumen</button>
+      }
+    }
+    @if (loading()) { <p class="cart-loading" role="status">Cargando resumen de compra...</p> }
+    @if (sale(); as pending) {
+      <section class="checkout-notice" role="status">
+        <h2>{{ pending.numero_venta }}</h2><strong>Estado: {{ pending.estado }}</strong>
+        <p>Tu compra fue preparada correctamente. Continúa para finalizar el pago.</p>
+        <button type="button" class="button button--solid" (click)="pay()" [disabled]="loading() || saving() || sessionExpired()">Continuar al pago →</button>
+        <p>Sucursal: {{ branchName() }}</p>
+        @if (pending.fecha_expiracion_pago) { <p>El plazo para pagar vence el {{ expiration(pending.fecha_expiracion_pago) }} (hora de Bolivia).</p> }
+      </section>
+      <div class="cart-layout">
+        <section aria-label="Productos de la compra pendiente">
+          @for (item of saleRows(); track item.id_variante_producto) {
+            <article class="checkout-item">
+              <h2>{{ item.nombre }}</h2>
+              @if (item.talla || item.color) { <p>Talla {{ item.talla }} · {{ item.color }}</p> }
+              <p>Cantidad: {{ item.cantidad }}</p>
+              <p>Precio unitario: {{ money(item.precio_unitario) }}</p>
+              <p>Descuento por unidad: {{ money(item.descuento_unitario) }}</p>
+              <p>Subtotal: <strong>{{ money(item.subtotal_linea) }}</strong></p>
+            </article>
+          }
+        </section>
+        <aside class="cart-summary" aria-label="Resumen de compra pendiente">
+          <h2>Resumen de compra</h2><dl>
+            <div><dt>Subtotal</dt><dd>{{ money(pending.subtotal) }}</dd></div>
+            <div><dt>Descuentos</dt><dd>{{ money(pending.descuento_total) }}</dd></div>
+            <div class="cart-total"><dt>Total</dt><dd>{{ money(pending.total) }}</dd></div>
+          </dl><p>Moneda: {{ pending.moneda }} · Bs</p>
+        </aside>
+      </div>
+    } @else if (cart(); as current) {
+      @if (!current.items.length) {
+        <section class="cart-empty"><h2>Tu carrito está vacío</h2><p>Agrega productos para continuar tu compra.</p><a routerLink="/catalogo" class="button button--solid">Ver catálogo</a></section>
+      } @else {
+        <div class="cart-layout">
+          <section aria-label="Productos del carrito">
+            @for (item of current.items; track item.id_variante_producto) {
+              <article class="checkout-item">
+                <h2>{{ item.nombre_producto }}</h2><p>Talla {{ item.talla.nombre }} · {{ item.color.nombre }}</p>
+                <p>Cantidad: {{ item.cantidad }}</p><p>Precio unitario: {{ money(item.precio_base) }}</p>
+                @if (item.promocion) { <p>{{ item.promocion.nombre }}</p> }
+                <p>Precio con descuentos: {{ money(item.precio_final) }}</p>
+                <p>Subtotal: <strong>{{ money(item.subtotal_linea) }}</strong></p>
+              </article>
+            }
+          </section>
+          <aside class="cart-summary" [attr.aria-busy]="saving()">
+            <h2>Resumen de compra</h2><dl>
+              <div><dt>Subtotal</dt><dd>{{ money(current.subtotal) }}</dd></div>
+              <div><dt>Descuentos</dt><dd>{{ money(current.descuento_total) }}</dd></div>
+              <div class="cart-total"><dt>Total</dt><dd>{{ money(current.total) }}</dd></div>
+            </dl>
+            <label class="checkout-branch">Sucursal
+              <select [value]="branchId() ?? ''" [disabled]="loading() || saving() || uncertain() || sessionExpired()" (change)="chooseBranch($event)">
+                <option value="">Selecciona una sucursal</option>
+                @for (branch of branches(); track branch.id_sucursal) {
+                  <option [value]="branch.id_sucursal">{{ branch.nombre_sucursal }} · {{ branch.nombre_ciudad }} · {{ branch.direccion }}</option>
+                }
+              </select>
+            </label>
+            <p>Los precios y el stock se validarán al confirmar. Esta compra quedará pendiente de pago.</p>
+            <button class="button button--solid" type="button" [disabled]="!canConfirm()" (click)="confirm()">{{ saving() ? 'Preparando compra...' : uncertain() ? 'Reintentar compra' : 'Confirmar compra' }}</button>
+            @if (saving()) { <p role="status">Estamos preparando tu compra. Espera un momento.</p> }
+          </aside>
+        </div>
+      }
+    }
+  </div>
+</main>

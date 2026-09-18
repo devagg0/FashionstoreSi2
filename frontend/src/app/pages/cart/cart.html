@@ -65,6 +65,7 @@
               <div class="cart-total"><dt>Total</dt><dd>{{ money(current.total) }}</dd></div>
             </dl>
             <p>Los precios y la disponibilidad pueden cambiar. Agregar prendas al carrito no reserva stock.</p>
+            <button class="button button--solid" type="button" [disabled]="loading() || busy() || clearing()" (click)="continuePurchase()">Continuar compra</button>
           </aside>
         </div>
       }

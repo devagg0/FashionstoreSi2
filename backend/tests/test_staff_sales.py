@@ -94,6 +94,11 @@ class SaleRequestTests(TestCase):
             with self.subTest(field=field), self.assertRaises(ValidationError):
                 request([dict(id_variante_producto=3, cantidad=1, **{field: 1})])
 
+    def test_cashier_cannot_override_currency_or_channel(self):
+        for field, value in (("moneda", "USD"), ("moneda", "BOB"), ("canal", "DIGITAL")):
+            with self.subTest(field=field, value=value), self.assertRaises(ValidationError):
+                request(**{field: value})
+
 
 class SaleServiceTests(TestCase):
     def setUp(self):
@@ -294,6 +299,18 @@ class SaleServiceTests(TestCase):
         self.assertEqual(self.reservation.estado, "ATENDIDA")
         self.assertEqual(result.reserva.codigo, "RSV-9")
         self.assertEqual(result.cliente.id_cliente, 7)
+
+    def test_presencial_bob_remains_pending_without_new_stock_retention(self):
+        for reservation_id in (None, 9):
+            with self.subTest(reservation=reservation_id):
+                self.service.create(11, request(id_reserva=reservation_id), KEY)
+                self.assertEqual((self.sale.canal, self.sale.moneda), ("PRESENCIAL", "BOB"))
+                self.assertEqual(self.sale.estado, "PENDIENTE")
+                self.assertFalse(self.sale.stock_comprometido)
+                self.assertIsNone(self.sale.fecha_completada)
+                self.assertIsNone(self.sale.fecha_expiracion_pago)
+                self.assertIsNone(self.sale.id_carrito)
+                self.assertEqual((self.inventory.stock_actual, self.inventory.stock_reservado), (20, 2))
 
     def test_partial_purchase_releases_only_surplus(self):
         result = self.service.create(11, request([dict(id_variante_producto=3, cantidad=1)], id_reserva=9), KEY)

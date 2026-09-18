@@ -1,0 +1,178 @@
+<section class="care-card" aria-label="Gestionar esta compra">
+  <div>
+    <p class="eyebrow">ESTAMOS PARA AYUDARTE</p>
+    <h2>Atención a tu compra</h2>
+    <p>Solicita una revisión y sigue su estado desde aquí.</p>
+  </div>
+  <div class="actions">
+    @if (canCancel()) {
+      <button
+        type="button"
+        class="outline"
+        (click)="open('CANCELACION')"
+        [disabled]="busy() || checking()"
+      >
+        Cancelar compra
+      </button>
+    }
+    @if (purchase().estado === 'COMPLETADA') {
+      <button
+        type="button"
+        class="solid"
+        (click)="open('DEVOLUCION')"
+        [disabled]="busy() || checking()"
+      >
+        Solicitar devolución
+      </button>
+    }
+  </div>
+</section>
+@if (success()) {
+  <p class="notice good" role="status">{{ success() }}</p>
+}
+@if (error() && !kind()) {
+  <p class="notice bad" role="alert">{{ error() }}</p>
+}
+@if (purchase().devoluciones.length) {
+  <div class="tracking-actions">
+    @for (entry of purchase().devoluciones; track entry.id_devolucion) {
+      <button
+        type="button"
+        class="outline"
+        (click)="view(entry.id_devolucion)"
+        [disabled]="checking() || busy()"
+      >
+        Consultar {{ reference(entry.id_devolucion) }}
+      </button>
+    }
+  </div>
+}
+@if (selected(); as entry) {
+  <section class="care-card tracking" aria-label="Detalle de solicitud">
+    <div>
+      <p class="eyebrow">SEGUIMIENTO · {{ reference(entry.id_devolucion) }}</p>
+      <h2>{{ label(entry.tipo) }}</h2>
+      <p>{{ entry.motivo }}</p>
+      <small>{{ date(entry.created_at) }}</small>
+    </div>
+    <span class="badge" [attr.data-tone]="tone(entry.estado)">{{ entry.estado }}</span>
+    @if (entry.lineas.length) {
+      <ul>
+        @for (line of entry.lineas; track line.id_variante_producto) {
+          <li>
+            Variante #{{ line.id_variante_producto }} · {{ line.cantidad }} unidades · Restitución
+            {{ money(line.importe_restitucion) }}
+          </li>
+        }
+      </ul>
+    }
+    @for (refund of entry.reembolsos; track refund.id_reembolso) {
+      <p>
+        Reembolso {{ money(refund.monto) }}
+        <span class="badge" [attr.data-tone]="tone(refund.estado)">{{ refund.estado }}</span>
+      </p>
+      @if (refund.estado === 'PENDIENTE') {
+        <p class="notice pending">
+          El reembolso sigue pendiente de confirmación. Puedes consultar su estado.
+        </p>
+      }
+      @if (refund.estado === 'RECHAZADO') {
+        <p class="notice bad">
+          El reembolso no se completó. Contacta con FashionStore para su revisión.
+        </p>
+      }
+    }
+    <button
+      type="button"
+      class="outline"
+      [disabled]="checking() || busy()"
+      (click)="view(entry.id_devolucion)"
+    >
+      {{ checking() ? 'Consultando…' : 'Actualizar estado' }}
+    </button>
+  </section>
+}
+@if (kind(); as mode) {
+  <app-return-modal
+    [title]="mode === 'CANCELACION' ? 'Cancelar compra' : 'Solicitar devolución'"
+    [busy]="busy() || checking()"
+    (closed)="close()"
+  >
+    <form (ngSubmit)="submit()">
+      <p class="notice pending">
+        {{
+          mode === 'CANCELACION'
+            ? 'Enviarás una solicitud de cancelación. La compra se anulará cuando el personal la apruebe y procese; su disponibilidad se verificará nuevamente.'
+            : 'Selecciona las prendas y cantidades. FashionStore revisará tu solicitud antes de autorizar el reintegro y el reembolso.'
+        }}
+      </p>
+      @if (checking()) {
+        <p role="status">Verificando devoluciones anteriores…</p>
+      }
+      @if (mode === 'DEVOLUCION') {
+        <div class="return-products">
+          @for (item of purchase().productos; track item.id_detalle_venta) {
+            <article class="return-product">
+              <div>
+                <strong>{{ item.nombre || 'Producto #' + item.id_variante_producto }}</strong>
+                <p>Talla {{ item.talla || '—' }} · Color {{ item.color || '—' }}</p>
+                <small>Compradas: {{ item.cantidad }} · Disponibles: {{ available(item) }}</small>
+              </div>
+              <label
+                >Devolver<input
+                  type="number"
+                  min="0"
+                  step="1"
+                  [max]="available(item)"
+                  [name]="'quantity-' + item.id_detalle_venta"
+                  [ngModel]="quantities()[item.id_detalle_venta] || 0"
+                  (ngModelChange)="quantity(item, $event)"
+                  [disabled]="busy() || checking() || frozen() || available(item) === 0"
+              /></label>
+            </article>
+          }
+        </div>
+        <p class="selection">{{ units() }} unidades seleccionadas</p>
+      }
+      <label class="reason"
+        >Motivo <span>Obligatorio · máximo 500 caracteres</span>
+        <textarea
+          name="reason"
+          rows="4"
+          required
+          maxlength="500"
+          [ngModel]="reason()"
+          (ngModelChange)="reason.set($event)"
+          [disabled]="busy() || frozen()"
+          placeholder="Cuéntanos por qué necesitas esta solicitud"
+        ></textarea>
+      </label>
+      @if (frozen()) {
+        <p class="notice pending">
+          No pudimos confirmar el envío. Conservamos los datos y la misma referencia para que puedas
+          reintentar sin duplicarlo.
+        </p>
+      }
+      @if (error()) {
+        <p class="notice bad" role="alert">{{ error() }}</p>
+      }
+      <footer>
+        <button class="outline" type="button" (click)="close()" [disabled]="busy() || checking()">
+          Volver
+        </button>
+        <button
+          class="solid"
+          type="submit"
+          [disabled]="
+            busy() ||
+            checking() ||
+            !reason().trim() ||
+            (mode === 'DEVOLUCION' && (units() === 0 || !verified()))
+          "
+        >
+          {{ busy() ? 'Enviando…' : frozen() ? 'Reintentar solicitud' : 'Confirmar solicitud' }}
+        </button>
+      </footer>
+    </form>
+  </app-return-modal>
+}

@@ -5,6 +5,8 @@ import { RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, concatMap, defer, finalize, tap } from 'rxjs';
 import { CartData, CartItem, CartResponse, ClientCartService, cartErrorMessage } from '../../core/services/client-cart.service';
 import { Icon } from '../../shared/components/icon/icon';
+import { formatBs } from '../../core/utils/money';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-cart', imports: [RouterLink, Icon],
@@ -12,6 +14,7 @@ import { Icon } from '../../shared/components/icon/icon';
 })
 export class Cart {
   private readonly service = inject(ClientCartService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly operations = new Subject<{ id: number; run: () => Observable<CartResponse> }>();
   protected readonly cart = signal<CartData | null>(null);
@@ -23,7 +26,12 @@ export class Cart {
   protected readonly itemErrors = signal<Record<number, string>>({});
   protected readonly failedImages = signal<Set<number>>(new Set());
   protected readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('clearDialog');
-  protected readonly money = (value: string) => `Bs ${new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value))}`;
+  protected readonly money = formatBs;
+  protected continuePurchase(): void {
+    if (!this.loading() && !this.busy() && !this.clearing() && this.cart()?.items.length) {
+      void this.router.navigate(['/compra']);
+    }
+  }
 
   constructor() {
     // Serialize full-cart responses so edits to different rows cannot overwrite newer data.

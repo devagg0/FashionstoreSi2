@@ -1,0 +1,327 @@
+﻿<main id="main-content" class="purchases-page shell">
+  <a class="back" [routerLink]="id() === null ? '/catalogo' : '/mis-compras'"
+    >← {{ id() === null ? 'Explorar catálogo' : 'Volver a mis compras' }}</a
+  >
+  <header class="heading">
+    <div>
+      <p class="eyebrow">FASHIONSTORE · TU HISTORIA</p>
+      <h1>{{ id() === null ? 'Mis compras' : 'Detalle de compra' }}</h1>
+      <p>Todo lo que elegiste, en un solo lugar.</p>
+    </div>
+    <span class="heading-mark" aria-hidden="true">◇</span>
+  </header>
+  @if (id() === null) {
+    <section class="filters" aria-label="Filtrar compras">
+      <label
+        >Estado<select
+          #state
+          [value]="estado()"
+          [disabled]="expired()"
+          (change)="filter(state.value, canal())"
+        >
+          <option value="">Todos los estados</option>
+          <option>PENDIENTE</option>
+          <option>COMPLETADA</option>
+          <option>ANULADA</option>
+        </select></label
+      >
+      <label
+        >Canal<select
+          #channel
+          [value]="canal()"
+          [disabled]="expired()"
+          (change)="filter(estado(), channel.value)"
+        >
+          <option value="">Todos los canales</option>
+          <option>DIGITAL</option>
+          <option>PRESENCIAL</option>
+        </select></label
+      >
+      @if (filtered()) {
+        <button class="outline" type="button" (click)="filter('', '')" [disabled]="expired()">
+          Limpiar filtros
+        </button>
+      }
+      <span class="count">{{ total() }} compras · Más recientes primero</span>
+    </section>
+  }
+  @if (error()) {
+    <section class="notice error" role="alert">
+      <h2>{{ missing() ? 'Compra no encontrada' : 'No pudimos cargar tus compras' }}</h2>
+      <p>{{ error() }}</p>
+      @if (expired()) {
+        <a class="solid" routerLink="/login">Iniciar sesión</a>
+      } @else if (!missing()) {
+        <button class="outline" type="button" [disabled]="loading()" (click)="retry()">
+          Reintentar
+        </button>
+      } @else {
+        <a class="outline" routerLink="/mis-compras">Ver mis compras</a>
+      }
+    </section>
+  }
+  @if (loading()) {
+    <div class="loading" role="status">
+      <span class="spinner"></span> Cargando {{ id() === null ? 'tus compras' : 'el detalle' }}…
+    </div>
+  }
+  @if (id() === null) {
+    @if (!loading() && !error() && items().length === 0) {
+      <section class="empty">
+        <span aria-hidden="true">◇</span>
+        <h2>
+          {{
+            filtered() ? 'Sin resultados para estos filtros' : 'Tu próxima historia empieza aquí'
+          }}
+        </h2>
+        <p>
+          {{
+            filtered()
+              ? 'Prueba otro estado o canal para encontrar tus compras.'
+              : 'Aún no tienes compras. Encuentra algo que vaya contigo.'
+          }}
+        </p>
+        @if (filtered()) {
+          <button class="solid" type="button" (click)="filter('', '')">
+            Ver todas mis compras
+          </button>
+        } @else {
+          <a class="solid" routerLink="/catalogo">Descubrir la colección</a>
+        }
+      </section>
+    }
+    <div class="history" [attr.aria-busy]="loading()">
+      @for (purchase of items(); track purchase.id_venta) {
+        <article class="purchase-card">
+          <div class="card-top">
+            <span class="eyebrow">{{
+              purchase.canal === 'DIGITAL' ? 'COMPRA ONLINE' : 'COMPRA EN TIENDA'
+            }}</span
+            ><span class="badge" [attr.data-tone]="tone(purchase.estado)">{{
+              purchase.estado
+            }}</span>
+          </div>
+          <h2 class="sale-reference" [title]="purchase.numero_venta">
+            {{ saleReference(purchase.numero_venta) }}
+          </h2>
+          <p class="muted">{{ date(purchase.fecha) }}</p>
+          <p>{{ purchase.sucursal.nombre }}</p>
+          <div class="payment-info">
+            @if (purchase.pago; as payment) {
+              <span>{{ payment.medio }}</span
+              ><span class="badge small" [attr.data-tone]="tone(payment.estado)">{{
+                payment.estado
+              }}</span>
+            } @else {
+              <span class="muted">Sin pago registrado</span>
+            }
+          </div>
+          <footer>
+            <div>
+              <small>Total · {{ purchase.moneda }}</small
+              ><strong>{{ money(purchase.total) }}</strong>
+            </div>
+            <a
+              class="detail-link"
+              [routerLink]="['/mis-compras', purchase.id_venta]"
+              [attr.aria-label]="'Ver detalle de ' + purchase.numero_venta"
+              >Ver detalle <span aria-hidden="true">↗</span></a
+            >
+          </footer>
+        </article>
+      }
+    </div>
+    @if (more()) {
+      <div class="load-more">
+        <p>{{ items().length }} de {{ total() }} compras</p>
+        <button
+          class="outline"
+          type="button"
+          [disabled]="loading() || expired()"
+          (click)="loadMore()"
+        >
+          {{ loading() ? 'Cargando…' : 'Cargar más' }}
+        </button>
+      </div>
+    }
+  } @else if (detail(); as purchase) {
+    <section class="sale-heading">
+      <div>
+        <p class="eyebrow">TU COMPRA</p>
+        <h2 class="sale-reference" [title]="purchase.numero_venta">
+          {{ saleReference(purchase.numero_venta) }}
+        </h2>
+        <p>{{ date(purchase.fecha) }} · {{ purchase.canal }}</p>
+      </div>
+      <span class="badge" [attr.data-tone]="tone(purchase.estado)">{{ purchase.estado }}</span>
+    </section>
+    @if (purchase.estado === 'COMPLETADA' && purchase.fecha_completada && purchase.pago && (purchase.pago.estado === 'APROBADO' || purchase.pago.estado === 'REEMBOLSADO') && purchase.pago.monto === purchase.total) {
+      <p><a class="solid" [routerLink]="['/mis-compras', purchase.id_venta, 'comprobante']">Ver comprobante</a></p>
+    }
+    <app-purchase-return-request [purchase]="purchase" (changed)="retry()" />
+    <div class="detail-layout">
+      <div class="detail-content">
+        <section class="panel products">
+          <p class="eyebrow">ELEGIDOS POR TI</p>
+          <h2>
+            Productos comprados <small>{{ purchase.productos.length }}</small>
+          </h2>
+          @for (item of purchase.productos; track item.id_detalle_venta) {
+            <article class="product">
+              <div class="product-image">
+                @if (item.imagen) {
+                  <img
+                    [src]="item.imagen"
+                    [alt]="item.nombre || 'Producto'"
+                    (error)="item.imagen = null"
+                  />
+                } @else {
+                  <span aria-hidden="true">◇</span>
+                }
+              </div>
+              <div class="product-data">
+                <h3>{{ item.nombre || 'Producto no disponible' }}</h3>
+                <p>Talla {{ item.talla || '—' }} · Color {{ item.color || '—' }}</p>
+                <p>Cantidad: {{ item.cantidad }}</p>
+                <small
+                  >Precio unitario: {{ money(item.precio_unitario) }} · Descuento por unidad:
+                  {{ money(item.descuento_unitario) }}</small
+                >
+              </div>
+              <strong>{{ money(item.subtotal_linea) }}</strong>
+            </article>
+          }
+        </section>
+        <section class="panel">
+          <p class="eyebrow">REGISTRO DE PAGO</p>
+          <h2>Pagos</h2>
+          @if (purchase.pagos.length === 0) {
+            <p class="muted">Esta compra aún no tiene pagos registrados.</p>
+          }
+          @for (payment of purchase.pagos; track payment.id_pago) {
+            <article class="record">
+              <div>
+                <h3>{{ payment.medio }}</h3>
+                <p>
+                  {{
+                    payment.fecha_aprobacion
+                      ? 'Aprobado: ' + date(payment.fecha_aprobacion)
+                      : 'Fecha de aprobación no disponible'
+                  }}
+                </p>
+              </div>
+              <div class="record-result">
+                <span class="badge" [attr.data-tone]="tone(payment.estado)">{{
+                  payment.estado
+                }}</span
+                ><strong>{{ money(payment.monto) }}</strong>
+              </div>
+            </article>
+          }
+        </section>
+        @if (purchase.devoluciones.length) {
+          <section class="panel">
+            <p class="eyebrow">SEGUIMIENTO</p>
+            <h2>Devoluciones y cancelaciones</h2>
+            @for (entry of purchase.devoluciones; track entry.id_devolucion) {
+              <article class="return-record">
+                <div class="card-top">
+                  <h3>{{ entry.tipo === 'CANCELACION' ? 'Cancelación' : 'Devolución' }} · SOL-{{ entry.id_devolucion }}</h3>
+                  <span class="badge" [attr.data-tone]="tone(entry.estado)">{{
+                    entry.estado
+                  }}</span>
+                </div>
+                <p>{{ entry.motivo }}</p>
+                <p class="muted">Solicitada: {{ date(entry.fecha) }}</p>
+                @if (entry.fecha_resolucion) {
+                  <p class="muted">Resuelta: {{ date(entry.fecha_resolucion) }}</p>
+                }
+                @if (entry.fecha_procesamiento) {
+                  <p class="muted">Procesada: {{ date(entry.fecha_procesamiento) }}</p>
+                }
+                <small>Consulta la solicitud para ver sus prendas y cantidades.</small>
+              </article>
+            }
+          </section>
+        }
+        @if (purchase.reembolsos.length) {
+          <section class="panel">
+            <p class="eyebrow">RESTITUCIÓN</p>
+            <h2>Reembolsos</h2>
+            @for (refund of purchase.reembolsos; track refund.id_reembolso) {
+              <article class="record">
+                <div>
+                  <h3>
+                    {{
+                      refund.estado === 'APROBADO' ? 'Monto reembolsado' : 'Reembolso solicitado'
+                    }}
+                  </h3>
+                  <p>{{ date(refund.fecha_aprobacion || refund.fecha) }}</p>
+                </div>
+                <div class="record-result">
+                  <span class="badge" [attr.data-tone]="tone(refund.estado)">{{
+                    refund.estado
+                  }}</span
+                  ><strong>{{ money(refund.monto) }}</strong>
+                </div>
+              </article>
+            }
+          </section>
+        }
+      </div>
+      <aside class="panel summary">
+        <p class="eyebrow">RESUMEN DE COMPRA</p>
+        <h2 class="sale-reference" [title]="purchase.numero_venta">
+          {{ saleReference(purchase.numero_venta) }}
+        </h2>
+        <details class="full-reference">
+          <summary>Referencia completa de la venta</summary>
+          <p>{{ purchase.numero_venta }}</p>
+        </details>
+        <dl>
+          <div>
+            <dt>Sucursal</dt>
+            <dd>{{ purchase.sucursal.nombre }}</dd>
+          </div>
+          <div>
+            <dt>Canal</dt>
+            <dd>{{ purchase.canal }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ purchase.estado }}</dd>
+          </div>
+          <div>
+            <dt>Moneda</dt>
+            <dd>{{ purchase.moneda }} · Bs</dd>
+          </div>
+        </dl>
+        <hr />
+        <dl>
+          <div>
+            <dt>Subtotal</dt>
+            <dd>{{ money(purchase.subtotal) }}</dd>
+          </div>
+          <div>
+            <dt>Descuentos</dt>
+            <dd>− {{ money(purchase.descuento_total) }}</dd>
+          </div>
+          <div class="total">
+            <dt>Total</dt>
+            <dd>{{ money(purchase.total) }}</dd>
+          </div>
+        </dl>
+        <p class="summary-note">
+          {{
+            purchase.estado === 'COMPLETADA'
+              ? '✓ Compra completada'
+              : purchase.estado === 'ANULADA'
+                ? 'Compra anulada'
+                : 'Tu compra continúa pendiente'
+          }}
+        </p>
+        <small>FashionStore · Moda para tu estilo</small>
+      </aside>
+    </div>
+  }
+</main>

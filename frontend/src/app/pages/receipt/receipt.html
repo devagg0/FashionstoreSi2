@@ -1,0 +1,47 @@
+<main id="main-content" class="receipt-page" [attr.aria-busy]="loading()">
+  <nav class="receipt-actions" aria-label="Acciones del comprobante">
+    <a [routerLink]="back()">← Volver</a>
+    <button type="button" (click)="print()" [disabled]="!receipt() || loading() || !!error()">Imprimir comprobante</button>
+  </nav>
+  @if (loading()) {
+    <section class="receipt-notice" role="status">Cargando comprobante…</section>
+  }
+  @if (error()) {
+    <section class="receipt-notice" role="alert">
+      <h1>Comprobante no disponible</h1><p>{{ error() }}</p>
+      @if (expired()) { <a routerLink="/login">Iniciar sesión</a> }
+      @else if (retryable()) { <button type="button" (click)="load()">Reintentar</button> }
+    </section>
+  }
+  @if (receipt(); as sale) {
+    <article class="sale-receipt" aria-labelledby="receipt-title">
+      <header class="receipt-heading">
+        <div><p class="receipt-brand">FashionStore<span>MODA PARA TU ESTILO</span></p><h1 id="receipt-title">Comprobante de venta</h1></div>
+        <span class="receipt-badge">COMPLETADA</span>
+      </header>
+      <section class="receipt-info" aria-label="Datos de la venta">
+        <div><h2>Número de venta</h2><p class="reference">{{ sale.numero_venta }}</p></div>
+        <div><h2>Fecha</h2><p>{{ date(sale.fecha_completada) }}</p></div>
+        <div><h2>Canal</h2><p>{{ sale.canal === 'DIGITAL' ? 'Digital · Compra online' : 'Presencial · En tienda' }}</p></div>
+        <div><h2>Sucursal</h2><p>{{ sale.sucursal.nombre }}</p><small>{{ sale.sucursal.direccion }}</small></div>
+      </section>
+      <section class="receipt-client"><h2>Cliente</h2><p>{{ sale.cliente ? sale.cliente.nombre + ' ' + sale.cliente.apellido : 'Cliente no registrado' }}</p></section>
+      <section aria-label="Productos vendidos" class="receipt-products">
+        <table>
+          <caption>Detalle de productos · Importes en Bs (BOB)</caption>
+          <thead><tr><th scope="col">Producto</th><th scope="col">Cantidad</th><th scope="col">Precio unitario</th><th scope="col">Descuento por unidad</th><th scope="col">Subtotal</th></tr></thead>
+          <tbody>
+            @for (item of sale.productos; track $index) {
+              <tr><td><strong>{{ item.nombre || 'Producto no disponible' }}</strong><small>Talla: {{ item.talla || '—' }} · Color: {{ item.color || '—' }}</small></td><td data-label="Cantidad">{{ item.cantidad }}</td><td data-label="Precio unitario">{{ money(item.precio_unitario) }}</td><td data-label="Descuento por unidad">{{ money(item.descuento_unitario) }}</td><td data-label="Subtotal">{{ money(item.subtotal_linea) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+      <div class="receipt-bottom">
+        <section class="receipt-payment"><h2>Información del pago</h2><dl><div><dt>Método</dt><dd>{{ method(sale.pago.medio) }}</dd></div><div><dt>Estado</dt><dd><span class="receipt-badge" [class.refunded]="sale.pago.estado === 'REEMBOLSADO'">{{ sale.pago.estado }}</span></dd></div><div><dt>Importe</dt><dd>{{ money(sale.pago.monto) }}</dd></div></dl></section>
+        <section class="receipt-summary" aria-label="Resumen de importes"><dl><div><dt>Subtotal</dt><dd>{{ money(sale.subtotal) }}</dd></div><div><dt>Descuento total</dt><dd>{{ money(sale.descuento_total) }}</dd></div><div class="receipt-total"><dt>TOTAL <small>BOB</small></dt><dd>{{ money(sale.total) }}</dd></div></dl></section>
+      </div>
+      <footer class="receipt-footer">Gracias por elegir FashionStore.<span>Comprobante comercial de venta</span></footer>
+    </article>
+  }
+</main>

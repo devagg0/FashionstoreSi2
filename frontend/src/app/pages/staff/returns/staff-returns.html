@@ -1,0 +1,384 @@
+<div class="returns-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">FASHIONSTORE · ATENCIÓN POSVENTA</p>
+      <h1>{{ id() === null ? 'Devoluciones' : 'Detalle de solicitud' }}</h1>
+      <p>Revisa cada caso y acompaña al cliente hasta su resolución.</p>
+    </div>
+    <button type="button" class="outline" (click)="load()" [disabled]="loading() || busy()">
+      {{ loading() ? 'Actualizando…' : 'Actualizar' }}
+    </button>
+  </header>
+  @if (error()) {
+    <p class="notice bad" role="alert">{{ error() }}</p>
+  }
+  @if (success()) {
+    <p class="notice good" role="status">{{ success() }}</p>
+  }
+  @if (loading()) {
+    <p class="notice" role="status">Cargando solicitudes…</p>
+  }
+  @if (id() === null) {
+    <section class="panel filter">
+      <label
+        >Estado<select
+          #status
+          [value]="state()"
+          (change)="filter(status.value)"
+          [disabled]="loading()"
+        >
+          <option value="">Todos los estados</option>
+          <option>SOLICITADA</option>
+          <option>APROBADA</option>
+          <option>RECHAZADA</option>
+          <option>PROCESADA</option>
+        </select></label
+      >
+      <p>Solicitudes de tus sucursales asignadas · Más recientes primero</p>
+    </section>
+    <div class="inbox">
+      @for (row of items(); track row.id_devolucion) {
+        <article class="panel request-card">
+          <div class="card-top">
+            <span class="eyebrow">{{ label(row.tipo) }}</span
+            ><span class="badge" [attr.data-tone]="tone(row.estado)">{{ row.estado }}</span>
+          </div>
+          <h2>{{ reference(row.id_devolucion) }}</h2>
+          <p class="muted">
+            Venta {{ row.numero_venta || '#' + row.id_venta }} · {{ date(row.created_at) }}
+          </p>
+          <p>{{ row.motivo }}</p>
+          <dl>
+            <div>
+              <dt>Cliente</dt>
+              <dd>
+                {{
+                  row.cliente
+                    ? row.cliente.nombre + ' ' + (row.cliente.apellido || '')
+                    : 'Usuario #' + row.id_usuario_solicitante
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>Sucursal</dt>
+              <dd>{{ row.sucursal?.nombre || 'Nombre no disponible' }}</dd>
+            </div>
+          </dl>
+          <a class="detail-link" [routerLink]="[basePath, row.id_devolucion]"
+            >Revisar solicitud ↗</a
+          >
+        </article>
+      } @empty {
+        @if (!loading() && !error()) {
+          <section class="panel empty">
+            <span>◇</span>
+            <h2>No hay solicitudes</h2>
+            <p>
+              {{
+                state()
+                  ? 'Prueba otro estado para consultar tus solicitudes.'
+                  : 'Las nuevas solicitudes de tus sucursales aparecerán aquí.'
+              }}
+            </p>
+          </section>
+        }
+      }
+    </div>
+    <footer class="pagination">
+      <button
+        class="outline"
+        type="button"
+        [disabled]="offset() === 0 || loading()"
+        (click)="page(-1)"
+      >
+        Anterior</button
+      ><span>Página {{ offset() / 20 + 1 }}</span
+      ><button class="outline" type="button" [disabled]="!hasNext() || loading()" (click)="page(1)">
+        Siguiente
+      </button>
+    </footer>
+  } @else {
+    <a class="back" [routerLink]="basePath">← Volver a devoluciones</a>
+    @if (detail(); as row) {
+      <div class="detail-grid">
+        <div class="content">
+          <section class="panel">
+            <div class="card-top">
+              <p class="eyebrow">{{ label(row.tipo) }}</p>
+              <span class="badge" [attr.data-tone]="tone(row.estado)">{{ row.estado }}</span>
+            </div>
+            <h2>{{ reference(row.id_devolucion) }}</h2>
+            <p class="muted">Solicitada: {{ date(row.created_at) }}</p>
+            <h3>Motivo de la solicitud</h3>
+            <p class="reason">{{ row.motivo }}</p>
+            @if (row.fecha_resolucion) {
+              <p class="muted">Resuelta: {{ date(row.fecha_resolucion) }}</p>
+            }
+            @if (row.fecha_procesamiento) {
+              <p class="muted">Procesada: {{ date(row.fecha_procesamiento) }}</p>
+            }
+          </section>
+          <section class="panel">
+            <p class="eyebrow">PRENDAS SOLICITADAS</p>
+            <h2>
+              {{ row.tipo === 'CANCELACION' ? 'Cancelación de compra' : 'Detalle de devolución' }}
+            </h2>
+            @for (line of row.lineas; track line.id_variante_producto) {
+              <article class="line">
+                <div>
+                  <strong>{{ line.nombre || 'Variante #' + line.id_variante_producto }}</strong>
+                  @if (line.talla || line.color) {
+                    <p>Talla {{ line.talla || '—' }} · Color {{ line.color || '—' }}</p>
+                  }
+                  <p>
+                    Solicitadas: {{ line.cantidad }} · A reintegrar: {{ line.cantidad_reintegrar }}
+                  </p>
+                </div>
+                <div>
+                  <small
+                    >Restitución {{ row.estado === 'SOLICITADA' ? 'máxima' : 'autorizada' }}</small
+                  ><strong>{{ money(line.importe_restitucion) }}</strong>
+                </div>
+              </article>
+            } @empty {
+              <p>Esta cancelación se aplica a la compra completa.</p>
+            }
+            @if (row.tipo === 'DEVOLUCION') {
+              <small
+                >Los nombres y atributos de las prendas se muestran cuando están disponibles en la
+                solicitud.</small
+              >
+            }
+          </section>
+          <section class="panel">
+            <p class="eyebrow">RESTITUCIÓN DEL PAGO</p>
+            <h2>Reembolsos</h2>
+            @if (row.pago) {
+              <p>Pago: {{ row.pago.medio }} · {{ row.pago.estado || 'Estado no disponible' }}</p>
+            }
+            @for (refund of row.reembolsos; track refund.id_reembolso) {
+              <article class="line">
+                <div>
+                  <strong>Reembolso #{{ refund.id_reembolso }}</strong>
+                  <p>Pago #{{ refund.id_pago }}</p>
+                  @if (refund.referencia_externa) {
+                    <p class="external-reference">Referencia: {{ refund.referencia_externa }}</p>
+                  }
+                </div>
+                <div>
+                  <span class="badge" [attr.data-tone]="tone(refund.estado)">{{
+                    refund.estado
+                  }}</span
+                  ><strong>{{ money(refund.monto) }}</strong>
+                </div>
+              </article>
+              @if (refund.estado === 'PENDIENTE') {
+                <p class="notice pending">
+                  El reembolso está pendiente. Si Stripe ya recibió el intento, usa «Reconsultar
+                  reembolso» para verificarlo sobre la misma solicitud.
+                </p>
+              }
+              @if (refund.estado === 'RECHAZADO') {
+                <p class="notice bad" role="alert">
+                  Reembolso fallido. Requiere conciliación del personal; no se creará otro reembolso
+                  desde esta vista.
+                </p>
+              }
+            } @empty {
+              <p class="muted">
+                No hay reembolso registrado. Se prepara al aprobar si corresponde un importe a
+                devolver.
+              </p>
+            }
+          </section>
+        </div>
+        <aside class="panel summary">
+          <p class="eyebrow">RESUMEN DEL CASO</p>
+          <h2>Venta {{ row.numero_venta || '#' + row.id_venta }}</h2>
+          <dl>
+            <div>
+              <dt>Cliente</dt>
+              <dd>{{ row.cliente?.nombre || 'Usuario #' + row.id_usuario_solicitante }}</dd>
+            </div>
+            <div>
+              <dt>Sucursal</dt>
+              <dd>{{ row.sucursal?.nombre || 'Nombre no disponible' }}</dd>
+            </div>
+            <div>
+              <dt>Tipo</dt>
+              <dd>{{ label(row.tipo) }}</dd>
+            </div>
+            <div>
+              <dt>Estado</dt>
+              <dd>{{ row.estado }}</dd>
+            </div>
+          </dl>
+          @if (ownRequest()) {
+            <p class="notice pending">
+              Otro miembro autorizado debe revisar y procesar tu solicitud.
+            </p>
+          }
+          @if (row.estado === 'SOLICITADA') {
+            <div class="actions">
+              <button
+                type="button"
+                class="solid"
+                (click)="open('APROBADA')"
+                [disabled]="busy() || loading() || refreshRequired() || ownRequest()"
+              >
+                Aprobar</button
+              ><button
+                type="button"
+                class="outline"
+                (click)="open('RECHAZADA')"
+                [disabled]="busy() || loading() || refreshRequired() || ownRequest()"
+              >
+                Rechazar
+              </button>
+            </div>
+          }
+          @if (row.estado === 'APROBADA' && !failedRefund()) {
+            <button
+              type="button"
+              class="solid"
+              (click)="open('PROCESAR')"
+              [disabled]="busy() || loading() || refreshRequired() || ownRequest()"
+            >
+              {{
+                needsRefund() && row.reembolsos[0]?.referencia_externa
+                  ? 'Reconsultar reembolso'
+                  : row.tipo === 'CANCELACION'
+                    ? 'Procesar cancelación'
+                    : 'Procesar devolución'
+              }}
+            </button>
+          }
+          @if (row.estado === 'PROCESADA') {
+            <p class="notice good">
+              {{ row.tipo === 'CANCELACION' ? 'CANCELACIÓN PROCESADA' : 'DEVOLUCIÓN PROCESADA' }}
+            </p>
+          }
+          <small>El resultado del procesamiento se confirma al actualizar esta solicitud.</small>
+        </aside>
+      </div>
+    }
+  }
+  @if (action(); as mode) {
+    @if (detail(); as row) {
+      <app-return-modal
+        [title]="
+          mode === 'PROCESAR'
+            ? 'Procesar ' + label(row.tipo).toLowerCase()
+            : mode === 'RECHAZADA'
+              ? 'Rechazar solicitud'
+              : 'Aprobar solicitud'
+        "
+        [busy]="busy()"
+        (closed)="close()"
+      >
+        <form (ngSubmit)="confirm()">
+          <p class="notice pending">
+            {{
+              mode === 'RECHAZADA'
+                ? 'Esta solicitud se cerrará como rechazada. No se reintegrarán unidades ni se realizará un reembolso.'
+                : mode === 'PROCESAR'
+                  ? 'Confirmarás el procesamiento autorizado de esta solicitud. Revisa el medio del pago y el resultado antes de continuar.'
+                  : 'Confirma las cantidades aptas para reintegrar y el importe a restituir. El procesamiento se realiza en un paso posterior.'
+            }}
+          </p>
+          @if (mode === 'APROBADA' && row.tipo === 'DEVOLUCION') {
+            @for (line of row.lineas; track line.id_variante_producto) {
+              <article class="review-line">
+                <strong
+                  >{{ line.nombre || 'Variante #' + line.id_variante_producto }} ·
+                  {{ line.cantidad }} solicitadas</strong
+                >
+                <div class="fields">
+                  <label
+                    >Cantidad a reintegrar<input
+                      type="number"
+                      min="0"
+                      step="1"
+                      [max]="line.cantidad"
+                      [name]="'reintegrate-' + line.id_variante_producto"
+                      [ngModel]="drafts()[line.id_variante_producto].cantidad_reintegrar"
+                      (ngModelChange)="
+                        edit(line.id_variante_producto, 'cantidad_reintegrar', $event)
+                      "
+                      [disabled]="busy()"
+                      required
+                  /></label>
+                  <label
+                    >Importe de restitución (Bs)<input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [max]="line.importe_restitucion"
+                      [name]="'amount-' + line.id_variante_producto"
+                      [ngModel]="drafts()[line.id_variante_producto].importe_restitucion"
+                      (ngModelChange)="
+                        edit(line.id_variante_producto, 'importe_restitucion', $event)
+                      "
+                      [disabled]="busy()"
+                      required
+                  /></label>
+                </div>
+                <small
+                  >Máximo {{ money(line.importe_restitucion) }}. Reintegra solo prendas aptas para
+                  volver al inventario.</small
+                >
+              </article>
+            }
+          }
+          @if (mode === 'PROCESAR' && needsRefund()) {
+            <section class="notice" aria-label="Medio de pago original">
+              <strong>Medio de pago original</strong>
+              <p>
+                {{
+                  method() === 'STRIPE'
+                    ? 'Tarjeta · Stripe TEST'
+                    : row.pago?.medio === 'QR'
+                      ? 'QR'
+                      : row.pago?.medio === 'EFECTIVO'
+                        ? 'Efectivo'
+                        : 'Pago aprobado no disponible'
+                }}
+              </p>
+            </section>
+            @if (method() === 'MANUAL') {
+              <label
+                >Comprobante / referencia manual<input
+                  name="receipt"
+                  maxlength="255"
+                  required
+                  [ngModel]="receipt()"
+                  (ngModelChange)="receipt.set($event)"
+                  [disabled]="busy()"
+                  placeholder="Referencia del reembolso realizado"
+              /></label>
+              <p class="muted">
+                Confirma que el reembolso manual fue realizado. Esta acción registra su comprobante.
+              </p>
+            }
+            @if (method() === 'STRIPE') {
+              <p class="notice">
+                El reembolso será gestionado automáticamente mediante Stripe TEST. No necesitas
+                ingresar datos de tarjeta.
+              </p>
+            }
+          }
+          @if (modalError()) {
+            <p class="notice bad" role="alert">{{ modalError() }}</p>
+          }
+          <footer class="modal-footer">
+            <button class="outline" type="button" (click)="close()" [disabled]="busy()">
+              Volver</button
+            ><button class="solid" type="submit" [disabled]="busy()">
+              {{ busy() ? 'Confirmando…' : 'Confirmar' }}
+            </button>
+          </footer>
+        </form>
+      </app-return-modal>
+    }
+  }
+</div>
