@@ -191,6 +191,8 @@ class StaffSalesService:
                 id_cliente=quote.id_cliente, id_reserva=quote.id_reserva,
                 numero_venta=number, estado="PENDIENTE", subtotal=quote.subtotal,
                 descuento_total=quote.descuento_total, total=quote.total, fecha_venta=now,
+                canal="PRESENCIAL", moneda="BOB", stock_comprometido=False,
+                fecha_completada=None, fecha_expiracion_pago=None, id_carrito=None,
             )
             items = [line.model_dump(include={
                 "id_variante_producto", "cantidad", "precio_unitario",

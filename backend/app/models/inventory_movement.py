@@ -19,6 +19,10 @@ from app.core.database import Base
 class InventoryMovement(Base):
     __tablename__ = "t_movimiento_inventario"
     __table_args__ = (
+        CheckConstraint(
+            "id_empleado_sucursal IS NOT NULL OR (tipo_movimiento = 'VENTA' AND id_venta IS NOT NULL)",
+            name="ck_movimiento_responsable_automatico",
+        ),
         UniqueConstraint("id_venta", name="uq_movimiento_inventario_venta"),
         CheckConstraint(
             "tipo_movimiento IN ("
@@ -75,10 +79,10 @@ class InventoryMovement(Base):
         ForeignKey("t_sucursal.id_sucursal"),
         nullable=True,
     )
-    id_empleado_sucursal: Mapped[int] = mapped_column(
+    id_empleado_sucursal: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("t_empleado_sucursal.id_empleado_sucursal"),
-        nullable=False,
+        nullable=True,
     )
     id_venta: Mapped[int | None] = mapped_column(
         Integer,

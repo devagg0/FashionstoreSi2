@@ -18,8 +18,10 @@ PyJWT>=2.10,<3.0
 pwdlib[argon2]==0.3.1
 python-dotenv==1.2.3
 python-multipart==0.0.32
+requests>=2.32.3,<3.0.0
 SQLAlchemy==2.0.52
 starlette==1.6.0
+stripe==15.6.1
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.52.4

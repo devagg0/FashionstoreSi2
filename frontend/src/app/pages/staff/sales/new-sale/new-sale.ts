@@ -1,4 +1,6 @@
 import { DatePipe } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
+import { PaymentsService } from '../../../../core/services/payments.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -52,11 +54,13 @@ interface SaleAttempt {
 
 @Component({
   selector: 'app-new-sale',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, RouterLink],
   templateUrl: './new-sale.html',
   styleUrl: './new-sale.scss',
 })
 export class NewSale implements OnInit {
+  private readonly payments = inject(PaymentsService);
+  private readonly router = inject(Router);
   private readonly sales = inject(StaffSalesService);
   private readonly catalog = inject(CatalogService);
   private readonly reservations = inject(StaffReservationsService);
@@ -459,6 +463,19 @@ export class NewSale implements OnInit {
     this.stale.set(false);
     this.error.set('');
     this.saleId = '';
+  }
+  pay(): void {
+    const sale = this.result();
+    if (!sale || sale.estado !== 'PENDIENTE' || this.busy()) return;
+    try {
+      this.payments.saveSale({ id: sale.id_venta, numero: sale.numero_venta, sucursal: sale.sucursal.nombre,
+        canal: 'PRESENCIAL', estado: sale.estado, fecha: sale.fecha_venta, subtotal: sale.subtotal,
+        descuento: sale.descuento_total, total: sale.total,
+        items: sale.detalles.map(item => ({ id: item.id_variante_producto, nombre: item.producto,
+          talla: item.talla, color: item.color, imagen: this.lines().find(line => line.id_variante_producto === item.id_variante_producto)?.imagen,
+          cantidad: item.cantidad, precio: item.precio_unitario, subtotal: item.subtotal_linea })) });
+      void this.router.navigate(['/staff/ventas', sale.id_venta, 'pago']);
+    } catch { this.error.set('Habilita el almacenamiento de esta pestaña para continuar al pago.'); }
   }
   private saveAttempt(attempt: SaleAttempt): boolean {
     try {

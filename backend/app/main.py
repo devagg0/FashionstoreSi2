@@ -20,9 +20,14 @@ from app.routers.catalog import router as catalog_router
 from app.routers.catalog_availability import router as catalog_availability_router
 from app.routers.client_reservations import router as client_reservations_router
 from app.routers.client_cart import router as client_cart_router
+from app.routers.client_checkout import router as client_checkout_router
+from app.routers.client_purchases import router as client_purchases_router
 from app.routers.staff_reservations import router as staff_reservations_router
 from app.routers.staff_sales import router as staff_sales_router
+from app.routers.payments import router as payments_router
 from app.routers.auth import router as auth_router
+from app.routers.returns import router as returns_router
+from app.routers.receipts import router as receipts_router
 
 
 app = FastAPI(
@@ -54,8 +59,13 @@ app.include_router(catalog_router)
 app.include_router(catalog_availability_router)
 app.include_router(client_reservations_router)
 app.include_router(client_cart_router)
+app.include_router(client_checkout_router)
+app.include_router(client_purchases_router)
 app.include_router(staff_reservations_router)
 app.include_router(staff_sales_router)
+app.include_router(payments_router)
+app.include_router(returns_router)
+app.include_router(receipts_router)
 app.include_router(admin_seasons_router)
 app.include_router(admin_collections_router)
 app.include_router(auth_router)

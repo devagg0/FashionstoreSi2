@@ -68,6 +68,10 @@
       @if (sale.estado === 'PENDIENTE') {
         <p>Venta registrada. Pendiente de pago en caja.</p>
         <p class="sale-badge">Pago pendiente</p>
+        <button class="primary" type="button" (click)="pay()" [disabled]="busy()">Continuar al pago →</button>
+      }
+      @if (sale.estado === 'COMPLETADA') {
+        <a class="primary" [routerLink]="['/staff/ventas', sale.id_venta, 'comprobante']">Ver comprobante</a>
       }
       <button class="primary" type="button" (click)="newSale()">Nueva venta</button>
     </section>

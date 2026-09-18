@@ -25,6 +25,9 @@ from app.models.reservation_detail import ReservationDetail
 from app.models.cart import Cart
 from app.models.cart_detail import CartDetail
 from app.models.sale import Sale
+from app.models.payment import Payment
 from app.models.sale_detail import SaleDetail
 from app.models.inventory_movement import InventoryMovement
 from app.models.inventory_movement_detail import InventoryMovementDetail
+
+from app.models.returns import Return, ReturnDetail, Refund

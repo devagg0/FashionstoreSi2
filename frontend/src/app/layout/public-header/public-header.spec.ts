@@ -92,4 +92,22 @@ describe('PublicHeader', () => {
       'Iniciar sesión',
     );
   });
+
+  it('CU23 exposes purchases to CLIENTE in desktop and mobile account menus only', () => {
+    const session = TestBed.inject(SessionService);
+    const fixture = TestBed.createComponent(PublicHeader);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a[href="/mis-compras"]')).toBeNull();
+    session.saveUser(user);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.account-dropdown a[href="/mis-compras"]')?.textContent).toContain('Mis compras');
+    fixture.nativeElement.querySelector('.mobile-menu-trigger').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.mobile-account__trigger').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.mobile-account a[href="/mis-compras"]')).not.toBeNull();
+    session.saveUser({ ...user, rol: 'CAJERO' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a[href="/mis-compras"]')).toBeNull();
+  });
 });

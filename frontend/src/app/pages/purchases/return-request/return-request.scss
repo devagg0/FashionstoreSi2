@@ -1,0 +1,177 @@
+:host {
+  display: block;
+  color: var(--color-espresso);
+}
+h2 {
+  margin: 8px 0;
+  font-size: 1.5rem;
+}
+p {
+  line-height: 1.6;
+}
+small {
+  color: var(--color-muted);
+}
+.eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-terracotta);
+}
+.care-card {
+  background: white;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.actions,
+.tracking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.tracking-actions {
+  margin-bottom: 20px;
+}
+.tracking > ul,
+.tracking > p {
+  width: 100%;
+  margin: 0;
+}
+.solid,
+.outline {
+  border: 1px solid var(--color-espresso);
+  border-radius: 8px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.solid {
+  background: var(--color-espresso);
+  color: white;
+}
+.outline {
+  background: transparent;
+  color: var(--color-espresso);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--color-terracotta);
+  outline-offset: 3px;
+}
+.badge {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 30px;
+  font: 600 0.65rem sans-serif;
+  white-space: nowrap;
+}
+.notice {
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.good,
+[data-tone='good'] {
+  background: #edf6ef;
+  color: #285a39;
+}
+.bad,
+[data-tone='bad'] {
+  background: #fff0eb;
+  color: #964728;
+}
+.pending,
+[data-tone='pending'] {
+  background: #fff2d9;
+  color: #80611f;
+}
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+input,
+textarea,
+select {
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: white;
+  max-width: 100%;
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+.reason {
+  margin-top: 24px;
+}
+.reason span {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.return-product {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.return-product p {
+  font-size: 0.8rem;
+  margin: 8px 0;
+}
+.return-product input {
+  width: 100px;
+}
+.selection {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .care-card {
+    padding: 20px;
+  }
+  .actions,
+  .actions button {
+    width: 100%;
+  }
+  .return-product {
+    flex-wrap: wrap;
+  }
+  .return-product > div {
+    flex: 1;
+    min-width: 160px;
+  }
+  footer {
+    flex-wrap: wrap;
+  }
+  footer button {
+    flex: 1;
+  }
+}
