@@ -1,0 +1,243 @@
+<section class="reservations-report">
+  <header class="page-heading">
+    <p>DEMANDA Y ATENCIÓN DE RESERVAS</p>
+    <h1>Reporte de reservas y productos</h1>
+    <span>Analiza la demanda reservada, el avance de atención y los productos con mayor tracción.</span>
+  </header>
+
+  <form class="panel filters" (ngSubmit)="apply()">
+    <label>Fecha desde<input type="date" name="fecha_desde" [(ngModel)]="filters.fecha_desde" [max]="filters.fecha_hasta || '9999-12-30'" /></label>
+    <label>Fecha hasta<input type="date" name="fecha_hasta" [(ngModel)]="filters.fecha_hasta" [min]="filters.fecha_desde || '0001-01-01'" max="9999-12-30" /></label>
+    <label>Tipo de fecha<select name="tipo_fecha" [(ngModel)]="filters.tipo_fecha">
+      <option value="CREACION">Creación</option>
+      <option value="PROGRAMADA">Atención programada</option>
+      <option value="ATENCION">Atención real</option>
+    </select></label>
+    <label>Período<select name="periodo" [(ngModel)]="filters.periodo">
+      <option value="DIA">Día</option><option value="SEMANA">Semana</option><option value="MES">Mes</option>
+    </select></label>
+    <label>Sucursal<select name="id_sucursal" [(ngModel)]="filters.id_sucursal" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las sucursales</option>
+      @for (branch of branches(); track branch.id_sucursal) { <option [ngValue]="branch.id_sucursal">{{ branch.nombre }}{{ branch.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <label>Estado<select name="estado" [(ngModel)]="filters.estado">
+      <option [ngValue]="undefined">Todos los estados</option>
+      @for (state of states; track state.value) { <option [value]="state.value">{{ state.label }}</option> }
+    </select></label>
+    <label>Categoría<select name="id_categoria" [(ngModel)]="filters.id_categoria" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las categorías</option>
+      @for (category of categories(); track category.id_categoria) { <option [ngValue]="category.id_categoria">{{ category.nombre }}{{ category.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <label>Producto<select name="id_producto" [(ngModel)]="filters.id_producto" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todos los productos</option>
+      @for (product of products(); track product.id_producto) { <option [ngValue]="product.id_producto">{{ product.nombre }}{{ product.estado ? '' : ' (inactivo)' }}</option> }
+    </select></label>
+    <div class="filter-actions">
+      <button class="modal-button modal-button--primary" type="submit">Aplicar filtros</button>
+      <button class="modal-button modal-button--secondary" type="button" (click)="clear()">Limpiar</button>
+    </div>
+    <small class="filter-note">Limpiar restablece el mes actual, creación y período diario. Fechas y agrupaciones en America/La_Paz.</small>
+    @if (validation()) { <p class="notice" role="alert">{{ validation() }}</p> }
+    @if (optionsLoading()) { <p class="filter-note" role="status">Cargando sucursales, categorías y productos…</p> }
+    @if (optionsError()) { <div class="notice" role="alert">{{ optionsError() }} <button class="modal-button modal-button--secondary" type="button" (click)="loadOptions()">Reintentar selectores</button></div> }
+  </form>
+
+  <div [attr.aria-busy]="loading()">
+    @if (loading()) {
+      <p role="status" class="filter-note">Cargando reporte de reservas…</p>
+      <div class="kpi-grid" aria-hidden="true">@for (n of [1,2,3,4,5,6,7,8]; track n) { <div class="panel skeleton"></div> }</div>
+      <div class="chart-grid" aria-hidden="true">@for (n of [1,2,3,4]; track n) { <div class="panel skeleton skeleton--chart"></div> }</div>
+      <div class="panel skeleton skeleton--chart" aria-hidden="true"></div>
+    } @else if (error()) {
+      <div class="panel notice" role="alert"><p>{{ error() }}</p><button class="modal-button modal-button--primary" type="button" (click)="apply()">Reintentar</button></div>
+    } @else if (report(); as data) {
+      @if (expiredWarning() > 0) {
+        <div class="panel warning" role="status">
+          <app-icon name="ban" [size]="18" />
+          <p>Existen {{ expiredWarning() }} reservas vencidas pendientes de actualización. Este reporte es de solo lectura y no modifica ninguna reserva.</p>
+        </div>
+      }
+
+      <div class="kpi-grid">
+        @for (kpi of kpis(); track kpi.label) {
+          <article class="panel kpi" [class]="'kpi--' + kpi.tone">
+            <div class="kpi-top"><h2>{{ kpi.label }}</h2><span class="kpi-icon"><app-icon [name]="kpi.icon" [size]="16" /></span></div>
+            <strong>{{ kpi.value }}</strong>
+            <small>{{ kpi.hint }}</small>
+          </article>
+        }
+      </div>
+
+      @if (noResults()) {
+        <div class="panel empty-state" role="status">
+          <h2>Sin resultados</h2>
+          <p>No hay reservas para los filtros seleccionados. Prueba con otro rango, otro tipo de fecha o limpia los filtros.</p>
+        </div>
+      }
+
+      <div class="chart-grid">
+        <article class="panel chart chart--donut">
+          <h2>Distribución de estados</h2>
+          <p class="chart-unit">Participación de cada estado sobre el total de reservas</p>
+          @if (stateDonut().length) {
+            <div class="donut-layout">
+              <div class="donut-holder">
+                <svg viewBox="0 0 160 160" role="img" aria-label="Distribución de reservas por estado">
+                  <circle class="donut-track" cx="80" cy="80" r="54" />
+                  @for (segment of stateDonut(); track segment.key) {
+                    <circle class="donut-segment" [class]="'tone-' + segment.tone" cx="80" cy="80" r="54"
+                      [attr.stroke-dasharray]="segment.dash + ' ' + segment.gap" [attr.stroke-dashoffset]="segment.offset">
+                      <title>{{ segment.label }}: {{ segment.value }} reservas ({{ segment.percent | number: '1.0-1' }}%) · {{ segment.units }} unidades</title>
+                    </circle>
+                  }
+                </svg>
+                <div class="donut-center"><strong>{{ stateTotal() }}</strong><span>reservas</span></div>
+              </div>
+              <ul class="legend">
+                @for (segment of stateDonut(); track segment.key) {
+                  <li><span class="dot" [class]="'tone-' + segment.tone" aria-hidden="true"></span>
+                    <span class="legend-label">{{ segment.label }}</span>
+                    <strong>{{ segment.percent | number: '1.0-1' }}%</strong>
+                    <small>{{ segment.value }} reservas · {{ segment.units }} unidades</small>
+                  </li>
+                }
+              </ul>
+            </div>
+          } @else {
+            <p class="empty">Sin reservas registradas para estos filtros: no hay estados que distribuir.</p>
+          }
+        </article>
+
+        <article class="panel chart chart--series">
+          <h2>Evolución de reservas</h2>
+          <p class="chart-unit">Reservas y unidades agrupadas por {{ data.filtros.periodo === 'MES' ? 'mes' : data.filtros.periodo === 'SEMANA' ? 'semana' : 'día' }}</p>
+          @if (series().length) {
+            <svg viewBox="0 0 640 220" role="img" aria-label="Evolución del total de reservas y unidades reservadas por período">
+              <defs><linearGradient id="cu30-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" class="area-top" /><stop offset="100%" class="area-bottom" />
+              </linearGradient></defs>
+              @for (line of seriesGrid(); track line.y) {
+                <line class="grid" x1="46" [attr.y1]="line.y" x2="620" [attr.y2]="line.y" />
+                <text class="tick" x="40" [attr.y]="line.y + 4" text-anchor="end">{{ line.value }}</text>
+              }
+              <path class="area" [attr.d]="seriesArea()" />
+              <polyline class="line-units" [attr.points]="seriesUnitsLine()" />
+              <polyline class="line" [attr.points]="seriesLine()" />
+              @for (point of series(); track point.inicio_periodo) {
+                <circle class="point-units" [attr.cx]="point.x" [attr.cy]="point.yUnits" r="3" />
+                <circle class="point" [attr.cx]="point.x" [attr.cy]="point.y" r="4.5">
+                  <title>{{ point.label }}: {{ point.total_reservas }} reservas · {{ point.unidades_reservadas }} unidades</title>
+                </circle>
+              }
+              @for (tick of seriesTicks(); track tick.inicio_periodo) {
+                <text class="tick" [attr.x]="tick.x" y="205" text-anchor="middle">{{ tick.label }}</text>
+              }
+            </svg>
+            <ul class="series-legend">
+              <li><span class="dot tone-warn" aria-hidden="true"></span>Total de reservas</li>
+              <li><span class="dot tone-off" aria-hidden="true"></span>Unidades reservadas</li>
+            </ul>
+          } @else {
+            <p class="empty">Sin períodos con reservas para graficar.</p>
+          }
+        </article>
+
+        <article class="panel chart">
+          <h2>Reservas por sucursal</h2>
+          <p class="chart-unit">Participación relativa sobre la sucursal con más reservas</p>
+          <div class="bars">
+            @for (row of branchRows(); track row.key) {
+              <div class="bar-row">
+                <div class="bar-head"><span>{{ row.label }}</span><strong>{{ row.reservations }} reservas</strong></div>
+                <div class="bar-track"><span class="tone-info" [style.width.%]="row.percent"></span></div>
+                <div class="bar-meta"><small>{{ row.units }} unidades</small><small>{{ row.percent | number: '1.0-1' }}% del líder</small></div>
+              </div>
+            } @empty { <p class="empty">Sin reservas por sucursal.</p> }
+          </div>
+        </article>
+
+        <article class="panel chart">
+          <h2>Productos más reservados</h2>
+          <p class="chart-unit">Ordenados por unidades reservadas</p>
+          <div class="bars">
+            @for (row of productRows(); track row.key) {
+              <div class="bar-row">
+                <div class="bar-head"><span>{{ row.label }}</span><strong>{{ row.units }} unidades</strong></div>
+                <div class="bar-track"><span class="tone-ok" [style.width.%]="row.percent"></span></div>
+                <div class="bar-meta"><small>{{ row.reservations }} reservas</small><small>{{ row.percent | number: '1.0-1' }}% del líder</small></div>
+              </div>
+            } @empty { <p class="empty">Sin productos reservados.</p> }
+          </div>
+        </article>
+
+        <article class="panel chart chart--donut">
+          <h2>Categorías más reservadas</h2>
+          <p class="chart-unit">Participación de cada categoría sobre el total de reservas</p>
+          @if (categoryDonut().length) {
+            <div class="donut-layout donut-layout--compact">
+              <div class="donut-holder">
+                <svg viewBox="0 0 160 160" role="img" aria-label="Distribución de reservas por categoría">
+                  <circle class="donut-track" cx="80" cy="80" r="54" />
+                  @for (segment of categoryDonut(); track segment.key) {
+                    <circle class="donut-segment" [class]="'tone-' + segment.tone" cx="80" cy="80" r="54"
+                      [attr.stroke-dasharray]="segment.dash + ' ' + segment.gap" [attr.stroke-dashoffset]="segment.offset">
+                      <title>{{ segment.label }}: {{ segment.value }} reservas ({{ segment.percent | number: '1.0-1' }}%) · {{ segment.units }} unidades</title>
+                    </circle>
+                  }
+                </svg>
+                <div class="donut-center"><strong>{{ categoryTotal() }}</strong><span>reservas</span></div>
+              </div>
+              <ul class="legend">
+                @for (segment of categoryDonut(); track segment.key) {
+                  <li><span class="dot" [class]="'tone-' + segment.tone" aria-hidden="true"></span>
+                    <span class="legend-label">{{ segment.label }}</span>
+                    <strong>{{ segment.percent | number: '1.0-1' }}%</strong>
+                    <small>{{ segment.value }} reservas · {{ segment.units }} unidades</small>
+                  </li>
+                }
+              </ul>
+            </div>
+          } @else {
+            <p class="empty">Sin categorías reservadas para estos filtros.</p>
+          }
+        </article>
+      </div>
+
+      <div class="ranking-grid">
+        <article class="panel ranking">
+          <h2>Ranking de productos más reservados</h2>
+          <div class="table-scroll">
+            <table>
+              <caption class="visually-hidden">Posición, producto, reservas y unidades reservadas</caption>
+              <thead><tr><th scope="col">#</th><th scope="col">Producto</th><th scope="col">Reservas</th><th scope="col">Unidades</th></tr></thead>
+              <tbody>
+                @for (row of productRows(); track row.key) {
+                  <tr><td data-label="#"><span class="rank">{{ $index + 1 }}</span></td><td data-label="Producto">{{ row.label }}</td>
+                    <td data-label="Reservas">{{ row.reservations }}</td><td data-label="Unidades">{{ row.units }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (!productRows().length) { <p class="empty">No hay productos reservados en este período.</p> }
+        </article>
+
+        <article class="panel ranking">
+          <h2>Ranking de categorías más reservadas</h2>
+          <div class="table-scroll">
+            <table>
+              <caption class="visually-hidden">Posición, categoría, reservas y unidades reservadas</caption>
+              <thead><tr><th scope="col">#</th><th scope="col">Categoría</th><th scope="col">Reservas</th><th scope="col">Unidades</th></tr></thead>
+              <tbody>
+                @for (row of categoryRows(); track row.key) {
+                  <tr><td data-label="#"><span class="rank">{{ $index + 1 }}</span></td><td data-label="Categoría">{{ row.label }}</td>
+                    <td data-label="Reservas">{{ row.reservations }}</td><td data-label="Unidades">{{ row.units }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (!categoryRows().length) { <p class="empty">No hay categorías reservadas en este período.</p> }
+        </article>
+      </div>
+    }
+  </div>
+</section>

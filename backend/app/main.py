@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.admin_branches import router as admin_branches_router
+from app.routers.admin_sales_report import router as admin_sales_report_router
+from app.routers.admin_inventory_report import router as admin_inventory_report_router
+from app.routers.admin_reservations_report import router as admin_reservations_report_router
 from app.routers.admin_inventory import router as admin_inventory_router
 from app.routers.admin_global_inventory import router as admin_global_inventory_router
 from app.routers.admin_inventory_movements import router as admin_inventory_movements_router
@@ -22,6 +25,7 @@ from app.routers.client_reservations import router as client_reservations_router
 from app.routers.client_cart import router as client_cart_router
 from app.routers.client_checkout import router as client_checkout_router
 from app.routers.client_purchases import router as client_purchases_router
+from app.routers.client_recommendations import router as client_recommendations_router
 from app.routers.staff_reservations import router as staff_reservations_router
 from app.routers.staff_sales import router as staff_sales_router
 from app.routers.payments import router as payments_router
@@ -61,6 +65,7 @@ app.include_router(client_reservations_router)
 app.include_router(client_cart_router)
 app.include_router(client_checkout_router)
 app.include_router(client_purchases_router)
+app.include_router(client_recommendations_router)
 app.include_router(staff_reservations_router)
 app.include_router(staff_sales_router)
 app.include_router(payments_router)
@@ -75,6 +80,9 @@ app.include_router(admin_categories_router)
 app.include_router(admin_sizes_router)
 app.include_router(admin_colors_router)
 app.include_router(admin_branches_router)
+app.include_router(admin_sales_report_router)
+app.include_router(admin_inventory_report_router)
+app.include_router(admin_reservations_report_router)
 app.include_router(admin_inventory_router)
 app.include_router(admin_global_inventory_router)
 app.include_router(admin_inventory_movements_router)

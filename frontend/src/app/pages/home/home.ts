@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CategoryCard } from '../../shared/components/category-card/category-card';
 import { Icon, IconName } from '../../shared/components/icon/icon';
+import { Recommendations } from '../../shared/components/recommendations/recommendations';
 import { SectionCard } from '../../shared/components/section-card/section-card';
 
 interface StyleCollection {
@@ -19,7 +20,7 @@ interface Benefit {
 
 @Component({
   selector: 'app-home',
-  imports: [CategoryCard, Icon, RouterLink, SectionCard],
+  imports: [CategoryCard, Icon, Recommendations, RouterLink, SectionCard],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

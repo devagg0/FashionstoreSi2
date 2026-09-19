@@ -1,0 +1,75 @@
+<section class="inventory-report">
+  <header class="page-heading"><p>CONTROL DE EXISTENCIAS</p><h1>Reporte de inventario</h1><span>Controla las existencias, las reservas y las necesidades de reposición de cada sucursal.</span></header>
+  <form class="panel filters" (ngSubmit)="apply()">
+    <label>Sucursal<select name="id_sucursal" [(ngModel)]="filters.id_sucursal" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las sucursales</option>
+      @for (x of branches(); track x.id_sucursal) { <option [ngValue]="x.id_sucursal">{{ x.nombre }}{{ x.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <label>Categoría<select name="id_categoria" [(ngModel)]="filters.id_categoria" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las categorías</option>
+      @for (x of categories(); track x.id_categoria) { <option [ngValue]="x.id_categoria">{{ x.nombre }}{{ x.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <label>Producto<select name="id_producto" [(ngModel)]="filters.id_producto" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todos los productos</option>
+      @for (x of products(); track x.id_producto) { <option [ngValue]="x.id_producto">{{ x.nombre }}{{ x.estado ? '' : ' (inactivo)' }}</option> }
+    </select></label>
+    <label>Estado de stock<select name="estado_stock" [(ngModel)]="filters.estado_stock">
+      <option [ngValue]="undefined">Todos los estados</option><option value="NORMAL">Normal</option><option value="BAJO_STOCK">Bajo stock</option><option value="AGOTADO">Agotado</option>
+    </select></label>
+    <div class="filter-actions"><button class="modal-button modal-button--primary" type="submit">Aplicar</button><button class="modal-button modal-button--secondary" type="button" (click)="clear()">Limpiar</button></div>
+    @if (optionsLoading()) { <p class="filter-note" role="status">Cargando filtros…</p> }
+    @if (optionsError()) { <div class="notice" role="alert">{{ optionsError() }} <button class="modal-button modal-button--secondary" type="button" (click)="loadOptions()">Reintentar filtros</button></div> }
+  </form>
+  <div [attr.aria-busy]="loading()">
+    @if (loading()) {
+      <p role="status">Cargando reporte de inventario…</p>
+      <div class="kpi-grid" aria-hidden="true">@for (n of [1,2,3,4,5,6,7,8,9,10]; track n) { <div class="panel skeleton"></div> }</div>
+    } @else if (error()) {
+      <div class="panel notice" role="alert"><p>{{ error() }}</p><button class="modal-button modal-button--primary" type="button" (click)="retry()">Reintentar</button></div>
+    } @else if (report(); as data) {
+      @for (warning of data.advertencias; track warning.codigo) {
+        <div class="panel notice" role="alert"><strong>{{ warning.registros }} registro(s) con inconsistencia.</strong> {{ warning.mensaje }}<p>La advertencia incluye los filtros de sucursal, categoría y producto, independientemente del estado de stock seleccionado.</p></div>
+      }
+      <div class="kpi-grid">@for (kpi of kpis(); track kpi.label) { <article class="panel kpi"><h2>{{ kpi.label }}</h2><strong>{{ kpi.value }}</strong></article> }</div>
+      <p class="filter-note">{{ data.kpis.total_registros_inventario }} registros inventariados. Indicadores sobre todos los resultados filtrados, incluidos inactivos. Productos con faltantes: al menos una variante agotada en una sucursal.</p>
+      @if (data.kpis.total_registros_inventario === 0) { <div class="panel empty" role="status"><h2>Sin resultados</h2><p>No hay inventarios para estos filtros. Prueba otra combinación o limpia los filtros.</p></div> }
+      <div class="chart-grid">
+        @for (chart of charts(); track chart.title) {
+          <article class="panel chart"><h2>{{ chart.title }}</h2><p class="chart-unit">{{ chart.unit }}</p>
+            <div class="bars">@for (row of chart.rows; track $index) {
+              <div class="bar-row" [class.negative]="row.value < 0"><div><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div><div class="bar-track" aria-hidden="true"><span [style.width.%]="width(row, chart.rows)"></span></div>@if (row.value < 0) { <small>Saldo negativo · revisar inconsistencia</small> }</div>
+            } @empty { <p class="empty">Sin resultados.</p> }</div>
+          </article>
+        }
+      </div>
+      <article class="panel detail"><h2>Detalle de existencias</h2>
+        <p class="filter-note">Disponible = actual − reservado. Desliza la tabla horizontalmente para ver todas las columnas.</p>
+        <div class="table-scroll" role="region" tabindex="0" aria-label="Detalle de inventario, tabla desplazable">
+          <table><caption class="visually-hidden">Inventario por sucursal y variante</caption><thead><tr>
+            @for (heading of ['Sucursal','Categoría','Producto','SKU','Talla','Color','Actual','Reservado','Disponible','Mínimo','Estado']; track heading) { <th scope="col">{{ heading }}</th> }
+          </tr></thead><tbody>
+            @for (item of data.detalle.items; track item.id_inventario_sucursal) {
+              <tr>
+                <td>{{ item.sucursal.nombre }}@if (!item.sucursal.estado) { <small>Inactiva</small> }</td>
+                <td>{{ item.categoria.nombre }}@if (!item.categoria.estado) { <small>Inactiva</small> }</td>
+                <td>{{ item.producto.nombre }}@if (!item.producto.estado) { <small>Inactivo</small> }</td>
+                <td>{{ item.variante.sku }}@if (!item.variante.estado) { <small>Variante inactiva</small> }</td>
+                <td>{{ item.variante.talla }}</td><td>{{ item.variante.color }}</td>
+                <td>{{ item.stock_actual }}</td><td>{{ item.stock_reservado }}</td><td [class.negative]="item.stock_disponible < 0">{{ item.stock_disponible }}</td><td>{{ item.stock_minimo }}</td>
+                <td><span class="badge" [class.normal]="item.estado_stock === 'NORMAL'" [class.low]="item.estado_stock === 'BAJO_STOCK'" [class.depleted]="item.estado_stock === 'AGOTADO'" [class.inconsistent]="item.estado_stock === null">{{ item.estado_stock === null ? 'INCONSISTENCIA' : item.estado_stock === 'BAJO_STOCK' ? 'BAJO STOCK' : item.estado_stock }}</span>
+                  @if (item.faltante_hasta_minimo > 0) { <small>Faltan {{ item.faltante_hasta_minimo }} hasta el mínimo</small> }
+                </td>
+              </tr>
+            }
+          </tbody></table>
+        </div>
+        @if (!data.detalle.items.length && data.kpis.total_registros_inventario > 0) { <p role="status">No hay registros en esta página.</p> }
+        <nav class="pagination" aria-label="Paginación de inventario">
+          <label>Filas por página<select name="page_size" [ngModel]="data.detalle.pagination.page_size" (ngModelChange)="resize($event)">@for (size of [10,20,50,100]; track size) { <option [ngValue]="size">{{ size }}</option> }</select></label>
+          <span>Página {{ data.detalle.pagination.page }} de {{ data.detalle.pagination.total_pages || 1 }} · {{ data.detalle.pagination.total }} registros</span>
+          <div class="filter-actions"><button type="button" class="modal-button modal-button--secondary" [disabled]="data.detalle.pagination.page <= 1" (click)="goToPage(data.detalle.pagination.page - 1)">Anterior</button><button type="button" class="modal-button modal-button--secondary" [disabled]="data.detalle.pagination.page >= data.detalle.pagination.total_pages" (click)="goToPage(data.detalle.pagination.page + 1)">Siguiente</button></div>
+        </nav>
+      </article>
+    }
+  </div>
+</section>

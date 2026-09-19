@@ -1,0 +1,68 @@
+<section class="sales-report">
+  <header class="page-heading">
+    <p>INDICADORES COMERCIALES</p>
+    <h1>Reporte de ventas</h1>
+    <span>Consulta el rendimiento de tus ventas, canales y productos.</span>
+  </header>
+
+  <form class="panel filters" (ngSubmit)="apply()">
+    <label>Fecha desde<input type="date" name="fecha_desde" [(ngModel)]="filters.fecha_desde" [max]="filters.fecha_hasta || '9999-12-30'" /></label>
+    <label>Fecha hasta<input type="date" name="fecha_hasta" [(ngModel)]="filters.fecha_hasta" [min]="filters.fecha_desde || '0001-01-01'" max="9999-12-30" /></label>
+    <label>Sucursal<select name="id_sucursal" [(ngModel)]="filters.id_sucursal" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las sucursales</option>
+      @for (branch of branches(); track branch.id_sucursal) { <option [ngValue]="branch.id_sucursal">{{ branch.nombre }}{{ branch.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <label>Canal<select name="canal" [(ngModel)]="filters.canal">
+      <option [ngValue]="undefined">Todos los canales</option><option value="PRESENCIAL">Presencial</option><option value="DIGITAL">Digital</option>
+    </select></label>
+    <label>Categoría<select name="id_categoria" [(ngModel)]="filters.id_categoria" [disabled]="optionsLoading() || !!optionsError()">
+      <option [ngValue]="undefined">Todas las categorías</option>
+      @for (category of categories(); track category.id_categoria) { <option [ngValue]="category.id_categoria">{{ category.nombre }}{{ category.estado ? '' : ' (inactiva)' }}</option> }
+    </select></label>
+    <div class="filter-actions"><button class="modal-button modal-button--primary" type="submit">Aplicar filtros</button><button class="modal-button modal-button--secondary" type="button" (click)="clear()">Limpiar</button></div>
+    <small class="filter-note">Limpiar restablece el mes actual. Fechas en America/La_Paz · Importes en BOB.</small>
+    @if (validation()) { <p class="notice" role="alert">{{ validation() }}</p> }
+    @if (optionsLoading()) { <p class="filter-note" role="status">Cargando sucursales y categorías…</p> }
+    @if (optionsError()) { <div class="notice" role="alert">{{ optionsError() }} <button class="modal-button modal-button--secondary" type="button" (click)="loadOptions()">Reintentar selectores</button></div> }
+  </form>
+
+  <div [attr.aria-busy]="loading()">
+    @if (loading()) {
+      <p role="status" class="filter-note">Cargando reporte de ventas…</p>
+      <div class="kpi-grid" aria-hidden="true">@for (n of [1,2,3,4,5,6]; track n) { <div class="panel skeleton"></div> }</div>
+      <div class="chart-grid" aria-hidden="true">@for (n of [1,2,3,4]; track n) { <div class="panel skeleton skeleton--chart"></div> }</div>
+    } @else if (error()) {
+      <div class="panel notice" role="alert"><p>{{ error() }}</p><button class="modal-button modal-button--primary" type="button" (click)="apply()">Reintentar</button></div>
+    } @else if (report(); as data) {
+      <div class="kpi-grid">@for (kpi of kpis(); track kpi.label) { <article class="panel kpi"><h2>{{ kpi.label }}</h2><strong>{{ kpi.value }}</strong></article> }</div>
+      @if (data.kpis.cantidad_ventas === 0) { <div class="panel empty" role="status"><h2>Sin resultados</h2><p>No hay ventas para los filtros seleccionados. Prueba otro período o limpia los filtros.</p></div> }
+      <div class="chart-grid">
+        <article class="panel chart">
+          <h2>Evolución diaria de ventas</h2><p class="chart-unit">Importe vendido · BOB · Días devueltos por la API</p>
+          @if (daily().length) {
+            <svg viewBox="0 0 600 200" role="img" aria-label="Evolución del importe vendido por fecha; valores disponibles en el detalle diario">
+              <line x1="20" y1="180" x2="580" y2="180" class="axis" />
+              <polyline [attr.points]="dailyPoints()" />
+              @for (point of daily(); track point.fecha) { <circle [attr.cx]="point.x" [attr.cy]="point.y" r="4"><title>{{ point.fecha }}: {{ money(point.importe_vendido) }}</title></circle> }
+            </svg>
+            <div class="chart-range"><span>{{ daily()[0].fecha }}</span><span>{{ daily()[daily().length - 1].fecha }}</span></div>
+            <details><summary>Ver valores diarios</summary><dl>@for (point of daily(); track point.fecha) { <div><dt>{{ point.fecha }}</dt><dd>{{ money(point.importe_vendido) }}</dd></div> }</dl></details>
+          } @else { <p class="empty">Sin ventas diarias.</p> }
+        </article>
+        @for (chart of charts(); track chart.title) {
+          <article class="panel chart"><h2>{{ chart.title }}</h2><p class="chart-unit">{{ chart.unit }}</p>
+            <div class="bars">@for (row of chart.rows; track $index) {
+              <div class="bar-row"><div><span>{{ row.label }}</span><strong>{{ row.display }}</strong></div><div class="bar-track" aria-hidden="true"><span [style.width.%]="width(row, chart.rows)"></span></div></div>
+            } @empty { <p class="empty">Sin resultados.</p> }</div>
+          </article>
+        }
+      </div>
+      <article class="panel product-summary"><h2>Resumen de productos más vendidos</h2>
+        <table><caption class="visually-hidden">Unidades e importe vendido por producto, en BOB</caption><thead><tr><th scope="col">Nombre</th><th scope="col">Unidades vendidas</th><th scope="col">Importe vendido</th></tr></thead><tbody>
+          @for (product of data.productos_mas_vendidos; track product.id_producto) { <tr><td>{{ product.nombre_producto }}</td><td data-label="Unidades vendidas">{{ product.unidades_vendidas }}</td><td data-label="Importe vendido">{{ money(product.importe_vendido) }}</td></tr> }
+        </tbody></table>
+        @if (!data.productos_mas_vendidos.length) { <p class="empty">No hay productos vendidos en este período.</p> }
+      </article>
+    }
+  </div>
+</section>

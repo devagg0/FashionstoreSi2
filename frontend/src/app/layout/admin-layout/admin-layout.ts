@@ -26,6 +26,9 @@ export class AdminLayout {
   protected readonly user = this.sessionService.currentUser;
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
+    if (url.startsWith('/admin/reporte-ventas')) return 'Reporte de ventas';
+    if (url.startsWith('/admin/reporte-inventario')) return 'Reporte de inventario';
+    if (url.startsWith('/admin/reporte-reservas')) return 'Reporte de reservas';
     if (url.startsWith('/admin/devoluciones/')) return 'Detalle de devolución';
     if (url.startsWith('/admin/devoluciones')) return 'Devoluciones';
     if (url.startsWith('/admin/inventario-global')) return 'Inventario global';
