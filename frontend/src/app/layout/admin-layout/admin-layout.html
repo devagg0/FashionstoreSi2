@@ -48,6 +48,14 @@
         <app-icon name="filter" [size]="20" />
         <span>Promociones</span>
       </a>
+      <a routerLink="/admin/reporte-ventas" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" />
+        <span>Reporte de ventas</span>
+      </a>
+      <a routerLink="/admin/reporte-reservas" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" />
+        <span>Reporte de reservas</span>
+      </a>
       <a routerLink="/admin/configuracion-catalogo" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="dashboard" [size]="20" />
         <span>Configuración de catálogo</span>
@@ -70,6 +78,10 @@
       </a>
       <a routerLink="/admin/devoluciones" routerLinkActive="is-active" (click)="closeSidebar()"><app-icon name="bag" [size]="20" /><span>Devoluciones</span></a>
       <p>INVENTARIO</p>
+      <a routerLink="/admin/reporte-inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="dashboard" [size]="20" />
+        <span>Reporte de inventario</span>
+      </a>
       <a routerLink="/admin/inventario" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="bag" [size]="20" />
         <span>Inventario por sucursal</span>

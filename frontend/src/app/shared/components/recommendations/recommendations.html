@@ -1,0 +1,134 @@
+@if (isClient()) {
+  <section class="section recommendations" aria-labelledby="recommendations-title">
+    <div class="shell">
+      <header class="section-heading section-heading--compact">
+        <div>
+          <p class="eyebrow">
+            {{ origin() === 'PERSONALIZADO' ? 'PENSADO PARA TI' : 'EMPIEZA POR AQUÍ' }}
+          </p>
+          <h2 id="recommendations-title">{{ title() }}</h2>
+        </div>
+        <p>{{ subtitle() }}</p>
+      </header>
+
+      @if (feedback()) {
+        <p
+          class="recommendations__feedback"
+          [class.recommendations__feedback--error]="feedbackError()"
+          role="status"
+        >
+          <app-icon [name]="feedbackError() ? 'ban' : 'circle-check'" [size]="16" />
+          {{ feedback() }}
+        </p>
+      }
+
+      @if (loading()) {
+        <div class="recommendation-grid" aria-label="Cargando recomendaciones">
+          @for (item of skeletons; track item) {
+            <div class="product-skeleton"><span></span><i></i><i></i><i></i></div>
+          }
+        </div>
+      } @else if (errorMessage()) {
+        <div class="recommendations__state">
+          <app-icon name="refresh" [size]="27" />
+          <h3>No pudimos cargar tus recomendaciones</h3>
+          <p>{{ errorMessage() }}</p>
+          <button class="button button--solid" type="button" (click)="load()">
+            Intentar nuevamente
+          </button>
+        </div>
+      } @else if (!items().length) {
+        <div class="recommendations__state">
+          <app-icon name="search" [size]="27" />
+          <h3>Todavía no tenemos sugerencias</h3>
+          <p>Explora el catálogo y volveremos con prendas pensadas para ti.</p>
+          <a class="button button--outline" routerLink="/catalogo">Ver catálogo</a>
+        </div>
+      } @else {
+        <div class="recommendation-grid">
+          @for (item of items(); track item.id_producto) {
+            <article class="recommendation-card">
+              <a
+                class="recommendation-card__image"
+                [routerLink]="['/catalogo/producto', item.id_producto]"
+                [attr.aria-label]="'Ver ' + item.nombre"
+              >
+                @if (item.imagen_principal) {
+                  <img [src]="item.imagen_principal" [alt]="item.nombre" loading="lazy" />
+                } @else {
+                  <span class="recommendation-card__fallback" aria-hidden="true">FS</span>
+                }
+                @if (item.tiene_promocion) {
+                  <span class="recommendation-card__badge">{{ discountLabel(item) }}</span>
+                }
+              </a>
+
+              <div class="recommendation-card__body">
+                <p class="recommendation-card__reason" [attr.title]="item.motivo">
+                  <app-icon name="check" [size]="13" />{{ item.motivo }}
+                </p>
+                <a
+                  class="recommendation-card__name"
+                  [routerLink]="['/catalogo/producto', item.id_producto]"
+                  >{{ item.nombre }}</a
+                >
+                <p class="recommendation-card__meta">{{ item.categoria }} · {{ item.seccion }}</p>
+
+                @if (item.variante_sugerida; as variant) {
+                  <p class="recommendation-card__variant">
+                    <span>Talla {{ variant.talla }}</span>
+                    <span>
+                      <i
+                        class="recommendation-card__dot"
+                        [style.background-color]="variant.codigo_hex || 'var(--color-clay)'"
+                        aria-hidden="true"
+                      ></i>
+                      {{ variant.color }}
+                    </span>
+                  </p>
+                } @else {
+                  <p class="recommendation-card__variant recommendation-card__variant--empty">
+                    Elige talla y color en el detalle
+                  </p>
+                }
+
+                <div class="recommendation-card__prices">
+                  @if (item.tiene_promocion) {
+                    <s>{{ money(item.precio_base) }}</s>
+                  }
+                  <strong>{{ money(item.precio_final) }}</strong>
+                </div>
+
+                <p class="recommendation-card__stock">{{ stockLabel(item) }}</p>
+
+                <div class="recommendation-card__actions">
+                  <a
+                    class="button button--outline"
+                    [routerLink]="['/catalogo/producto', item.id_producto]"
+                    >Ver producto</a
+                  >
+                  <button
+                    class="button button--solid"
+                    type="button"
+                    [disabled]="!item.variante_sugerida || addingProductId() !== null"
+                    [attr.aria-label]="'Agregar ' + item.nombre + ' al carrito'"
+                    [attr.title]="
+                      item.variante_sugerida ? null : 'Elige talla y color en el detalle'
+                    "
+                    (click)="addToCart(item)"
+                  >
+                    @if (addingProductId() === item.id_producto) {
+                      Agregando...
+                    } @else {
+                      <app-icon name="bag" [size]="16" />Agregar
+                    }
+                  </button>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </div>
+  </section>
+}

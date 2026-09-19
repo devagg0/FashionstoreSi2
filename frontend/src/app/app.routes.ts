@@ -195,6 +195,21 @@ export const routes: Routes = [
         title: 'Inventario global | FashionStore',
       },
       {
+        path: 'reporte-ventas',
+        loadComponent: () => import('./pages/admin/sales-report/admin-sales-report').then(m => m.AdminSalesReport),
+        title: 'Reporte de ventas | FashionStore',
+      },
+      {
+        path: 'reporte-reservas',
+        loadComponent: () => import('./pages/admin/reservations-report/admin-reservations-report').then(m => m.AdminReservationsReport),
+        title: 'Reporte de reservas | FashionStore',
+      },
+      {
+        path: 'reporte-inventario',
+        loadComponent: () => import('./pages/admin/inventory-report/admin-inventory-report').then(m => m.AdminInventoryReport),
+        title: 'Reporte de inventario | FashionStore',
+      },
+      {
         path: 'inventario',
         loadComponent: () =>
           import('./pages/admin/inventory/admin-inventory').then(
