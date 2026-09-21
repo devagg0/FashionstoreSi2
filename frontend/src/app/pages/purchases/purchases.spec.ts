@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PurchaseDetail, PurchaseSummary } from '../../core/services/client-purchases.service';
+import { CheckoutNavigationService } from '../../core/services/checkout-navigation.service';
 import { SessionService } from '../../core/services/session.service';
 import { PurchasesPage } from './purchases';
 import { routes } from '../../app.routes';
@@ -51,13 +52,44 @@ const detail: PurchaseDetail = {
   devoluciones: [],
   reembolsos: [],
 };
+function paymentResponse(id_pago: number, id_venta: number) {
+  return {
+    id_pago,
+    id_venta,
+    medio: 'TARJETA' as const,
+    proveedor: 'STRIPE' as const,
+    entorno: 'TEST' as const,
+    estado: 'PENDIENTE' as const,
+    estado_venta: 'PENDIENTE' as const,
+    monto: '300.00',
+    moneda: 'BOB' as const,
+    referencia_externa: 'cs_test_123',
+    clave_idempotencia: 'key',
+    fecha_aprobacion: null,
+    created_at: '2026-09-17T12:00:00',
+    updated_at: '2026-09-17T12:00:00',
+  };
+}
+function checkoutResponse(id_pago: number, id_venta: number) {
+  return {
+    success: true,
+    data: {
+      payment: paymentResponse(id_pago, id_venta),
+      session_id: 'cs_test_123',
+      url: 'https://checkout.stripe.com/c/pay/cs_test_123',
+    },
+  };
+}
 
 describe('CU23 Mis compras', () => {
   let fixture: ComponentFixture<PurchasesPage>;
   let page: PurchasesPage;
   let http: HttpTestingController;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let navigationUrl = '';
   function setup(id?: string) {
+    navigationUrl = '';
+    sessionStorage.clear();
     params = new BehaviorSubject(convertToParamMap(id === undefined ? {} : { id }));
     TestBed.configureTestingModule({
       providers: [
@@ -65,7 +97,8 @@ describe('CU23 Mis compras', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { paramMap: params } },
-        { provide: SessionService, useValue: { getAccessToken: () => 'fake-token' } },
+        { provide: SessionService, useValue: { getAccessToken: () => 'fake-token', getUser: () => undefined } },
+        { provide: CheckoutNavigationService, useValue: { go: (url: string) => navigationUrl = url } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -115,6 +148,59 @@ describe('CU23 Mis compras', () => {
     expect(fixture.nativeElement.querySelector('.detail-link').getAttribute('href')).toBe(
       '/mis-compras/31',
     );
+    expect(fixture.nativeElement.querySelector('.continue-link')).toBeTruthy();
+  });
+  it('reuses the pending payment to reopen Stripe Checkout', () => {
+    setup();
+    list();
+    const button = fixture.nativeElement.querySelector('.continue-link') as HTMLButtonElement;
+    button.click();
+    flushDetail();
+    const request = http.expectOne(`${environment.apiUrl}/api/payments/9/stripe/checkout-session`);
+    expect(request.request.method).toBe('POST');
+    request.flush({
+      success: true,
+      data: {
+        payment: {
+          id_pago: 9,
+          id_venta: 31,
+          medio: 'TARJETA',
+          proveedor: 'STRIPE',
+          entorno: 'TEST',
+          estado: 'PENDIENTE',
+          estado_venta: 'PENDIENTE',
+          monto: '300.00',
+          moneda: 'BOB',
+          referencia_externa: 'cs_test_123',
+          clave_idempotencia: 'key',
+          fecha_aprobacion: null,
+          created_at: '2026-09-17T12:00:00',
+          updated_at: '2026-09-17T12:00:00',
+        },
+        session_id: 'cs_test_123',
+        url: 'https://checkout.stripe.com/c/pay/cs_test_123',
+      },
+    });
+    expect(navigationUrl).toBe('https://checkout.stripe.com/c/pay/cs_test_123');
+    expect(sessionStorage.getItem('fashionstore_cu22_undefined_31_attempt')).toContain('"idPago":9');
+    expect(sessionStorage.getItem('fashionstore_cu22_undefined_31_sale')).not.toBeNull();
+  });
+  it('creates one pending card payment when the purchase has no payment', () => {
+    setup();
+    list([{ ...summary, pago: null }]);
+    const button = fixture.nativeElement.querySelector('.continue-link') as HTMLButtonElement;
+    button.click();
+    button.click();
+    http.expectOne(`${base}/31`).flush({ success: true, data: { ...detail, pago: null, pagos: [] } });
+    const start = http.expectOne(`${environment.apiUrl}/api/sales/31/payments`);
+    expect(start.request.method).toBe('POST');
+    expect(start.request.headers.get('Idempotency-Key')).toMatch(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i);
+    start.flush({ success: true, data: { ...paymentResponse(9, 31), referencia_externa: null } });
+    const checkout = http.expectOne(`${environment.apiUrl}/api/payments/9/stripe/checkout-session`);
+    expect(checkout.request.method).toBe('POST');
+    checkout.flush(checkoutResponse(9, 31));
+    expect(navigationUrl).toBe('https://checkout.stripe.com/c/pay/cs_test_123');
+    expect(sessionStorage.getItem('fashionstore_cu22_undefined_31_attempt')).toContain('"idPago":9');
   });
   it('shortens long card references without changing the purchase data', () => {
     setup();
@@ -150,6 +236,7 @@ describe('CU23 Mis compras', () => {
     expect(text()).toContain('COMPRA EN TIENDA');
     expect(text()).toContain('COMPLETADA');
     expect(text()).toContain('REEMBOLSADO');
+    expect(fixture.nativeElement.querySelector('.continue-link')).toBeNull();
   });
   it('handles purchases without payment', () => {
     setup();

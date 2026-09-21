@@ -17,8 +17,9 @@ class ManualConfirmationRequest(BaseModel):
 
 
 class EmptyPaymentRequest(BaseModel):
-    """El cliente no selecciona resultado, monto, referencias ni URLs."""
+    """El cliente solo puede seleccionar el destino de retorno de Checkout."""
     model_config = ConfigDict(extra="forbid")
+    return_target: Literal["web", "mobile"] = "web"
 
 
 class PaymentData(BaseModel):

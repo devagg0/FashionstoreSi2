@@ -2,7 +2,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subscription, finalize, timeout } from 'rxjs';
+import { Subscription, finalize, of, switchMap, tap, timeout } from 'rxjs';
 import {
   ClientPurchasesService,
   PurchaseChannel,
@@ -10,6 +10,8 @@ import {
   PurchaseState,
   PurchaseSummary,
 } from '../../core/services/client-purchases.service';
+import { CheckoutNavigationService } from '../../core/services/checkout-navigation.service';
+import { PaymentsService } from '../../core/services/payments.service';
 import { PurchaseReturnRequest } from './return-request/return-request';
 import { formatBs } from '../../core/utils/money';
 import { formatSaleReference } from '../../core/utils/sale-reference';
@@ -22,6 +24,8 @@ import { formatSaleReference } from '../../core/utils/sale-reference';
 })
 export class PurchasesPage {
   private readonly api = inject(ClientPurchasesService);
+  private readonly payments = inject(PaymentsService);
+  private readonly navigation = inject(CheckoutNavigationService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
   private request?: Subscription;
@@ -35,6 +39,7 @@ export class PurchasesPage {
   readonly error = signal('');
   readonly expired = signal(false);
   readonly missing = signal(false);
+  readonly continuing = signal<number | null>(null);
   readonly filtered = computed(() => !!this.estado() || !!this.canal());
   readonly more = computed(() => this.items().length < this.total());
   readonly money = formatBs;
@@ -159,5 +164,78 @@ export class PurchasesPage {
         : state === 'REEMBOLSADO'
           ? 'refund'
           : 'pending';
+  }
+
+  canContinue(purchase: PurchaseSummary): boolean {
+    return purchase.canal === 'DIGITAL' && purchase.estado === 'PENDIENTE';
+  }
+
+  continuePurchase(purchase: PurchaseSummary): void {
+    if (!this.canContinue(purchase) || this.continuing() !== null) return;
+    this.continuing.set(purchase.id_venta);
+    const key = crypto.randomUUID();
+    this.api.detail(purchase.id_venta).pipe(
+      timeout(25000),
+      switchMap((response) => {
+        const detail = response.data;
+        if (detail.id_venta !== purchase.id_venta || detail.canal !== 'DIGITAL' || detail.estado !== 'PENDIENTE') {
+          throw new Error('La compra ya no está pendiente.');
+        }
+        this.payments.saveSale({
+          id: detail.id_venta,
+          numero: detail.numero_venta,
+          sucursal: detail.sucursal.nombre,
+          canal: 'DIGITAL',
+          estado: detail.estado,
+          fecha: detail.fecha,
+          subtotal: detail.subtotal,
+          descuento: detail.descuento_total,
+          total: detail.total,
+          items: detail.productos.map((item) => ({
+            id: item.id_variante_producto,
+            nombre: item.nombre ?? `Variante #${item.id_variante_producto}`,
+            talla: item.talla ?? '',
+            color: item.color ?? '',
+            cantidad: item.cantidad,
+            precio: item.precio_unitario,
+            subtotal: item.subtotal_linea,
+          })),
+        });
+        const payment = detail.pago
+          ? of({ success: true as const, data: detail.pago })
+          : this.payments.start(detail.id_venta, 'TARJETA', key);
+        return payment;
+      }),
+      tap((response) => {
+        this.payments.saveAttempt(purchase.id_venta, {
+          key,
+          medio: 'TARJETA',
+          idPago: response.data.id_pago,
+        });
+      }),
+      switchMap((response) => this.payments.checkout(response.data.id_pago)),
+      timeout(25000),
+      finalize(() => this.continuing.set(null)),
+    ).subscribe({
+      next: (response) => {
+        const payment = response.data.payment;
+        if (payment.id_venta !== purchase.id_venta ||
+            payment.medio !== 'TARJETA' ||
+            payment.proveedor !== 'STRIPE' ||
+            payment.entorno !== 'TEST' ||
+            payment.estado !== 'PENDIENTE' ||
+            !response.data.session_id.startsWith('cs_test_') ||
+            payment.referencia_externa !== response.data.session_id) {
+          this.error.set('La sesión de pago no corresponde a esta compra.');
+          return;
+        }
+        try {
+          this.navigation.go(response.data.url);
+        } catch {
+          this.error.set('No pudimos abrir el checkout de Stripe.');
+        }
+      },
+      error: (error) => this.fail(error),
+    });
   }
 }

@@ -15,12 +15,16 @@ class CatalogScreen extends StatefulWidget {
     required this.onBack,
     this.reservationDraft,
     this.onOpenReservationDraft,
+    this.onAddToCart,
+    this.onOpenCart,
   });
 
   final CatalogGateway? catalogGateway;
   final VoidCallback onBack;
   final ReservationDraftController? reservationDraft;
   final VoidCallback? onOpenReservationDraft;
+  final Future<void> Function(int variantId, int quantity)? onAddToCart;
+  final VoidCallback? onOpenCart;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -295,6 +299,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     Navigator.of(detailContext).pop();
                     widget.onOpenReservationDraft!();
                   },
+            onAddToCart: widget.onAddToCart == null
+                ? null
+                : (variantId, quantity) async {
+                    await widget.onAddToCart!(variantId, quantity);
+                  if (!detailContext.mounted) return;
+                    Navigator.of(detailContext).pop();
+                    if (widget.onOpenCart != null) {
+                      widget.onOpenCart!();
+                    }
+                  },
           ),
         ),
       );
@@ -328,6 +342,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   letterSpacing: 2.1,
                 ),
               ),
+              actions: [
+                if (widget.onOpenCart != null)
+                  IconButton(
+                    key: const Key('catalogOpenCartButton'),
+                    tooltip: 'Mi carrito',
+                    onPressed: widget.onOpenCart,
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                  ),
+              ],
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(

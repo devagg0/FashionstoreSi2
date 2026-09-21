@@ -11,6 +11,9 @@ class ClientHomeScreen extends StatefulWidget {
     required this.onOpenProfile,
     required this.onOpenCatalog,
     required this.onOpenReservations,
+    this.onOpenCart,
+    this.onOpenPurchases,
+    this.onOpenRecommendations,
   });
 
   final AuthenticatedUser user;
@@ -18,6 +21,9 @@ class ClientHomeScreen extends StatefulWidget {
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenCatalog;
   final VoidCallback onOpenReservations;
+  final VoidCallback? onOpenCart;
+  final VoidCallback? onOpenPurchases;
+  final VoidCallback? onOpenRecommendations;
 
   @override
   State<ClientHomeScreen> createState() => _ClientHomeScreenState();
@@ -164,6 +170,21 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
+                          key: const Key('openCartButton'),
+                          onPressed: widget.onOpenCart,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            foregroundColor: AppColors.espresso,
+                            side: const BorderSide(color: AppColors.espresso),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.shopping_cart_outlined),
+                          label: const Text('Mi carrito'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
                           key: const Key('openReservationsButton'),
                           onPressed: widget.onOpenReservations,
                           style: OutlinedButton.styleFrom(
@@ -177,6 +198,38 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                           icon: const Icon(Icons.event_note_outlined),
                           label: const Text('Mis reservas'),
                         ),
+                        if (widget.onOpenPurchases != null) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            key: const Key('openPurchasesButton'),
+                            onPressed: widget.onOpenPurchases,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              foregroundColor: AppColors.espresso,
+                              side: const BorderSide(color: AppColors.espresso),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.receipt_long_outlined),
+                            label: const Text('Mis compras'),
+                          ),
+                        ],
+                        if (widget.onOpenRecommendations != null) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            key: const Key('openRecommendationsButton'),
+                            onPressed: widget.onOpenRecommendations,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              foregroundColor: AppColors.espresso,
+                              side: const BorderSide(color: AppColors.espresso),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: const Text('Recomendaciones'),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         Container(
                           width: double.infinity,

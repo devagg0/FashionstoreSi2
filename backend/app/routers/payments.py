@@ -86,7 +86,13 @@ def confirm_qr(id_pago: Identifier, user: PaymentUser, payload: EmptyPaymentRequ
 @router.post("/payments/{id_pago}/stripe/checkout-session", response_model=CheckoutSessionResponse, responses=ERRORS)
 def checkout_session(id_pago: Identifier, user: PaymentUser, payload: EmptyPaymentRequest | None = None,
                      db: Session = Depends(get_db)):
-    return execute(user, lambda: PaymentsService(db).checkout_session(user, id_pago), CheckoutSessionResponse)
+    return execute(
+        user,
+        lambda: PaymentsService(db).checkout_session(
+            user, id_pago, return_target=payload.return_target if payload else "web",
+        ),
+        CheckoutSessionResponse,
+    )
 
 
 @router.post("/payments/{id_pago}/stripe/sync", response_model=PaymentResponse, responses=ERRORS)
