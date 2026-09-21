@@ -287,9 +287,12 @@ class PaymentsService:
         except (KeyError, TypeError):
             return default
 
-    def _return_urls(self, sale, payment):
-        path = f"/compra/{sale.id_venta}/pago" if sale.canal == "DIGITAL" else f"/staff/ventas/{sale.id_venta}/pago"
-        base = f"{settings.STRIPE_CHECKOUT_RETURN_BASE_URL}{path}?payment_id={payment.id_pago}"
+    def _return_urls(self, sale, payment, *, return_target="web"):
+        if return_target == "mobile":
+            base = f"{settings.STRIPE_CHECKOUT_MOBILE_RETURN_BASE_URL}?payment_id={payment.id_pago}"
+        else:
+            path = f"/compra/{sale.id_venta}/pago" if sale.canal == "DIGITAL" else f"/staff/ventas/{sale.id_venta}/pago"
+            base = f"{settings.STRIPE_CHECKOUT_RETURN_BASE_URL}{path}?payment_id={payment.id_pago}"
         return (base + "&checkout=success&session_id={CHECKOUT_SESSION_ID}", base + "&checkout=cancel")
 
     def _validate_checkout(self, sale, payment, session):
@@ -310,7 +313,7 @@ class PaymentsService:
                     and session["id"] != payment.referencia_externa)):
             raise PaymentError(409, "Checkout Session no corresponde a este pago TEST")
 
-    def checkout_session(self, user, payment_id):
+    def checkout_session(self, user, payment_id, *, return_target="web"):
         def operation():
             sale, payment = self._context(user, payment_id)
             self._stripe_payment(payment)
@@ -338,7 +341,9 @@ class PaymentsService:
             else:
                 if self.now() - payment.created_at >= timedelta(hours=23):
                     raise PaymentError(409, "Intento remoto sin referencia requiere conciliacion; no crear otra sesion")
-                success_url, cancel_url = self._return_urls(sale, payment)
+                success_url, cancel_url = self._return_urls(
+                    sale, payment, return_target=return_target,
+                )
                 session = self.stripe.create_checkout_session(
                     amount=int(payment.monto * 100), currency=payment.moneda,
                     sale_id=sale.id_venta, payment_id=payment.id_pago, key=payment.clave_idempotencia,

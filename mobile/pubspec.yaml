@@ -36,6 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_secure_storage: ^11.1.1
   http: ^1.6.0
+  app_links: ^6.4.1
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

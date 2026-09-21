@@ -121,12 +121,24 @@
               <small>Total · {{ purchase.moneda }}</small
               ><strong>{{ money(purchase.total) }}</strong>
             </div>
-            <a
-              class="detail-link"
-              [routerLink]="['/mis-compras', purchase.id_venta]"
-              [attr.aria-label]="'Ver detalle de ' + purchase.numero_venta"
-              >Ver detalle <span aria-hidden="true">↗</span></a
-            >
+            <div class="card-actions">
+              @if (canContinue(purchase)) {
+                <button
+                  class="solid continue-link"
+                  type="button"
+                  [disabled]="continuing() !== null"
+                  (click)="continuePurchase(purchase)"
+                >
+                  {{ continuing() === purchase.id_venta ? 'Abriendo pago…' : 'Continuar compra' }}
+                </button>
+              }
+              <a
+                class="detail-link"
+                [routerLink]="['/mis-compras', purchase.id_venta]"
+                [attr.aria-label]="'Ver detalle de ' + purchase.numero_venta"
+                >Ver detalle <span aria-hidden="true">↗</span></a
+              >
+            </div>
           </footer>
         </article>
       }

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: SecretStr = Field(repr=False)
     STRIPE_MODE: str
     STRIPE_CHECKOUT_RETURN_BASE_URL: str = "http://localhost:4201"
+    STRIPE_CHECKOUT_MOBILE_RETURN_BASE_URL: str = "fashionstore://payment-return"
     QR_SIMULATION_RESULT: Literal["APROBADO", "RECHAZADO"] = "APROBADO"
 
     @field_validator("STRIPE_CHECKOUT_RETURN_BASE_URL")
@@ -38,6 +39,16 @@ class Settings(BaseSettings):
         # Acceder a port valida tambien puertos malformados.
         parsed.port
         return value.rstrip("/")
+
+    @field_validator("STRIPE_CHECKOUT_MOBILE_RETURN_BASE_URL")
+    @classmethod
+    def validate_mobile_checkout_return_origin(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (parsed.scheme != "fashionstore" or parsed.netloc != "payment-return"
+                or parsed.path not in ("", "/") or parsed.username or parsed.password
+                or parsed.query or parsed.fragment):
+            raise ValueError("Checkout movil requiere fashionstore://payment-return")
+        return "fashionstore://payment-return"
 
     @field_validator("STRIPE_MODE")
     @classmethod

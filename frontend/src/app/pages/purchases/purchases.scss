@@ -177,6 +177,17 @@ footer strong {
   font-size: 1.5rem;
   margin-top: 6px;
 }
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.continue-link {
+  padding: 9px 14px;
+  font-size: 0.75rem;
+}
 .detail-link {
   font-size: 0.85rem;
   color: var(--color-terracotta);

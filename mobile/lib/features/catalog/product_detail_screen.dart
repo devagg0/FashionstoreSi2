@@ -19,6 +19,7 @@ class ProductDetailScreen extends StatefulWidget {
     this.availabilityGateway,
     this.reservationDraft,
     this.onOpenReservationDraft,
+    this.onAddToCart,
   });
 
   final int productId;
@@ -26,6 +27,7 @@ class ProductDetailScreen extends StatefulWidget {
   final CatalogAvailabilityGateway? availabilityGateway;
   final ReservationDraftController? reservationDraft;
   final VoidCallback? onOpenReservationDraft;
+  final Future<void> Function(int variantId, int quantity)? onAddToCart;
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -212,6 +214,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             if (mounted) setState(() => _availabilitySelection = selection);
           },
         ),
+        if (_availabilitySelection != null && widget.onAddToCart != null) ...[
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            key: const Key('addToCartFromDetailButton'),
+            onPressed: () async {
+              await widget.onAddToCart!(_availabilitySelection!.variant.id, 1);
+            },
+            icon: const Icon(Icons.add_shopping_cart_rounded),
+            label: const Text('Agregar al carrito'),
+          ),
+        ],
         if (_availabilitySelection != null &&
             widget.reservationDraft != null &&
             widget.onOpenReservationDraft != null) ...[

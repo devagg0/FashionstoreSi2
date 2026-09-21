@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../cart/cart_screen.dart';
+import '../cart/cart_models.dart';
+import '../cart/cart_service.dart';
 import '../catalog/catalog_screen.dart';
+import '../catalog/availability_service.dart';
+import '../checkout/checkout_screen.dart';
+import '../checkout/checkout_models.dart';
+import '../checkout/checkout_service.dart';
 import '../home/client_home_screen.dart';
+import '../payment/payment_screen.dart';
+import '../payment/payment_service.dart';
+import '../purchases/purchases_screen.dart';
+import '../purchases/purchase_models.dart';
+import '../purchases/purchase_service.dart';
+import '../returns/return_request_screen.dart';
+import '../returns/return_service.dart';
+import '../receipts/receipt_screen.dart';
+import '../receipts/receipt_service.dart';
+import '../recommendations/recommendations_screen.dart';
+import '../recommendations/recommendation_service.dart';
 import '../profile/change_password_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reservations/my_reservations_screen.dart';
@@ -24,6 +42,13 @@ enum _AuthView {
   passwordRecovery,
   clientHome,
   catalog,
+  cart,
+  checkout,
+  payment,
+  purchases,
+  returnRequest,
+  receipt,
+  recommendations,
   reservationDraft,
   myReservations,
   reservationDetail,
@@ -41,6 +66,14 @@ class AuthFlow extends StatefulWidget {
 class _AuthFlowState extends State<AuthFlow> {
   late final SessionService _sessionService;
   late final LoginService _loginService;
+  late final CartService _cartService;
+  late final CheckoutService _checkoutService;
+  late final CatalogAvailabilityService _availabilityService;
+  late final PaymentService _paymentService;
+  late final PurchaseService _purchaseService;
+  late final ReturnService _returnService;
+  late final ReceiptService _receiptService;
+  late final RecommendationService _recommendationService;
   late final ReservationDraftController _reservationDraft;
 
   _AuthView _view = _AuthView.loading;
@@ -48,12 +81,23 @@ class _AuthFlowState extends State<AuthFlow> {
   int? _reservationId;
   ReservationDetail? _initialReservation;
   bool _reservationCreated = false;
+  DigitalSale? _paymentSale;
+  PurchaseDetail? _returnPurchase;
+  int? _receiptSaleId;
 
   @override
   void initState() {
     super.initState();
     _sessionService = SessionService();
     _loginService = LoginService(sessionService: _sessionService);
+    _cartService = CartService();
+    _checkoutService = CheckoutService();
+    _availabilityService = CatalogAvailabilityService();
+    _paymentService = PaymentService();
+    _purchaseService = PurchaseService();
+    _returnService = ReturnService();
+    _receiptService = ReceiptService();
+    _recommendationService = RecommendationService();
     _reservationDraft = ReservationDraftController();
     _restoreSession();
   }
@@ -61,8 +105,35 @@ class _AuthFlowState extends State<AuthFlow> {
   @override
   void dispose() {
     _loginService.close();
+    _cartService.close();
+    _checkoutService.close();
+    _availabilityService.close();
+    _paymentService.close();
+    _purchaseService.close();
+    _returnService.close();
+    _receiptService.close();
+    _recommendationService.close();
     _reservationDraft.dispose();
     super.dispose();
+  }
+
+  Future<void> _addToCart(int variantId, int quantity) async {
+    try {
+      await _cartService.addItem(variantId, quantity);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Artículo agregado a tu carrito.')),
+      );
+    } on CartFailure catch (error) {
+      if (!mounted) return;
+      if (error.invalidatesSession) {
+        await _handleInvalidSession(error.message);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -163,12 +234,70 @@ class _AuthFlowState extends State<AuthFlow> {
         onOpenCatalog: () => setState(() => _view = _AuthView.catalog),
         onOpenReservations: () =>
             setState(() => _view = _AuthView.myReservations),
+        onOpenCart: () => setState(() => _view = _AuthView.cart),
+        onOpenPurchases: () => setState(() => _view = _AuthView.purchases),
+        onOpenRecommendations: () => setState(() => _view = _AuthView.recommendations),
       ),
       _AuthView.catalog => CatalogScreen(
         onBack: () => setState(() => _view = _AuthView.clientHome),
         reservationDraft: _reservationDraft,
         onOpenReservationDraft: () =>
             setState(() => _view = _AuthView.reservationDraft),
+        onAddToCart: _addToCart,
+        onOpenCart: () => setState(() => _view = _AuthView.cart),
+      ),
+      _AuthView.cart => CartScreen(
+        cartGateway: _cartService,
+        onBack: () => setState(() => _view = _AuthView.clientHome),
+        onOpenCheckout: () => setState(() => _view = _AuthView.checkout),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.checkout => CheckoutScreen(
+        cartGateway: _cartService,
+        checkoutGateway: _checkoutService,
+        availabilityGateway: _availabilityService,
+        onBack: () => setState(() => _view = _AuthView.cart),
+        onOpenPayment: (sale) => setState(() {
+          _paymentSale = sale;
+          _view = _AuthView.payment;
+        }),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.payment => PaymentScreen(
+        sale: _paymentSale!,
+        paymentGateway: _paymentService,
+        onBack: () => setState(() => _view = _AuthView.checkout),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.purchases => PurchasesScreen(
+        purchaseGateway: _purchaseService,
+        onBack: () => setState(() => _view = _AuthView.clientHome),
+        onOpenReceipt: (saleId) => setState(() {
+          _receiptSaleId = saleId;
+          _view = _AuthView.receipt;
+        }),
+        onOpenReturnRequest: (purchase) => setState(() {
+          _returnPurchase = purchase;
+          _view = _AuthView.returnRequest;
+        }),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.receipt => ReceiptScreen(
+        saleId: _receiptSaleId!,
+        receiptGateway: _receiptService,
+        onBack: () => setState(() => _view = _AuthView.purchases),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.recommendations => RecommendationsScreen(
+        recommendationGateway: _recommendationService,
+        onBack: () => setState(() => _view = _AuthView.clientHome),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.returnRequest => ReturnRequestScreen(
+        purchase: _returnPurchase!,
+        returnGateway: _returnService,
+        onBack: () => setState(() => _view = _AuthView.purchases),
+        onSessionInvalidated: _handleInvalidSession,
       ),
       _AuthView.reservationDraft => ReservationDraftScreen(
         draft: _reservationDraft,
