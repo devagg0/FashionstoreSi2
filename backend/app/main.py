@@ -26,6 +26,7 @@ from app.routers.client_cart import router as client_cart_router
 from app.routers.client_checkout import router as client_checkout_router
 from app.routers.client_purchases import router as client_purchases_router
 from app.routers.client_recommendations import router as client_recommendations_router
+from app.routers.client_chatbot import router as client_chatbot_router
 from app.routers.staff_reservations import router as staff_reservations_router
 from app.routers.staff_sales import router as staff_sales_router
 from app.routers.payments import router as payments_router
@@ -66,6 +67,7 @@ app.include_router(client_cart_router)
 app.include_router(client_checkout_router)
 app.include_router(client_purchases_router)
 app.include_router(client_recommendations_router)
+app.include_router(client_chatbot_router)
 app.include_router(staff_reservations_router)
 app.include_router(staff_sales_router)
 app.include_router(payments_router)

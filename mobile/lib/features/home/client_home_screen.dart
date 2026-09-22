@@ -14,6 +14,7 @@ class ClientHomeScreen extends StatefulWidget {
     this.onOpenCart,
     this.onOpenPurchases,
     this.onOpenRecommendations,
+    this.onOpenChatbot,
   });
 
   final AuthenticatedUser user;
@@ -24,6 +25,7 @@ class ClientHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenCart;
   final VoidCallback? onOpenPurchases;
   final VoidCallback? onOpenRecommendations;
+  final VoidCallback? onOpenChatbot;
 
   @override
   State<ClientHomeScreen> createState() => _ClientHomeScreenState();
@@ -224,10 +226,29 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                               minimumSize: const Size.fromHeight(52),
                               foregroundColor: AppColors.espresso,
                               side: const BorderSide(color: AppColors.espresso),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             icon: const Icon(Icons.auto_awesome_outlined),
                             label: const Text('Recomendaciones'),
+                          ),
+                        ],
+                        if (widget.onOpenChatbot != null) ...[
+                          const SizedBox(height: 10),
+                          FilledButton.icon(
+                            key: const Key('openChatbotButton'),
+                            onPressed: widget.onOpenChatbot,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              backgroundColor: AppColors.terracotta,
+                              foregroundColor: AppColors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.chat_bubble_outline_rounded),
+                            label: const Text('Asistente de estilo'),
                           ),
                         ],
                         const SizedBox(height: 16),

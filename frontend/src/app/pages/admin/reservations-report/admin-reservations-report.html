@@ -51,6 +51,33 @@
     } @else if (error()) {
       <div class="panel notice" role="alert"><p>{{ error() }}</p><button class="modal-button modal-button--primary" type="button" (click)="apply()">Reintentar</button></div>
     } @else if (report(); as data) {
+      <section class="panel rx">
+        <div>
+          <h2>Exportar reporte</h2>
+          <p class="filter-note">Genera un PDF con los indicadores y las tablas de los filtros aplicados.</p>
+        </div>
+        <div class="filter-actions">
+          <button class="modal-button modal-button--primary" type="button" (click)="generatePdf()">Generar PDF</button>
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="!pdf()" (click)="downloadPdf()">Descargar PDF</button>
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading()" (click)="analyzeWithAI()">{{ aiLoading() ? 'Analizando…' : 'Analizar con IA' }}</button>
+          @if (voiceSupported()) {
+            <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading() || voiceListening()" (click)="analyzeWithVoice()" aria-label="Analizar con IA por voz" title="Analizar con IA por voz">
+              {{ voiceListening() ? '🎙️ Escuchando…' : '🎙️ Preguntar por voz' }}
+            </button>
+          }
+        </div>
+        @if (pdf(); as file) { <p class="filter-note" style="flex-basis: 100%; margin: 0;" role="status">PDF listo para descargar: {{ file.filename }}</p> }
+        @if (pdfError()) { <p class="notice" style="flex-basis: 100%; margin: 0;" role="alert">{{ pdfError() }}</p> }
+        @if (aiError()) { <p class="notice" style="flex-basis: 100%; margin: 0;" role="alert">{{ aiError() }}</p> }
+        @if (aiAnalysis(); as analysis) {
+          <article class="filter-note" style="flex-basis: 100%; margin: 0; padding: 14px 16px; border-radius: 10px; background: var(--color-linen); white-space: pre-line;" role="status">
+            <strong style="display: block; margin-bottom: 6px; color: var(--color-espresso);">Análisis con IA</strong>
+            @if (voiceQuery()) { <em style="display: block; margin-bottom: 6px; color: var(--color-muted);">Consulta por voz: «{{ voiceQuery() }}»</em> }
+            {{ analysis.analisis }}
+          </article>
+        }
+      </section>
+
       @if (expiredWarning() > 0) {
         <div class="panel warning" role="status">
           <app-icon name="ban" [size]="18" />

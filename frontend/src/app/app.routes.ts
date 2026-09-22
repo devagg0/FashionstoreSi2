@@ -72,6 +72,12 @@ export const routes: Routes = [
     title: 'Catálogo | FashionStore',
   },
   {
+    path: 'asistente',
+    canActivate: [clientGuard],
+    loadComponent: () => import('./pages/chatbot/chatbot').then(({ Chatbot }) => Chatbot),
+    title: 'Asistente de estilo | FashionStore',
+  },
+  {
     path: 'catalogo/producto/:id',
     loadComponent: () =>
       import('./pages/product-detail/product-detail').then(({ ProductDetail }) => ProductDetail),

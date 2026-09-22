@@ -66,6 +66,7 @@
             </div>
             <div class="account-dropdown__actions">
               @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
+                <a routerLink="/asistente" (click)="closeMenus()">Asistente de estilo</a>
                 <a routerLink="/mis-reservas" (click)="closeMenus()">Reservas</a>
                 <a routerLink="/mis-compras" (click)="closeMenus()">Mis compras</a>
               }
@@ -109,6 +110,11 @@
       </button>
     </div>
     <nav>
+      @if (user(); as currentUser) {
+        @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
+          <a routerLink="/asistente" (click)="closeMobile()">Asistente de estilo</a>
+        }
+      }
       <a routerLink="/carrito" (click)="closeMobile()">Carrito</a>
       <a routerLink="/" fragment="novedades" (click)="closeMobile()">Novedades</a>
       <a routerLink="/catalogo" (click)="closeMobile()">Catálogo</a>

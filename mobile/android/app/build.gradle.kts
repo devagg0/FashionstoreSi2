@@ -6,6 +6,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.tensorflow" && requested.name in setOf(
+                "tensorflow-lite",
+                "tensorflow-lite-api",
+                "tensorflow-lite-gpu",
+            )
+        ) {
+            useVersion("2.17.0")
+            because("TFLite 2.14.0 ships duplicate namespaces rejected by the current Android Gradle Plugin")
+        }
+    }
+}
+
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties().apply {
     keystorePropertiesFile.inputStream().use { load(it) }
@@ -30,7 +44,7 @@ android {
         applicationId = "com.fashionstore.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 31
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

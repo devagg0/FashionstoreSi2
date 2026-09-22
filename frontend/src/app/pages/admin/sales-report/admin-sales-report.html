@@ -34,6 +34,33 @@
     } @else if (error()) {
       <div class="panel notice" role="alert"><p>{{ error() }}</p><button class="modal-button modal-button--primary" type="button" (click)="apply()">Reintentar</button></div>
     } @else if (report(); as data) {
+      <section class="panel report-export">
+        <div>
+          <h2>Exportar reporte</h2>
+          <p class="filter-note">Genera un PDF con los indicadores y las tablas de los filtros aplicados.</p>
+        </div>
+        <div class="filter-actions">
+          <button class="modal-button modal-button--primary" type="button" (click)="generatePdf()">Generar PDF</button>
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="!pdf()" (click)="downloadPdf()">Descargar PDF</button>
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading()" (click)="analyzeWithAI()">{{ aiLoading() ? 'Analizando…' : 'Analizar con IA' }}</button>
+          @if (voiceSupported()) {
+            <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading() || voiceListening()" (click)="analyzeWithVoice()" aria-label="Analizar con IA por voz" title="Analizar con IA por voz">
+              {{ voiceListening() ? '🎙️ Escuchando…' : '🎙️ Preguntar por voz' }}
+            </button>
+          }
+        </div>
+        @if (pdf(); as file) { <p class="filter-note export-status" role="status">PDF listo para descargar: {{ file.filename }}</p> }
+        @if (pdfError()) { <p class="notice export-status" role="alert">{{ pdfError() }}</p> }
+        @if (aiError()) { <p class="notice export-status" role="alert">{{ aiError() }}</p> }
+        @if (aiAnalysis(); as analysis) {
+          <article class="ai-analysis export-status" role="status">
+            <h3>Análisis con IA</h3>
+            @if (voiceQuery()) { <p class="ai-question">Consulta por voz: «{{ voiceQuery() }}»</p> }
+            <p>{{ analysis.analisis }}</p>
+            <small>Generado con {{ analysis.modelo }}</small>
+          </article>
+        }
+      </section>
       <div class="kpi-grid">@for (kpi of kpis(); track kpi.label) { <article class="panel kpi"><h2>{{ kpi.label }}</h2><strong>{{ kpi.value }}</strong></article> }</div>
       @if (data.kpis.cantidad_ventas === 0) { <div class="panel empty" role="status"><h2>Sin resultados</h2><p>No hay ventas para los filtros seleccionados. Prueba otro período o limpia los filtros.</p></div> }
       <div class="chart-grid">

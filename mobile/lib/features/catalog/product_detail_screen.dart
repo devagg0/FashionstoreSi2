@@ -4,6 +4,9 @@ import '../../core/theme/app_theme.dart';
 import '../auth/widgets/auth_components.dart';
 import '../reservations/reservation_draft.dart';
 import '../reservations/widgets/reservation_action_panel.dart';
+import '../virtual_try_on/virtual_try_on_screen.dart';
+import '../virtual_try_on/virtual_try_on_service.dart';
+import '../virtual_try_on/body_pose_detection_service.dart';
 import 'availability_models.dart';
 import 'availability_service.dart';
 import 'catalog_models.dart';
@@ -20,6 +23,8 @@ class ProductDetailScreen extends StatefulWidget {
     this.reservationDraft,
     this.onOpenReservationDraft,
     this.onAddToCart,
+    this.virtualTryOnGateway,
+    this.bodyPoseService,
   });
 
   final int productId;
@@ -28,6 +33,8 @@ class ProductDetailScreen extends StatefulWidget {
   final ReservationDraftController? reservationDraft;
   final VoidCallback? onOpenReservationDraft;
   final Future<void> Function(int variantId, int quantity)? onAddToCart;
+  final VirtualTryOnGateway? virtualTryOnGateway;
+  final BodyPoseDetectionService? bodyPoseService;
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -204,6 +211,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
         const SizedBox(height: 28),
+        OutlinedButton.icon(
+          key: const Key('openVirtualTryOnButton'),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => VirtualTryOnScreen(
+                productName: product.name,
+                garmentImageUrl: product.imageUrls.isEmpty
+                    ? null
+                    : product.imageUrls.first,
+                gateway: widget.virtualTryOnGateway,
+                bodyPoseService: widget.bodyPoseService,
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.checkroom_outlined),
+          label: const Text('Probar prenda'),
+        ),
+        const SizedBox(height: 22),
         ProductAvailabilityPanel(
           productId: product.id,
           variants: product.variants,

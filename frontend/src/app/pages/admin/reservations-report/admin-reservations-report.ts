@@ -13,6 +13,10 @@ import { AdminBranchesService, AdminBranch } from '../../../core/services/admin-
 import { AdminCategoriesService, AdminCategory } from '../../../core/services/admin-categories.service';
 import { AdminProductsService, AdminProduct } from '../../../core/services/admin-products.service';
 import { AdminApiErrorService } from '../../../core/services/admin-api-error.service';
+import { GeneratedPdf, ReportPdfService } from '../../../core/services/report-pdf.service';
+import { ReportAIAnalysis, ReportAIService } from '../../../core/services/report-ai.service';
+import { SpeechRecognitionService } from '../../../core/services/speech-recognition.service';
+import { PdfReport } from '../../../core/utils/pdf';
 import { Icon, IconName } from '../../../shared/components/icon/icon';
 
 interface OptionPage<T> { data: T[]; pagination: { page: number; total_pages: number } }
@@ -34,6 +38,9 @@ const STATE_TONES: Record<ReservationState, { label: string; tone: string }> = {
   EXPIRADA: { label: 'Expiradas', tone: 'danger' },
 };
 const CATEGORY_TONES = ['info', 'ok', 'warn', 'danger', 'off'];
+const DATE_KIND_LABELS = { CREACION: 'Creación', PROGRAMADA: 'Atención programada', ATENCION: 'Atención real' };
+const PERIOD_LABELS = { DIA: 'Día', SEMANA: 'Semana', MES: 'Mes' };
+const integers = new Intl.NumberFormat('es-BO');
 
 export function currentReservationsMonth(now = new Date()): ReservationsReportFilters {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/La_Paz', year: 'numeric', month: '2-digit' }).formatToParts(now);
@@ -68,11 +75,23 @@ export class AdminReservationsReport {
   private readonly categoryApi = inject(AdminCategoriesService);
   private readonly productApi = inject(AdminProductsService);
   private readonly errors = inject(AdminApiErrorService);
+  private readonly pdfService = inject(ReportPdfService);
+  private readonly aiService = inject(ReportAIService);
+  private readonly speech = inject(SpeechRecognitionService);
   private readonly destroyRef = inject(DestroyRef);
   private request?: Subscription;
+  private aiRequest?: Subscription;
 
   filters: ReservationsReportFilters = currentReservationsMonth();
   readonly report = signal<ReservationsReportData | null>(null);
+  readonly pdf = signal<GeneratedPdf | null>(null);
+  readonly pdfError = signal('');
+  readonly aiAnalysis = signal<ReportAIAnalysis | null>(null);
+  readonly aiLoading = signal(false);
+  readonly aiError = signal('');
+  readonly voiceQuery = signal('');
+  readonly voiceSupported = this.speech.supported;
+  readonly voiceListening = this.speech.listening;
   readonly loading = signal(false);
   readonly error = signal('');
   readonly validation = signal('');
@@ -180,6 +199,13 @@ export class AdminReservationsReport {
     this.loading.set(true);
     this.error.set('');
     this.report.set(null);
+    this.pdf.set(null);
+    this.pdfError.set('');
+    this.aiRequest?.unsubscribe();
+    this.aiAnalysis.set(null);
+    this.aiError.set('');
+    this.aiLoading.set(false);
+    this.voiceQuery.set('');
     this.request = this.api.report({ ...this.filters }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => { this.report.set(result.data); this.loading.set(false); },
       error: error => {
@@ -190,6 +216,160 @@ export class AdminReservationsReport {
   }
 
   clear(): void { this.filters = currentReservationsMonth(); this.apply(); }
+
+  generatePdf(): void {
+    const data = this.report();
+    if (!data) return;
+    this.pdfError.set('');
+    try {
+      this.pdf.set(this.pdfService.generate(this.pdfDefinition(data), 'reporte-reservas'));
+    } catch {
+      this.pdf.set(null);
+      this.pdfError.set('No pudimos generar el PDF del reporte. Inténtalo nuevamente.');
+    }
+  }
+
+  downloadPdf(): void {
+    const file = this.pdf();
+    if (!file) return;
+    this.pdfError.set('');
+    try {
+      this.pdfService.download(file);
+    } catch {
+      this.pdfError.set('No pudimos descargar el PDF. Inténtalo nuevamente.');
+    }
+  }
+
+  analyzeWithAI(pregunta?: string): void {
+    const data = this.report();
+    if (!data) return;
+    this.aiRequest?.unsubscribe();
+    this.aiLoading.set(true);
+    this.aiError.set('');
+    this.aiAnalysis.set(null);
+    this.aiRequest = this.aiService.analyze('/api/admin/reservations-report', data, pregunta)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: result => { this.aiAnalysis.set(result.data); this.aiLoading.set(false); },
+        error: error => {
+          this.aiError.set(this.errors.resolve(error, { fallback: 'No pudimos generar el análisis con IA. Inténtalo nuevamente.' }));
+          this.aiLoading.set(false);
+        },
+      });
+  }
+
+  /** Escucha una consulta hablada y la envia al mismo flujo de analisis con IA. */
+  async analyzeWithVoice(): Promise<void> {
+    if (!this.report() || this.voiceListening()) return;
+    this.aiError.set('');
+    try {
+      const transcript = await this.speech.listenOnce();
+      this.voiceQuery.set(transcript);
+      this.analyzeWithAI(transcript);
+    } catch (error) {
+      this.aiError.set(error instanceof Error ? error.message : 'No fue posible reconocer la consulta por voz.');
+    }
+  }
+
+  private pdfDefinition(data: ReservationsReportData): PdfReport {
+    const applied = data.filtros;
+    const branch = this.branches().find(x => x.id_sucursal === applied.id_sucursal)?.nombre;
+    const category = this.categories().find(x => x.id_categoria === applied.id_categoria)?.nombre;
+    const product = this.products().find(x => x.id_producto === applied.id_producto)?.nombre;
+    const ranking = (rows: RankRow[], first: string) => ({
+      columns: [
+        { header: first, width: 4 },
+        { header: 'Reservas', width: 1.5, align: 'right' as const },
+        { header: 'Unidades reservadas', width: 2, align: 'right' as const },
+      ],
+      rows: rows.map(row => [row.label, integers.format(row.reservations), integers.format(row.units)]),
+      empty: 'Sin reservas para estos filtros.',
+    });
+    return {
+      title: 'Reporte de reservas y productos',
+      subtitle: 'FashionStore · Demanda reservada, avance de atención y productos con mayor tracción.',
+      meta: [
+        { label: 'Desde', value: applied.fecha_desde || 'Sin límite inferior' },
+        { label: 'Hasta', value: applied.fecha_hasta || 'Sin límite superior' },
+        { label: 'Tipo de fecha', value: DATE_KIND_LABELS[applied.tipo_fecha] },
+        { label: 'Período', value: PERIOD_LABELS[applied.periodo] },
+        { label: 'Sucursal', value: branch ?? 'Todas las sucursales' },
+        { label: 'Estado', value: applied.estado ? STATE_TONES[applied.estado].label : 'Todos los estados' },
+        { label: 'Categoría', value: category ?? 'Todas las categorías' },
+        { label: 'Producto', value: product ?? 'Todos los productos' },
+      ],
+      sections: [
+        {
+          heading: 'Indicadores principales',
+          description: `Estados según el valor persistido. Agrupaciones en ${data.zona_horaria}.`,
+          kpis: this.kpis().map(kpi => ({ label: kpi.label, value: integers.format(kpi.value) })),
+        },
+        {
+          heading: 'Reservas por estado',
+          table: {
+            columns: [
+              { header: 'Estado', width: 3 },
+              { header: 'Reservas', width: 1.5, align: 'right' },
+              { header: 'Unidades reservadas', width: 2, align: 'right' },
+              { header: 'Participación', width: 1.6, align: 'right' },
+            ],
+            rows: this.stateDonut().map(segment => [
+              segment.label,
+              integers.format(segment.value),
+              integers.format(segment.units),
+              `${segment.percent.toFixed(1)} %`,
+            ]),
+            empty: 'Sin reservas en el período filtrado.',
+          },
+        },
+        {
+          heading: 'Reservas por sucursal',
+          table: {
+            columns: [
+              { header: 'Sucursal', width: 3.5 },
+              { header: 'Reservas', width: 1.5, align: 'right' },
+              { header: 'Unidades reservadas', width: 2, align: 'right' },
+              { header: 'Clientes', width: 1.3, align: 'right' },
+            ],
+            rows: data.por_sucursal.map(row => [
+              row.nombre_sucursal,
+              integers.format(row.total_reservas),
+              integers.format(row.unidades_reservadas),
+              integers.format(row.clientes_con_reservas),
+            ]),
+            empty: 'Sin reservas por sucursal para estos filtros.',
+          },
+        },
+        {
+          heading: 'Evolución por período',
+          description: `Agrupado por ${PERIOD_LABELS[applied.periodo].toLowerCase()}; solo se listan los períodos devueltos por la API.`,
+          table: {
+            columns: [
+              { header: 'Período', width: 2.5 },
+              { header: 'Inicio', width: 2 },
+              { header: 'Reservas', width: 1.5, align: 'right' },
+              { header: 'Unidades reservadas', width: 2, align: 'right' },
+            ],
+            rows: this.series().map(point => [
+              point.label,
+              point.inicio_periodo,
+              integers.format(point.total_reservas),
+              integers.format(point.unidades_reservadas),
+            ]),
+            empty: 'Sin períodos con reservas.',
+          },
+        },
+        { heading: 'Productos más reservados', table: ranking(this.productRows(), 'Producto') },
+        {
+          heading: 'Categorías más reservadas',
+          table: ranking(this.categoryRows(), 'Categoría'),
+          notes: this.expiredWarning()
+            ? [`${integers.format(this.expiredWarning())} reserva(s) vencida(s) siguen registradas con un estado anterior a EXPIRADA.`]
+            : [],
+        },
+      ],
+    };
+  }
 
   loadOptions(): void {
     this.optionsLoading.set(true);
