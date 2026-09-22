@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { AdminSalesReport, currentSalesMonth } from './admin-sales-report';
 import { SalesReportData, SalesKPIs } from '../../../core/services/admin-sales-report.service';
 import { SessionService } from '../../../core/services/session.service';
+import { SpeechRecognitionService } from '../../../core/services/speech-recognition.service';
 import { formatBs } from '../../../core/utils/money';
 import { routes } from '../../../app.routes';
 import { adminChildGuard, adminGuard } from '../../../core/guards/admin.guard';
@@ -130,5 +131,21 @@ describe('CU28 Reporte de ventas', () => {
     flushReport(initial); const admin = routes.find(r => r.path === 'admin')!;
     expect(admin.canActivate).toContain(adminGuard); expect(admin.canActivateChild).toContain(adminChildGuard);
     expect(admin.children?.find(r => r.path === 'reporte-ventas')?.loadComponent).toBeDefined();
+  });
+  it('convierte una consulta por voz a texto y la envía al análisis con IA existente', async () => {
+    flushReport(initial);
+    const speech = TestBed.inject(SpeechRecognitionService);
+    vi.spyOn(speech, 'listenOnce').mockResolvedValue('¿cómo estuvieron las ventas del canal digital?');
+
+    await page.analyzeWithVoice();
+    const aiRequest = http.expectOne(r => r.url.endsWith('/sales-report/ai-analysis'));
+    expect(aiRequest.request.params.get('pregunta')).toBe('¿cómo estuvieron las ventas del canal digital?');
+    aiRequest.flush({ success: true, data: { analisis: 'Las ventas digitales crecieron 10%.', modelo: 'gemini-3.6-flash', generado_en: '2026-09-22T00:00:00Z' } });
+    fixture.detectChanges();
+
+    expect(page.voiceQuery()).toBe('¿cómo estuvieron las ventas del canal digital?');
+    expect(page.aiAnalysis()?.analisis).toBe('Las ventas digitales crecieron 10%.');
+    expect(element().textContent).toContain('Las ventas digitales crecieron 10%.');
+    expect(element().textContent).toContain('¿cómo estuvieron las ventas del canal digital?');
   });
 });

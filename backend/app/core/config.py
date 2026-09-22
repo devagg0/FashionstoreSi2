@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = None
     SUPABASE_STORAGE_BUCKET: str | None = None
+    GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
     STRIPE_SECRET_KEY: SecretStr = Field(repr=False)
     STRIPE_PUBLISHABLE_KEY: SecretStr = Field(repr=False)
     STRIPE_MODE: str

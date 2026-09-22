@@ -21,6 +21,8 @@ import '../receipts/receipt_screen.dart';
 import '../receipts/receipt_service.dart';
 import '../recommendations/recommendations_screen.dart';
 import '../recommendations/recommendation_service.dart';
+import '../chatbot/chatbot_screen.dart';
+import '../chatbot/chatbot_service.dart';
 import '../profile/change_password_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reservations/my_reservations_screen.dart';
@@ -49,6 +51,7 @@ enum _AuthView {
   returnRequest,
   receipt,
   recommendations,
+  chatbot,
   reservationDraft,
   myReservations,
   reservationDetail,
@@ -74,6 +77,7 @@ class _AuthFlowState extends State<AuthFlow> {
   late final ReturnService _returnService;
   late final ReceiptService _receiptService;
   late final RecommendationService _recommendationService;
+  late final ChatbotService _chatbotService;
   late final ReservationDraftController _reservationDraft;
 
   _AuthView _view = _AuthView.loading;
@@ -98,6 +102,7 @@ class _AuthFlowState extends State<AuthFlow> {
     _returnService = ReturnService();
     _receiptService = ReceiptService();
     _recommendationService = RecommendationService();
+    _chatbotService = ChatbotService();
     _reservationDraft = ReservationDraftController();
     _restoreSession();
   }
@@ -113,6 +118,7 @@ class _AuthFlowState extends State<AuthFlow> {
     _returnService.close();
     _receiptService.close();
     _recommendationService.close();
+    _chatbotService.close();
     _reservationDraft.dispose();
     super.dispose();
   }
@@ -130,9 +136,8 @@ class _AuthFlowState extends State<AuthFlow> {
         await _handleInvalidSession(error.message);
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -236,7 +241,9 @@ class _AuthFlowState extends State<AuthFlow> {
             setState(() => _view = _AuthView.myReservations),
         onOpenCart: () => setState(() => _view = _AuthView.cart),
         onOpenPurchases: () => setState(() => _view = _AuthView.purchases),
-        onOpenRecommendations: () => setState(() => _view = _AuthView.recommendations),
+        onOpenRecommendations: () =>
+            setState(() => _view = _AuthView.recommendations),
+        onOpenChatbot: () => setState(() => _view = _AuthView.chatbot),
       ),
       _AuthView.catalog => CatalogScreen(
         onBack: () => setState(() => _view = _AuthView.clientHome),
@@ -290,6 +297,11 @@ class _AuthFlowState extends State<AuthFlow> {
       ),
       _AuthView.recommendations => RecommendationsScreen(
         recommendationGateway: _recommendationService,
+        onBack: () => setState(() => _view = _AuthView.clientHome),
+        onSessionInvalidated: _handleInvalidSession,
+      ),
+      _AuthView.chatbot => ChatbotScreen(
+        chatbotGateway: _chatbotService,
         onBack: () => setState(() => _view = _AuthView.clientHome),
         onSessionInvalidated: _handleInvalidSession,
       ),

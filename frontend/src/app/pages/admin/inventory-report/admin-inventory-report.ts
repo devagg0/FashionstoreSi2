@@ -7,9 +7,16 @@ import { AdminBranchesService, AdminBranch } from '../../../core/services/admin-
 import { AdminCategoriesService, AdminCategory } from '../../../core/services/admin-categories.service';
 import { AdminProductsService, AdminProduct } from '../../../core/services/admin-products.service';
 import { AdminApiErrorService } from '../../../core/services/admin-api-error.service';
+import { GeneratedPdf, ReportPdfService } from '../../../core/services/report-pdf.service';
+import { ReportAIAnalysis, ReportAIService } from '../../../core/services/report-ai.service';
+import { SpeechRecognitionService } from '../../../core/services/speech-recognition.service';
+import { PdfReport } from '../../../core/utils/pdf';
 
 interface OptionPage<T> { data: T[]; pagination: { page: number; total_pages: number } }
 interface ChartRow { label: string; value: number }
+
+const integers = new Intl.NumberFormat('es-BO');
+const STOCK_LABELS: Record<string, string> = { NORMAL: 'Normal', BAJO_STOCK: 'Bajo stock', AGOTADO: 'Agotado' };
 
 @Component({
   selector: 'app-admin-inventory-report', imports: [FormsModule],
@@ -21,12 +28,24 @@ export class AdminInventoryReport {
   private readonly categoryApi = inject(AdminCategoriesService);
   private readonly productApi = inject(AdminProductsService);
   private readonly errors = inject(AdminApiErrorService);
+  private readonly pdfService = inject(ReportPdfService);
+  private readonly aiService = inject(ReportAIService);
+  private readonly speech = inject(SpeechRecognitionService);
   private readonly destroyRef = inject(DestroyRef);
   private request?: Subscription;
   private optionsRequest?: Subscription;
+  private aiRequest?: Subscription;
   private applied: InventoryReportFilters = { page: 1, page_size: 20 };
   filters: InventoryReportFilters = {};
   readonly report = signal<InventoryReportData | null>(null);
+  readonly pdf = signal<GeneratedPdf | null>(null);
+  readonly pdfError = signal('');
+  readonly aiAnalysis = signal<ReportAIAnalysis | null>(null);
+  readonly aiLoading = signal(false);
+  readonly aiError = signal('');
+  readonly voiceQuery = signal('');
+  readonly voiceSupported = this.speech.supported;
+  readonly voiceListening = this.speech.listening;
   readonly loading = signal(false);
   readonly error = signal('');
   readonly optionsError = signal('');
@@ -89,11 +108,151 @@ export class AdminInventoryReport {
   width(row: ChartRow, rows: ChartRow[]): number {
     return Math.abs(row.value) / Math.max(1, ...rows.map(x => Math.abs(x.value))) * 100;
   }
+
+  generatePdf(): void {
+    const data = this.report();
+    if (!data) return;
+    this.pdfError.set('');
+    try {
+      this.pdf.set(this.pdfService.generate(this.pdfDefinition(data), 'reporte-inventario'));
+    } catch {
+      this.pdf.set(null);
+      this.pdfError.set('No pudimos generar el PDF del reporte. Inténtalo nuevamente.');
+    }
+  }
+
+  downloadPdf(): void {
+    const file = this.pdf();
+    if (!file) return;
+    this.pdfError.set('');
+    try {
+      this.pdfService.download(file);
+    } catch {
+      this.pdfError.set('No pudimos descargar el PDF. Inténtalo nuevamente.');
+    }
+  }
+
+  analyzeWithAI(pregunta?: string): void {
+    const data = this.report();
+    if (!data) return;
+    this.aiRequest?.unsubscribe();
+    this.aiLoading.set(true);
+    this.aiError.set('');
+    this.aiAnalysis.set(null);
+    this.aiRequest = this.aiService.analyze('/api/admin/inventory-report', data, pregunta)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: result => { this.aiAnalysis.set(result.data); this.aiLoading.set(false); },
+        error: error => {
+          this.aiError.set(this.errors.resolve(error, { fallback: 'No pudimos generar el análisis con IA. Inténtalo nuevamente.' }));
+          this.aiLoading.set(false);
+        },
+      });
+  }
+
+  /** Escucha una consulta hablada y la envia al mismo flujo de analisis con IA. */
+  async analyzeWithVoice(): Promise<void> {
+    if (!this.report() || this.voiceListening()) return;
+    this.aiError.set('');
+    try {
+      const transcript = await this.speech.listenOnce();
+      this.voiceQuery.set(transcript);
+      this.analyzeWithAI(transcript);
+    } catch (error) {
+      this.aiError.set(error instanceof Error ? error.message : 'No fue posible reconocer la consulta por voz.');
+    }
+  }
+
+  private pdfDefinition(data: InventoryReportData): PdfReport {
+    const branch = this.branches().find(x => x.id_sucursal === data.filtros.id_sucursal)?.nombre;
+    const category = this.categories().find(x => x.id_categoria === data.filtros.id_categoria)?.nombre;
+    const product = this.products().find(x => x.id_producto === data.filtros.id_producto)?.nombre;
+    const pagination = data.detalle.pagination;
+    const breakdown = (rows: { nombre: string; estado: boolean; unidades_actuales: number; unidades_reservadas: number; unidades_disponibles: number; registros_agotados: number; registros_bajo_stock: number }[], first: string) => ({
+      columns: [
+        { header: first, width: 3 },
+        { header: 'Actuales', width: 1.3, align: 'right' as const },
+        { header: 'Reservadas', width: 1.5, align: 'right' as const },
+        { header: 'Disponibles', width: 1.5, align: 'right' as const },
+        { header: 'Agotados', width: 1.3, align: 'right' as const },
+        { header: 'Bajo stock', width: 1.4, align: 'right' as const },
+      ],
+      rows: rows.map(row => [
+        row.nombre + (row.estado ? '' : ' (inactiva)'),
+        integers.format(row.unidades_actuales),
+        integers.format(row.unidades_reservadas),
+        integers.format(row.unidades_disponibles),
+        integers.format(row.registros_agotados),
+        integers.format(row.registros_bajo_stock),
+      ]),
+      empty: 'Sin registros para estos filtros.',
+    });
+    return {
+      title: 'Reporte de inventario',
+      subtitle: 'FashionStore · Existencias, reservas y necesidades de reposición.',
+      meta: [
+        { label: 'Sucursal', value: branch ?? 'Todas las sucursales' },
+        { label: 'Categoría', value: category ?? 'Todas las categorías' },
+        { label: 'Producto', value: product ?? 'Todos los productos' },
+        { label: 'Estado de stock', value: data.filtros.estado_stock ? STOCK_LABELS[data.filtros.estado_stock] : 'Todos los estados' },
+        { label: 'Página del detalle', value: `${pagination.page} de ${pagination.total_pages || 1} · ${integers.format(pagination.total)} registros` },
+      ],
+      sections: [
+        {
+          heading: 'Indicadores principales',
+          description: 'Indicadores sobre todos los resultados filtrados, incluidos los registros inactivos.',
+          kpis: this.kpis().map(kpi => ({ label: kpi.label, value: integers.format(kpi.value) })),
+        },
+        { heading: 'Inventario por sucursal', table: breakdown(data.por_sucursal, 'Sucursal') },
+        { heading: 'Inventario por categoría', table: breakdown(data.por_categoria, 'Categoría') },
+        {
+          heading: 'Detalle de existencias',
+          description: `Página ${pagination.page} de ${pagination.total_pages || 1}. Disponible = actual − reservado.`,
+          table: {
+            columns: [
+              { header: 'Sucursal', width: 2 },
+              { header: 'Producto', width: 2.6 },
+              { header: 'SKU', width: 1.7 },
+              { header: 'Talla', width: 1 },
+              { header: 'Color', width: 1.2 },
+              { header: 'Actual', width: 1, align: 'right' },
+              { header: 'Reserv.', width: 1.1, align: 'right' },
+              { header: 'Dispon.', width: 1.1, align: 'right' },
+              { header: 'Mínimo', width: 1, align: 'right' },
+              { header: 'Estado', width: 1.5 },
+            ],
+            rows: data.detalle.items.map(item => [
+              item.sucursal.nombre,
+              item.producto.nombre,
+              item.variante.sku,
+              item.variante.talla,
+              item.variante.color,
+              integers.format(item.stock_actual),
+              integers.format(item.stock_reservado),
+              integers.format(item.stock_disponible),
+              integers.format(item.stock_minimo),
+              item.estado_stock === null ? 'Inconsistencia' : STOCK_LABELS[item.estado_stock],
+            ]),
+            empty: 'No hay registros en esta página.',
+          },
+          notes: data.advertencias.map(warning => `${integers.format(warning.registros)} registro(s) con inconsistencia. ${warning.mensaje}`),
+        },
+      ],
+    };
+  }
+
   private load(): void {
     this.request?.unsubscribe();
     this.loading.set(true);
     this.error.set('');
     this.report.set(null);
+    this.pdf.set(null);
+    this.pdfError.set('');
+    this.aiRequest?.unsubscribe();
+    this.aiAnalysis.set(null);
+    this.aiError.set('');
+    this.aiLoading.set(false);
+    this.voiceQuery.set('');
     this.request = this.api.report({ ...this.applied }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => { this.report.set(result.data); this.loading.set(false); },
       error: error => {

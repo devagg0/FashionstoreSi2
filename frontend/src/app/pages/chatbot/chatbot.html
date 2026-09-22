@@ -1,0 +1,60 @@
+<main id="main-content" class="chatbot-page">
+  <header class="chatbot-hero shell">
+    <div>
+      <p class="chatbot-hero__eyebrow">FASHIONSTORE / ASISTENTE</p>
+      <h1>Encuentra tu próxima prenda.</h1>
+      <p>Cuéntame qué buscas y te ayudaré a elegir con información real del catálogo.</p>
+    </div>
+    <a routerLink="/catalogo" class="chatbot-hero__link">Explorar catálogo <app-icon name="chevron-right" [size]="17" /></a>
+  </header>
+
+  <section class="chatbot-layout shell" aria-label="Asistente conversacional">
+    <div class="chat-panel">
+      <div class="chat-panel__header">
+        <div class="chat-panel__identity">
+          <span class="chat-panel__mark"><app-icon name="user-plus" [size]="18" /></span>
+          <div><strong>Asistente de estilo</strong><span>Catálogo FashionStore</span></div>
+        </div>
+        <span class="chat-panel__status"><i></i> En línea</span>
+      </div>
+
+      <div class="messages" aria-live="polite">
+        @for (message of messages(); track $index) {
+          <div class="message" [class.message--user]="message.role === 'user'">
+            <span class="message__label">{{ message.role === 'user' ? 'Tú' : 'Asistente' }}</span>
+            <p>{{ message.content }}</p>
+          </div>
+        }
+        @if (loading()) {
+          <div class="message message--assistant message--loading"><span class="message__label">Asistente</span><p>Estoy revisando el catálogo<span>...</span></p></div>
+        }
+      </div>
+
+      @if (errorMessage()) {
+        <p class="chat-error" role="alert"><app-icon name="shield" [size]="17" /> {{ errorMessage() }}</p>
+      }
+
+      <form class="composer" (ngSubmit)="sendMessage()">
+        <label for="chat-message" class="visually-hidden">Escribe tu consulta</label>
+        <textarea id="chat-message" name="message" [(ngModel)]="draft" rows="2" maxlength="1200" placeholder="Ej. Busco un vestido rojo para una fiesta..."></textarea>
+        <button type="submit" [disabled]="loading() || !draft.trim()" aria-label="Enviar mensaje">
+          <app-icon name="chevron-right" [size]="19" />
+        </button>
+      </form>
+    </div>
+
+    <aside class="suggestions" aria-label="Productos sugeridos">
+      <div class="suggestions__heading"><span>SELECCIÓN PERSONAL</span><h2>Prendas sugeridas</h2></div>
+      @if (suggestedProducts().length) {
+        @for (product of suggestedProducts(); track product.id_producto) {
+          <a class="product-suggestion" [routerLink]="['/catalogo/producto', product.id_producto]">
+            <div><span>{{ product.categoria }}</span><h3>{{ product.nombre }}</h3><p>{{ formatPrice(product.precio) }}</p></div>
+            <app-icon name="chevron-right" [size]="18" />
+          </a>
+        }
+      } @else {
+        <div class="suggestions__empty"><app-icon name="store" [size]="24" /><p>Las prendas que encontremos aparecerán aquí.</p></div>
+      }
+    </aside>
+  </section>
+</main>

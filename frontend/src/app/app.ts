@@ -4,10 +4,11 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { PublicFooter } from './layout/public-footer/public-footer';
 import { PublicHeader } from './layout/public-header/public-header';
+import { ClientChatbotFab } from './shared/components/client-chatbot-fab/client-chatbot-fab';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, PublicHeader, PublicFooter],
+  imports: [RouterOutlet, PublicHeader, PublicFooter, ClientChatbotFab],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -18,6 +18,7 @@ export type IconName =
   | 'lock'
   | 'mail'
   | 'map-pin'
+  | 'message-circle'
   | 'menu'
   | 'monitor-smartphone'
   | 'refresh'
