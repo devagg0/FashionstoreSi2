@@ -5,6 +5,7 @@ import '../../catalog/availability_models.dart';
 import '../../catalog/catalog_models.dart';
 import '../reservation_draft.dart';
 import '../reservation_schedule.dart';
+import '../reservation_service.dart';
 
 class ReservationActionPanel extends StatefulWidget {
   const ReservationActionPanel({
@@ -13,6 +14,7 @@ class ReservationActionPanel extends StatefulWidget {
     required this.selection,
     required this.draft,
     required this.onOpenDraft,
+    this.availabilityGateway,
     this.now,
   });
 
@@ -20,6 +22,7 @@ class ReservationActionPanel extends StatefulWidget {
   final VariantAvailabilitySelection selection;
   final ReservationDraftController draft;
   final VoidCallback onOpenDraft;
+  final ReservationAvailabilityGateway? availabilityGateway;
   final DateTime? now;
 
   @override
@@ -32,11 +35,21 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
   String? _time;
   int _quantity = 1;
   String? _message;
+  Set<String> _occupiedTimes = const {};
+  bool _loadingAvailability = false;
+  String? _availabilityError;
+  int _availabilityRequest = 0;
 
   @override
   void initState() {
     super.initState();
     _date = upcomingReservationDays(widget.now).first.value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = widget.draft.context;
+      if (context != null) {
+        _loadAvailability(context.branchId, context.date);
+      }
+    });
   }
 
   @override
@@ -47,6 +60,12 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
       _time = null;
       _quantity = 1;
       _message = null;
+      final context = widget.draft.context;
+      if (context != null) {
+        _loadAvailability(context.branchId, context.date);
+      } else {
+        _clearAvailability();
+      }
     }
   }
 
@@ -114,6 +133,9 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
             selectedDate: _date,
             now: widget.now,
           );
+    final availableSlots = slots
+        .where((slot) => !_occupiedTimes.contains(slot))
+        .toList(growable: false);
     return [
       const Text('Sucursal', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 7),
@@ -130,12 +152,7 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
               ),
             )
             .toList(growable: false),
-        onChanged: (value) => setState(() {
-          _branchId = value;
-          _time = null;
-          _quantity = 1;
-          _message = null;
-        }),
+        onChanged: _selectBranch,
       ),
       const SizedBox(height: 16),
       const Text('Fecha', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -150,11 +167,7 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
                   child: ChoiceChip(
                     key: Key('reservationDay-${day.value}'),
                     selected: _date == day.value,
-                    onSelected: (_) => setState(() {
-                      _date = day.value;
-                      _time = null;
-                      _message = null;
-                    }),
+                    onSelected: (_) => _selectDate(day.value),
                     label: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -175,12 +188,28 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
       const SizedBox(height: 16),
       const Text('Horario', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
+      if (_loadingAvailability)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: LinearProgressIndicator(
+            key: Key('reservationAvailabilityLoading'),
+          ),
+        ),
+      if (_availabilityError != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            _availabilityError!,
+            key: const Key('reservationAvailabilityError'),
+            style: const TextStyle(color: AppColors.error, fontSize: 12),
+          ),
+        ),
       if (branch == null)
         const Text(
           'Selecciona primero una sucursal.',
           style: TextStyle(color: AppColors.muted),
         )
-      else if (slots.isEmpty)
+      else if (availableSlots.isEmpty)
         const Text(
           'Sin horarios disponibles para esta fecha.',
           style: TextStyle(color: AppColors.muted),
@@ -189,16 +218,18 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
         Wrap(
           spacing: 7,
           runSpacing: 7,
-          children: slots
+          children: availableSlots
               .map(
                 (slot) => ChoiceChip(
                   key: Key('reservationTime-$slot'),
                   label: Text(slot),
                   selected: _time == slot,
-                  onSelected: (_) => setState(() {
-                    _time = slot;
-                    _message = null;
-                  }),
+                  onSelected: _loadingAvailability
+                      ? null
+                      : (_) => setState(() {
+                          _time = slot;
+                          _message = null;
+                        }),
                 ),
               )
               .toList(growable: false),
@@ -223,6 +254,7 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
         .where((item) => item.variantId == widget.selection.variant.id)
         .fold(0, (total, item) => total + item.quantity);
     final remaining = (branch?.availableStock ?? 0) - existingQuantity;
+    final occupied = _occupiedTimes.contains(context.time);
     return [
       Container(
         key: const Key('fixedReservationContext'),
@@ -238,7 +270,17 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
         ),
       ),
       const SizedBox(height: 14),
-      if (branch == null || remaining <= 0)
+      if (_loadingAvailability)
+        const LinearProgressIndicator(
+          key: Key('reservationAvailabilityLoading'),
+        )
+      else if (occupied)
+        const Text(
+          'Este horario ya no estÃ¡ disponible para esta prenda.',
+          key: Key('reservationSlotOccupied'),
+          style: TextStyle(color: AppColors.error),
+        )
+      else if (branch == null || remaining <= 0)
         const Text(
           'Sin disponibilidad en la sucursal de esta reserva.',
           key: Key('reservationNoStock'),
@@ -326,6 +368,79 @@ class _ReservationActionPanelState extends State<ReservationActionPanel> {
     quantity: _quantity,
     availableStock: stock,
   );
+
+  void _selectBranch(int? value) {
+    setState(() {
+      _branchId = value;
+      _time = null;
+      _quantity = 1;
+      _message = null;
+    });
+    if (value == null) {
+      setState(_clearAvailability);
+    } else {
+      _loadAvailability(value, _date);
+    }
+  }
+
+  void _selectDate(String value) {
+    setState(() {
+      _date = value;
+      _time = null;
+      _message = null;
+    });
+    final branchId = _branchId;
+    if (branchId != null) _loadAvailability(branchId, value);
+  }
+
+  void _clearAvailability() {
+    _availabilityRequest++;
+    _occupiedTimes = const {};
+    _loadingAvailability = false;
+    _availabilityError = null;
+  }
+
+  Future<void> _loadAvailability(int branchId, String date) async {
+    final gateway = widget.availabilityGateway;
+    if (gateway == null) {
+      if (mounted) setState(_clearAvailability);
+      return;
+    }
+    final request = ++_availabilityRequest;
+    if (mounted) {
+      setState(() {
+        _loadingAvailability = true;
+        _availabilityError = null;
+        _occupiedTimes = const {};
+        _time = null;
+      });
+    }
+    try {
+      final occupied = await gateway.occupiedTimes(
+        variantId: widget.selection.variant.id,
+        branchId: branchId,
+        date: date,
+      );
+      if (!mounted || request != _availabilityRequest) return;
+      setState(() {
+        _occupiedTimes = occupied;
+        _loadingAvailability = false;
+      });
+    } on ReservationFailure catch (error) {
+      if (!mounted || request != _availabilityRequest) return;
+      setState(() {
+        _loadingAvailability = false;
+        _availabilityError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || request != _availabilityRequest) return;
+      setState(() {
+        _loadingAvailability = false;
+        _availabilityError =
+            'No pudimos consultar los horarios ocupados. La disponibilidad se validarÃ¡ al confirmar.';
+      });
+    }
+  }
 
   BranchAvailability? _byBranch(
     Iterable<BranchAvailability> branches,

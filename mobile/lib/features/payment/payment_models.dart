@@ -1,6 +1,7 @@
 enum PaymentState {
   pending,
   approved,
+  rejected,
   canceled,
 }
 
@@ -34,6 +35,9 @@ class PaymentData {
   PaymentState get uiState {
     if (state == 'APROBADO' || saleState == 'COMPLETADA') {
       return PaymentState.approved;
+    }
+    if (state == 'RECHAZADO' || saleState == 'RECHAZADA') {
+      return PaymentState.rejected;
     }
     if (state == 'CANCELADO') return PaymentState.canceled;
     return PaymentState.pending;

@@ -1,7 +1,7 @@
 ﻿import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, finalize, of, switchMap, tap, timeout } from 'rxjs';
 import {
   ClientPurchasesService,
@@ -11,7 +11,7 @@ import {
   PurchaseSummary,
 } from '../../core/services/client-purchases.service';
 import { CheckoutNavigationService } from '../../core/services/checkout-navigation.service';
-import { PaymentsService } from '../../core/services/payments.service';
+import { Payment, PaymentsService } from '../../core/services/payments.service';
 import { PurchaseReturnRequest } from './return-request/return-request';
 import { formatBs } from '../../core/utils/money';
 import { formatSaleReference } from '../../core/utils/sale-reference';
@@ -27,8 +27,10 @@ export class PurchasesPage {
   private readonly payments = inject(PaymentsService);
   private readonly navigation = inject(CheckoutNavigationService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private request?: Subscription;
+  private readonly reconciling = new Set<number>();
   readonly id = signal<number | null>(null);
   readonly items = signal<PurchaseSummary[]>([]);
   readonly detail = signal<PurchaseDetail | null>(null);
@@ -59,7 +61,7 @@ export class PurchasesPage {
   filter(estado: string, canal: string): void {
     if (this.expired()) return;
     if (
-      !['', 'PENDIENTE', 'COMPLETADA', 'ANULADA'].includes(estado) ||
+      !['', 'PENDIENTE', 'COMPLETADA', 'ANULADA', 'RECHAZADA'].includes(estado) ||
       !['', 'DIGITAL', 'PRESENCIAL'].includes(canal)
     )
       return;
@@ -102,6 +104,7 @@ export class PurchasesPage {
               return;
             }
             this.detail.set(response.data);
+            this.reconcileStripePayment(response.data);
           },
           error: (error) => this.fail(error),
         });
@@ -123,10 +126,67 @@ export class PurchasesPage {
               ),
             );
             this.total.set(response.data.total);
+            for (const purchase of this.items()) this.reconcileStripePayment(purchase);
           },
           error: (error) => this.fail(error),
         });
     }
+  }
+  private reconcileStripePayment(purchase: PurchaseSummary): void {
+    const payment = purchase.pago;
+    if (
+      purchase.canal !== 'DIGITAL' ||
+      purchase.estado !== 'PENDIENTE' ||
+      payment?.medio !== 'TARJETA' ||
+      payment.estado !== 'PENDIENTE' ||
+      this.reconciling.has(payment.id_pago)
+    )
+      return;
+    this.reconciling.add(payment.id_pago);
+    this.payments
+      .sync(payment.id_pago)
+      .pipe(
+        timeout(25000),
+        takeUntilDestroyed(this.destroy),
+        finalize(() => this.reconciling.delete(payment.id_pago)),
+      )
+      .subscribe({
+        next: (response) => this.applyPaymentState(response.data),
+        error: () => undefined,
+      });
+  }
+  private applyPaymentState(payment: Payment): void {
+    this.items.update((items) =>
+      items.map((purchase) =>
+        purchase.id_venta === payment.id_venta && purchase.pago?.id_pago === payment.id_pago
+          ? {
+              ...purchase,
+              estado: payment.estado_venta,
+              pago: {
+                ...purchase.pago,
+                estado: payment.estado,
+                fecha_aprobacion: payment.fecha_aprobacion,
+              },
+            }
+          : purchase,
+      ),
+    );
+    this.detail.update((purchase) => {
+      if (!purchase || purchase.id_venta !== payment.id_venta) return purchase;
+      const updatedPayment = purchase.pago?.id_pago === payment.id_pago
+        ? { ...purchase.pago, estado: payment.estado, fecha_aprobacion: payment.fecha_aprobacion }
+        : purchase.pago;
+      return {
+        ...purchase,
+        estado: payment.estado_venta,
+        pago: updatedPayment,
+        pagos: purchase.pagos.map((item) =>
+          item.id_pago === payment.id_pago
+            ? { ...item, estado: payment.estado, fecha_aprobacion: payment.fecha_aprobacion }
+            : item,
+        ),
+      };
+    });
   }
   private fail(error: HttpErrorResponse | Error): void {
     const status = error instanceof HttpErrorResponse ? error.status : 0;
@@ -172,6 +232,14 @@ export class PurchasesPage {
 
   continuePurchase(purchase: PurchaseSummary): void {
     if (!this.canContinue(purchase) || this.continuing() !== null) return;
+    try {
+      this.navigation.prepare?.();
+    } catch {
+      this.error.set(
+        'El navegador bloqueó la ventana de Stripe Checkout. Habilita las ventanas emergentes para continuar.',
+      );
+      return;
+    }
     this.continuing.set(purchase.id_venta);
     const key = crypto.randomUUID();
     this.api.detail(purchase.id_venta).pipe(
@@ -226,16 +294,33 @@ export class PurchasesPage {
             payment.estado !== 'PENDIENTE' ||
             !response.data.session_id.startsWith('cs_test_') ||
             payment.referencia_externa !== response.data.session_id) {
+          this.navigation.close?.();
           this.error.set('La sesión de pago no corresponde a esta compra.');
           return;
         }
         try {
           this.navigation.go(response.data.url);
+          void this.router
+            .navigate(['/compra', purchase.id_venta, 'pago'])
+            .then((navigated) => {
+              if (!navigated) {
+                this.navigation.close?.();
+                this.error.set('No pudimos volver a la pantalla de pago.');
+              }
+            })
+            .catch(() => {
+              this.navigation.close?.();
+              this.error.set('No pudimos volver a la pantalla de pago.');
+            });
         } catch {
+          this.navigation.close();
           this.error.set('No pudimos abrir el checkout de Stripe.');
         }
       },
-      error: (error) => this.fail(error),
+      error: (error) => {
+        this.navigation.close();
+        this.fail(error);
+      },
     });
   }
 }

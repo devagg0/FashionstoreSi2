@@ -155,6 +155,25 @@ class PaymentsService:
         payment.updated_at = now
         self.db.flush()
 
+    def _reject(self, sale, payment):
+        self._pending(sale)
+        self._assert_current_payment(sale, payment)
+        items, inventories, held, _ = self._stock_context(sale)
+        now = self.now()
+        if held:
+            for item in items:
+                inventory = inventories[item.id_variante_producto]
+                if inventory.stock_reservado < item.cantidad:
+                    raise PaymentError(409, "Stock reservado inconsistente")
+                inventory.stock_reservado -= item.cantidad
+                inventory.updated_at = now
+            sale.stock_comprometido = False
+        sale.estado = "RECHAZADA"
+        sale.updated_at = now
+        payment.estado = "RECHAZADO"
+        payment.updated_at = now
+        self.db.flush()
+
     def _assert_current_payment(self, sale, payment):
         if (payment.estado != "PENDIENTE" or payment.monto != sale.total
                 or payment.moneda != sale.moneda
@@ -313,6 +332,35 @@ class PaymentsService:
                     and session["id"] != payment.referencia_externa)):
             raise PaymentError(409, "Checkout Session no corresponde a este pago TEST")
 
+    def _validate_checkout_failed_intent(self, sale, payment, intent):
+        expected = {"id_venta": str(sale.id_venta), "id_pago": str(payment.id_pago),
+                    "clave_idempotencia": str(payment.clave_idempotencia)}
+        metadata = self._field(intent, "metadata", {}) or {}
+        if (self._field(intent, "livemode") is not False
+                or self._field(intent, "object") != "payment_intent"
+                or not str(self._field(intent, "id", "")).startswith("pi_")
+                or self._field(intent, "amount") != int(payment.monto * 100)
+                or self._field(intent, "currency") != payment.moneda.lower()
+                or any(self._field(metadata, k) != v for k, v in expected.items())
+                or payment.monto != sale.total or payment.moneda != sale.moneda):
+            raise PaymentError(409, "PaymentIntent rechazado no corresponde a este pago TEST")
+
+    def _checkout_has_failed_charge(self, sale, payment, intent):
+        reference = self._field(intent, "latest_charge")
+        if not isinstance(reference, str) or not reference.startswith("ch_"):
+            return False
+        charge = self.stripe.retrieve_charge(reference)
+        return (self._field(charge, "livemode") is False
+                and self._field(charge, "object") == "charge"
+                and self._field(charge, "id") == reference
+                and self._field(charge, "payment_intent") == self._field(intent, "id")
+                and self._field(charge, "amount") == int(payment.monto * 100)
+                and self._field(charge, "currency") == payment.moneda.lower()
+                and self._field(charge, "paid") is False
+                and self._field(charge, "status") == "failed"
+                and bool(self._field(charge, "failure_code"))
+                and payment.monto == sale.total and payment.moneda == sale.moneda)
+
     def checkout_session(self, user, payment_id, *, return_target="web"):
         def operation():
             sale, payment = self._context(user, payment_id)
@@ -383,7 +431,33 @@ class PaymentsService:
                 raise PaymentError(409, "Referencia Stripe no reconocida")
             session = self.stripe.retrieve_checkout_session(reference)
             self._validate_checkout(sale, payment, session)
-            if session["payment_status"] == "paid":
+            failed_intent = self._field(session, "payment_intent")
+            if session["payment_status"] == "unpaid" and isinstance(failed_intent, str):
+                failed_intent = self.stripe.retrieve_payment_intent(failed_intent)
+            direct_rejection = (session["payment_status"] == "unpaid"
+                                and failed_intent
+                                and self._field(failed_intent, "status") == "requires_payment_method"
+                                and self._field(failed_intent, "last_payment_error") is not None)
+            expired_rejection = (session["payment_status"] == "unpaid"
+                                 and session["status"] == "expired"
+                                 and failed_intent
+                                 and self._field(failed_intent, "status") == "canceled"
+                                 and self._field(failed_intent, "cancellation_reason") == "automatic")
+            rejected = direct_rejection or expired_rejection
+            if rejected:
+                self._validate_checkout_failed_intent(sale, payment, failed_intent)
+                if expired_rejection and not self._checkout_has_failed_charge(sale, payment, failed_intent):
+                    rejected = False
+            if rejected:
+                if session["status"] == "open":
+                    expired = self.stripe.expire_checkout_session(reference, payment.clave_idempotencia)
+                    self._validate_checkout(sale, payment, expired)
+                    if expired["status"] != "expired" or expired["payment_status"] != "unpaid":
+                        raise PaymentError(409, "Checkout rechazado aun no pudo cerrarse; sincronice el mismo pago")
+                elif session["status"] != "expired":
+                    raise PaymentError(409, "Estado de Checkout rechazado inconsistente")
+                self._reject(sale, payment)
+            elif session["payment_status"] == "paid":
                 if session["status"] != "complete":
                     raise PaymentError(409, "Stripe no confirmo Checkout completo")
                 intent = self._field(session, "payment_intent")

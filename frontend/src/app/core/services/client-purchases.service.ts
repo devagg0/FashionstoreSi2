@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
 
-export type PurchaseState = 'PENDIENTE' | 'COMPLETADA' | 'ANULADA';
+export type PurchaseState = 'PENDIENTE' | 'COMPLETADA' | 'ANULADA' | 'RECHAZADA';
 export type PurchaseChannel = 'DIGITAL' | 'PRESENCIAL';
 export interface PurchasePayment {
   id_pago: number;

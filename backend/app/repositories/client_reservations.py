@@ -51,6 +51,77 @@ class ClientReservationRepository:
             .with_for_update()
         ).all()
 
+    def lock_reservation_slots(
+        self,
+        branch_id: int,
+        scheduled_at: datetime,
+        variant_ids: list[int],
+    ) -> None:
+        """Serializa intentos sobre la misma variante, sucursal y horario."""
+        slot_key = f"{branch_id}:{scheduled_at.isoformat()}"
+        for variant_id in sorted(variant_ids):
+            self.db.execute(
+                select(
+                    func.pg_advisory_xact_lock(
+                        variant_id,
+                        func.hashtext(slot_key),
+                    )
+                )
+            )
+
+    def has_active_slot_conflict(
+        self,
+        *,
+        branch_id: int,
+        scheduled_at: datetime,
+        variant_ids: list[int],
+        now: datetime,
+    ) -> bool:
+        return self.db.scalar(
+            select(ReservationDetail.id_detalle_reserva)
+            .join(
+                Reservation,
+                Reservation.id_reserva == ReservationDetail.id_reserva,
+            )
+            .where(
+                Reservation.id_sucursal == branch_id,
+                Reservation.fecha_atencion_programada == scheduled_at,
+                Reservation.estado.in_(HOLDING_STATES),
+                Reservation.fecha_expiracion > now,
+                ReservationDetail.id_variante_producto.in_(variant_ids),
+            )
+            .limit(1)
+        ) is not None
+
+    def list_occupied_slots(
+        self,
+        *,
+        branch_id: int,
+        variant_id: int,
+        start_at: datetime,
+        end_at: datetime,
+        now: datetime,
+    ) -> list[datetime]:
+        return list(
+            self.db.scalars(
+                select(Reservation.fecha_atencion_programada)
+                .join(
+                    ReservationDetail,
+                    ReservationDetail.id_reserva == Reservation.id_reserva,
+                )
+                .where(
+                    Reservation.id_sucursal == branch_id,
+                    ReservationDetail.id_variante_producto == variant_id,
+                    Reservation.fecha_atencion_programada >= start_at,
+                    Reservation.fecha_atencion_programada < end_at,
+                    Reservation.estado.in_(HOLDING_STATES),
+                    Reservation.fecha_expiracion > now,
+                )
+                .distinct()
+                .order_by(Reservation.fecha_atencion_programada)
+            ).all()
+        )
+
     def code_exists(self, code: str) -> bool:
         return self.db.scalar(
             select(Reservation.id_reserva).where(Reservation.codigo == code)

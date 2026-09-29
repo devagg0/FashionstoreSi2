@@ -103,7 +103,7 @@ class SaleMovementData(BaseModel):
 class SaleData(BaseModel):
     id_venta: int
     numero_venta: str
-    estado: Literal["PENDIENTE", "COMPLETADA", "ANULADA"]
+    estado: Literal["PENDIENTE", "COMPLETADA", "ANULADA", "RECHAZADA"]
     id_sucursal: int
     id_empleado: int
     id_cliente: int | None

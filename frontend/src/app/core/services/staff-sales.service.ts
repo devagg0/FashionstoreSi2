@@ -51,7 +51,7 @@ interface SalePerson {
 export interface SaleData {
   id_venta: number;
   numero_venta: string;
-  estado: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA';
+  estado: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA' | 'RECHAZADA';
   id_sucursal: number;
   id_empleado: number;
   id_cliente: number | null;

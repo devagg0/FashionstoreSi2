@@ -23,6 +23,7 @@
           <option>PENDIENTE</option>
           <option>COMPLETADA</option>
           <option>ANULADA</option>
+          <option>RECHAZADA</option>
         </select></label
       >
       <label
@@ -329,6 +330,8 @@
               ? '✓ Compra completada'
               : purchase.estado === 'ANULADA'
                 ? 'Compra anulada'
+                : purchase.estado === 'RECHAZADA'
+                  ? 'Pago rechazado · stock liberado'
                 : 'Tu compra continúa pendiente'
           }}
         </p>

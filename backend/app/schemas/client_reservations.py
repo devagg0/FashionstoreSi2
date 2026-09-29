@@ -27,6 +27,16 @@ class ReservationCreateRequest(BaseModel):
     items: list[ReservationItemCreate] = Field(min_length=1, max_length=50)
 
 
+class ReservationAvailabilityData(BaseModel):
+    occupied_times: list[str]
+
+
+class ReservationAvailabilityResponse(BaseModel):
+    success: Literal[True] = True
+    data: ReservationAvailabilityData
+    message: str = "Disponibilidad de reservas consultada correctamente"
+
+
 class ReservationCityData(BaseModel):
     id_ciudad: int
     nombre: str
