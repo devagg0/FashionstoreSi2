@@ -1,5 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import { exhaustMap, takeWhile, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
 
@@ -12,7 +13,7 @@ export interface Payment {
   proveedor: 'MANUAL' | 'STRIPE';
   entorno: 'LOCAL' | 'TEST';
   estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'CANCELADO' | 'EXPIRADO' | 'REEMBOLSADO';
-  estado_venta: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA';
+  estado_venta: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA' | 'RECHAZADA';
   monto: string;
   moneda: 'BOB';
   referencia_externa: string | null;
@@ -34,7 +35,7 @@ export interface PaymentSale {
   numero: string;
   sucursal: string;
   canal: 'DIGITAL' | 'PRESENCIAL';
-  estado: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA';
+  estado: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA' | 'RECHAZADA';
   fecha: string | null;
   subtotal: string;
   descuento: string;
@@ -104,6 +105,18 @@ export class PaymentsService {
       `${this.url}/payments/${id}/stripe/sync`,
       {},
       { headers: this.headers() },
+    );
+  }
+  monitorStripe(id: number, checkoutActive: () => boolean) {
+    return timer(1000, 2000).pipe(
+      exhaustMap(() => this.sync(id)),
+      takeWhile(
+        (response) =>
+          response.data.estado === 'PENDIENTE' &&
+          response.data.estado_venta === 'PENDIENTE' &&
+          checkoutActive(),
+        true,
+      ),
     );
   }
   private storageKey(id: number, kind: string) {

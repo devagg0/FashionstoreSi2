@@ -1,7 +1,7 @@
 """Reglas, precios y transacciones de CU17."""
 
 import secrets
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -16,6 +16,7 @@ from app.repositories.client_reservations import (
 )
 from app.schemas.client_reservations import (
     ReservationBranchData,
+    ReservationAvailabilityData,
     ReservationCityData,
     ReservationColorData,
     ReservationDetailData,
@@ -264,6 +265,19 @@ class ClientReservationService:
                 product_ids[item.id_variante_producto] = product.id_producto
 
             variant_ids = sorted(quantities)
+            self.repository.lock_reservation_slots(
+                payload.id_sucursal, scheduled_at, variant_ids
+            )
+            if self.repository.has_active_slot_conflict(
+                branch_id=payload.id_sucursal,
+                scheduled_at=scheduled_at,
+                variant_ids=variant_ids,
+                now=now,
+            ):
+                raise ReservationConflictError(
+                    "Una de las prendas ya esta reservada en la sucursal, fecha y hora seleccionadas"
+                )
+
             inventories = self.repository.lock_inventories(
                 payload.id_sucursal, variant_ids
             )
@@ -275,6 +289,7 @@ class ClientReservationService:
                 raise ReservationNotFoundError(
                     "No existe inventario para una variante en la sucursal"
                 )
+
             for variant_id in variant_ids:
                 inventory = inventory_by_variant[variant_id]
                 available = inventory.stock_actual - inventory.stock_reservado
@@ -314,6 +329,66 @@ class ClientReservationService:
             )
             self.db.flush()
             return self._get_detail(reservation.id_reserva, client.id_cliente)
+
+        return self._transaction(operation)
+
+    def get_availability(
+        self,
+        user_id: int,
+        *,
+        branch_id: int,
+        variant_id: int,
+        selected_date: date,
+    ) -> ReservationAvailabilityData:
+        def operation():
+            self._client(user_id)
+            branch = self.repository.get_branch(branch_id)
+            if branch is None:
+                raise ReservationNotFoundError("Sucursal no encontrada")
+            if not branch.estado:
+                raise ReservationValidationError("La sucursal esta inactiva")
+            if self.repository.get_variant(variant_id) is None:
+                raise ReservationNotFoundError("Variante no encontrada")
+
+            now = self._now()
+            try:
+                application_timezone = ZoneInfo(settings.APP_TIMEZONE)
+            except ZoneInfoNotFoundError as error:
+                raise ReservationPersistenceError(
+                    "La zona horaria de la aplicacion no esta configurada correctamente"
+                ) from error
+            local_now = now.replace(tzinfo=timezone.utc).astimezone(
+                application_timezone
+            )
+            last_allowed_date = local_now.date() + timedelta(
+                days=RESERVATION_WINDOW_DAYS - 1
+            )
+            if not local_now.date() <= selected_date <= last_allowed_date:
+                raise ReservationValidationError(
+                    "La fecha debe estar dentro de los proximos 7 dias"
+                )
+
+            local_start = datetime.combine(
+                selected_date, time.min, tzinfo=application_timezone
+            )
+            local_end = local_start + timedelta(days=1)
+            start_at = local_start.astimezone(timezone.utc).replace(tzinfo=None)
+            end_at = local_end.astimezone(timezone.utc).replace(tzinfo=None)
+            occupied = self.repository.list_occupied_slots(
+                branch_id=branch_id,
+                variant_id=variant_id,
+                start_at=start_at,
+                end_at=end_at,
+                now=now,
+            )
+            return ReservationAvailabilityData(
+                occupied_times=[
+                    value.replace(tzinfo=timezone.utc)
+                    .astimezone(application_timezone)
+                    .strftime("%H:%M")
+                    for value in occupied
+                ]
+            )
 
         return self._transaction(operation)
 

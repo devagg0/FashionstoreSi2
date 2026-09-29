@@ -9,6 +9,8 @@
           {{
             completed()
               ? 'Tu venta está completada. Gracias por elegir FashionStore.'
+              : rejected()
+                ? 'Stripe rechazó el pago. La venta quedó rechazada.'
               : 'Tu venta está pendiente. Elige cómo finalizar tu compra.'
           }}
         </p>
@@ -134,15 +136,23 @@
                       : 'Intento ' + result.estado.toLowerCase()
                   }}
                 </h2>
-                <p>Tu venta continúa pendiente. Puedes intentar nuevamente con otro método.</p>
-                <button
-                  class="button button--outline"
-                  type="button"
-                  (click)="newAttempt()"
-                  [disabled]="busy()"
-                >
-                  Iniciar nuevo intento
-                </button>
+                <p>
+                  {{
+                    result.estado === 'RECHAZADO'
+                      ? 'La venta fue rechazada y el stock comprometido quedó liberado.'
+                      : 'Tu venta continúa pendiente. Puedes intentar nuevamente con otro método.'
+                  }}
+                </p>
+                @if (result.estado !== 'RECHAZADO') {
+                  <button
+                    class="button button--outline"
+                    type="button"
+                    (click)="newAttempt()"
+                    [disabled]="busy()"
+                  >
+                    Iniciar nuevo intento
+                  </button>
+                }
               </section>
             } @else {
               <div class="notice pending" role="status">

@@ -160,6 +160,8 @@ class _PaymentScreenState extends State<PaymentScreen>
         _checkoutOpened = false;
         _returnMessage = updated.uiState == PaymentState.approved
             ? 'Pago realizado correctamente.'
+            : updated.uiState == PaymentState.rejected
+            ? 'Stripe rechazó el pago. La venta fue rechazada y el stock comprometido quedó liberado.'
             : updated.uiState == PaymentState.canceled
             ? 'Pago cancelado. Tu compra continúa pendiente.'
             : 'Tu pago continúa pendiente.';
@@ -294,11 +296,13 @@ class _PaymentScreenState extends State<PaymentScreen>
     final state = payment.uiState;
     final icon = switch (state) {
       PaymentState.approved => Icons.check_circle_rounded,
+      PaymentState.rejected => Icons.error_rounded,
       PaymentState.canceled => Icons.cancel_outlined,
       PaymentState.pending => Icons.schedule_rounded,
     };
     final title = switch (state) {
       PaymentState.approved => 'Pago aprobado',
+      PaymentState.rejected => 'Pago rechazado',
       PaymentState.canceled => 'Pago cancelado',
       PaymentState.pending => 'Pago pendiente',
     };
@@ -336,7 +340,8 @@ class _PaymentScreenState extends State<PaymentScreen>
   );
 
   List<Widget> _actions(PaymentData payment) {
-    if (payment.uiState == PaymentState.approved) {
+    if (payment.uiState == PaymentState.approved ||
+        payment.uiState == PaymentState.rejected) {
       return [
         SizedBox(
           width: double.infinity,

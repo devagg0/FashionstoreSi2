@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/widgets/auth_components.dart';
 import '../reservations/reservation_draft.dart';
+import '../reservations/reservation_service.dart';
 import '../reservations/widgets/reservation_action_panel.dart';
 import '../virtual_try_on/virtual_try_on_screen.dart';
 import '../virtual_try_on/virtual_try_on_service.dart';
@@ -21,6 +22,7 @@ class ProductDetailScreen extends StatefulWidget {
     this.catalogGateway,
     this.availabilityGateway,
     this.reservationDraft,
+    this.reservationAvailabilityGateway,
     this.onOpenReservationDraft,
     this.onAddToCart,
     this.virtualTryOnGateway,
@@ -31,6 +33,7 @@ class ProductDetailScreen extends StatefulWidget {
   final CatalogGateway? catalogGateway;
   final CatalogAvailabilityGateway? availabilityGateway;
   final ReservationDraftController? reservationDraft;
+  final ReservationAvailabilityGateway? reservationAvailabilityGateway;
   final VoidCallback? onOpenReservationDraft;
   final Future<void> Function(int variantId, int quantity)? onAddToCart;
   final VirtualTryOnGateway? virtualTryOnGateway;
@@ -50,12 +53,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _loading = true;
   int _imageIndex = 0;
   VariantAvailabilitySelection? _availabilitySelection;
+  ReservationAvailabilityGateway? _reservationAvailabilityGateway;
+  bool _ownsReservationService = false;
 
   @override
   void initState() {
     super.initState();
     _ownsService = widget.catalogGateway == null;
     _gateway = widget.catalogGateway ?? CatalogService();
+    _reservationAvailabilityGateway = widget.reservationAvailabilityGateway;
+    if (_reservationAvailabilityGateway == null &&
+        widget.reservationDraft != null) {
+      _reservationAvailabilityGateway = ReservationService();
+      _ownsReservationService = true;
+    }
     _load();
   }
 
@@ -63,6 +74,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void dispose() {
     _pageController.dispose();
     if (_ownsService && _gateway is CatalogService) _gateway.close();
+    if (_ownsReservationService &&
+        _reservationAvailabilityGateway is ReservationService) {
+      (_reservationAvailabilityGateway as ReservationService).close();
+    }
     super.dispose();
   }
 
@@ -258,6 +273,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             product: product,
             selection: _availabilitySelection!,
             draft: widget.reservationDraft!,
+            availabilityGateway: _reservationAvailabilityGateway,
             onOpenDraft: widget.onOpenReservationDraft!,
           ),
         ],

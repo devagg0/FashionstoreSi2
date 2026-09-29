@@ -53,7 +53,7 @@ class Sale(Base):
             name="ck_venta_stock_comprometido",
         ),
         CheckConstraint(
-            "estado IN ('PENDIENTE', 'COMPLETADA', 'ANULADA')",
+            "estado IN ('PENDIENTE', 'COMPLETADA', 'ANULADA', 'RECHAZADA')",
             name="ck_venta_estado",
         ),
         CheckConstraint("subtotal >= 0", name="ck_venta_subtotal"),

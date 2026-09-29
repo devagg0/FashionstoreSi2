@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-PurchaseState = Literal["PENDIENTE", "COMPLETADA", "ANULADA"]
+PurchaseState = Literal["PENDIENTE", "COMPLETADA", "ANULADA", "RECHAZADA"]
 PurchaseChannel = Literal["DIGITAL", "PRESENCIAL"]
 
 

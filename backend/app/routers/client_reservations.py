@@ -1,6 +1,7 @@
 """API de CU17 para el cliente autenticado."""
 
 import logging
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Security, status
@@ -13,6 +14,7 @@ from app.routers.auth import bearer_scheme
 from app.schemas.auth import AuthenticatedUserData, ErrorResponse
 from app.schemas.client_reservations import (
     ReservationCreateRequest,
+    ReservationAvailabilityResponse,
     ReservationListResponse,
     ReservationResponse,
     ReservationState,
@@ -76,7 +78,10 @@ ERROR_RESPONSES = {
     401: {"model": ErrorResponse, "description": "Token invalido o expirado"},
     403: {"model": ErrorResponse, "description": "Se requiere rol CLIENTE"},
     404: {"model": ErrorResponse, "description": "Reserva o referencia inexistente"},
-    409: {"model": ErrorResponse, "description": "Stock, estado o concurrencia"},
+    409: {
+        "model": ErrorResponse,
+        "description": "Disponibilidad, stock, estado o concurrencia",
+    },
     422: {"description": "Datos o regla de negocio invalidos"},
     500: {"model": ErrorResponse, "description": "Error interno"},
 }
@@ -138,6 +143,38 @@ def list_reservations(
             page_size=page_size,
         )
         return ReservationListResponse(data=data, pagination=pagination)
+    except (
+        ReservationNotFoundError,
+        ReservationValidationError,
+        ReservationConflictError,
+        ReservationPersistenceError,
+    ) as error:
+        return _operation_error(error)
+
+
+@router.get(
+    "/availability",
+    response_model=ReservationAvailabilityResponse,
+    responses=ERROR_RESPONSES,
+)
+def get_reservation_availability(
+    client: ClientDependency,
+    id_sucursal: Annotated[int, Query(gt=0)],
+    id_variante_producto: Annotated[int, Query(gt=0)],
+    fecha: date,
+    db: Session = Depends(get_db),
+):
+    if isinstance(client, JSONResponse):
+        return client
+    try:
+        return ReservationAvailabilityResponse(
+            data=ClientReservationService(db).get_availability(
+                client.id_usuario,
+                branch_id=id_sucursal,
+                variant_id=id_variante_producto,
+                selected_date=fecha,
+            )
+        )
     except (
         ReservationNotFoundError,
         ReservationValidationError,

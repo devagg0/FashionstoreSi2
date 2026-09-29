@@ -13,6 +13,14 @@ abstract interface class ReservationGateway {
   Future<ReservationDetail> cancel(int reservationId);
 }
 
+abstract interface class ReservationAvailabilityGateway {
+  Future<Set<String>> occupiedTimes({
+    required int variantId,
+    required int branchId,
+    required String date,
+  });
+}
+
 enum ReservationFailureType {
   unauthorized,
   forbidden,
@@ -31,7 +39,8 @@ class ReservationFailure implements Exception {
   final String message;
 }
 
-class ReservationService implements ReservationGateway {
+class ReservationService
+    implements ReservationGateway, ReservationAvailabilityGateway {
   ReservationService({ApiService? apiService})
     : _apiService = apiService ?? ApiService(),
       _ownsApiService = apiService == null;
@@ -43,6 +52,37 @@ class ReservationService implements ReservationGateway {
   @override
   Future<ReservationDetail> create(Map<String, dynamic> request) =>
       _detailRequest(() => _apiService.post(endpoint, request));
+
+  @override
+  Future<Set<String>> occupiedTimes({
+    required int variantId,
+    required int branchId,
+    required String date,
+  }) async {
+    try {
+      final response = _success(
+        await _apiService.get(
+          '$endpoint/availability',
+          queryParameters: {
+            'id_sucursal': '$branchId',
+            'id_variante_producto': '$variantId',
+            'fecha': date,
+          },
+        ),
+      );
+      final data = response['data'];
+      if (data is! Map<String, dynamic>) {
+        throw const FormatException('Disponibilidad de reservas invÃ¡lida.');
+      }
+      final values = data['occupied_times'];
+      if (values is! List || values.any((value) => value is! String)) {
+        throw const FormatException('Horarios ocupados invÃ¡lidos.');
+      }
+      return values.cast<String>().toSet();
+    } catch (error) {
+      throw _mapFailure(error);
+    }
+  }
 
   @override
   Future<ReservationPage> list({

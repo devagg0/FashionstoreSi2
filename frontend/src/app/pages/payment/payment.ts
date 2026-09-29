@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable, finalize, map, of, switchMap, tap, timeout } from 'rxjs';
+import { Observable, finalize, of, switchMap, tap, timeout } from 'rxjs';
 import {
   Payment,
   PaymentAction,
@@ -91,6 +91,7 @@ export class PaymentPage {
     () => this.payment()?.estado_venta ?? this.sale()?.estado ?? 'PENDIENTE',
   );
   readonly completed = computed(() => this.status() === 'COMPLETADA');
+  readonly rejected = computed(() => this.status() === 'RECHAZADA');
   readonly methods = computed<PaymentMethod[]>(() =>
     this.sale()?.canal === 'PRESENCIAL'
       ? this.session.getUser()?.rol.toUpperCase() === 'CAJERO'
@@ -159,7 +160,16 @@ export class PaymentPage {
           switchMap(() => this.api.sync(paymentId)),
         ),
       );
-    } else if (this.attempt()?.idPago) this.refresh();
+    } else if (this.attempt()?.idPago) {
+      if (
+        this.attempt()!.medio === 'TARJETA' &&
+        (this.navigation.isActive?.() ?? false)
+      ) {
+        this.redirecting.set(true);
+        this.returnMessage.set('Verificando el resultado del pago con Stripe…');
+        this.execute(this.monitorCheckout(this.attempt()!.idPago!));
+      } else this.refresh();
+    }
     else if (this.attempt()) this.uncertain.set(true);
   }
   choose(method: PaymentMethod): void {
@@ -184,12 +194,23 @@ export class PaymentPage {
   confirm(): void {
     if (!this.canPay()) return;
     this.close();
+    if (this.method() === 'TARJETA') {
+      try {
+        this.navigation.prepare?.();
+      } catch (error) {
+        this.fail(error instanceof Error ? error : new Error('No pudimos abrir Stripe Checkout.'));
+        return;
+      }
+    }
     const attempt = this.attempt() ?? {
       key: crypto.randomUUID(),
       medio: this.method(),
       ...(this.method() === 'EFECTIVO' ? { action: this.action() } : {}),
     };
-    if (!this.persist(attempt)) return;
+    if (!this.persist(attempt)) {
+      if (this.method() === 'TARJETA') this.navigation.close?.();
+      return;
+    }
     this.execute(this.process(attempt));
   }
   prepareQr(): void {
@@ -215,7 +236,7 @@ export class PaymentPage {
         if (attempt.medio === 'EFECTIVO')
           return this.api.manual(response.data.id_pago, attempt.action ?? 'APROBADO');
         return this.api.checkout(response.data.id_pago).pipe(
-          map((checkout) => {
+          switchMap((checkout) => {
             if (
               checkout.data.payment.id_pago !== response.data.id_pago ||
               checkout.data.payment.medio !== 'TARJETA' ||
@@ -232,11 +253,13 @@ export class PaymentPage {
             this.redirecting.set(true);
             try {
               this.navigation.go(checkout.data.url);
+              this.returnMessage.set('Verificando el resultado del pago con Stripe…');
             } catch (error) {
               this.redirecting.set(false);
+              this.navigation.close();
               throw error;
             }
-            return { success: true as const, data: checkout.data.payment };
+            return this.monitorCheckout(checkout.data.payment.id_pago);
           }),
         );
       }),
@@ -299,10 +322,36 @@ export class PaymentPage {
       )
       .subscribe({ next: () => this.uncertain.set(false), error: (error) => this.fail(error) });
   }
+  private monitorCheckout(paymentId: number): Observable<PaymentResponse> {
+    return this.api.monitorStripe(paymentId, () => this.navigation.isActive?.() ?? false).pipe(
+      tap((response) => {
+        const terminal =
+          response.data.estado !== 'PENDIENTE' ||
+          response.data.estado_venta !== 'PENDIENTE';
+        if (terminal || !(this.navigation.isActive?.() ?? false)) {
+          this.redirecting.set(false);
+          const rejected =
+            response.data.estado === 'RECHAZADO' ||
+            response.data.estado_venta === 'RECHAZADA';
+          if (rejected) this.navigation.close?.();
+        }
+      }),
+    );
+  }
   private accept(payment: Payment): void {
     if (payment.id_venta !== this.id) throw new Error('El pago no corresponde a esta venta.');
     this.payment.set(payment);
+    const currentSale = this.sale();
+    if (currentSale && currentSale.estado !== payment.estado_venta) {
+      const updatedSale = { ...currentSale, estado: payment.estado_venta };
+      this.sale.set(updatedSale);
+      this.api.saveSale(updatedSale);
+    }
     if (payment.estado_venta === 'COMPLETADA') this.returnMessage.set('');
+    else if (payment.estado === 'RECHAZADO' || payment.estado_venta === 'RECHAZADA')
+      this.returnMessage.set(
+        'Stripe rechazó el pago. La venta fue rechazada y el stock comprometido quedó liberado.',
+      );
     else if (this.returnMessage().startsWith('Verificando'))
       this.returnMessage.set(
         'Tu pago continúa pendiente. Consulta su estado antes de volver a intentar.',
@@ -331,6 +380,8 @@ export class PaymentPage {
     }
   }
   private fail(error: HttpErrorResponse | Error): void {
+    if (this.redirecting()) this.redirecting.set(false);
+    this.navigation.close?.();
     const status = error instanceof HttpErrorResponse ? error.status : 0;
     this.expired.set(status === 401);
     this.uncertain.set(!!this.attempt() && (status === 0 || status >= 500 || status === 409));
