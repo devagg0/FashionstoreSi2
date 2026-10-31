@@ -1,5 +1,12 @@
 from app.models.role import Role
 from app.models.user import User
+from app.models.company import Company
+from app.models.saas_plan import SaasPlan
+from app.models.saas_feature import SaasFeature
+from app.models.user_company import UserCompany
+from app.models.plan_feature import PlanFeature
+from app.models.subscription import Subscription
+from app.models.subscription_operation import SubscriptionOperation
 from app.models.client import Client
 from app.models.employee import Employee
 from app.models.city import City
@@ -31,3 +38,7 @@ from app.models.inventory_movement import InventoryMovement
 from app.models.inventory_movement_detail import InventoryMovementDetail
 
 from app.models.returns import Return, ReturnDetail, Refund
+
+from app.models.multitenant_metadata import configure_multitenant_metadata
+
+configure_multitenant_metadata()

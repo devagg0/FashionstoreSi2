@@ -186,6 +186,23 @@ def create_product(
 ) -> AdminProductCreateResponse | JSONResponse:
     if isinstance(administrator, JSONResponse):
         return administrator
+
+    company_id = getattr(administrator, "id_empresa", None) or getattr(db, "info", {}).get("empresa_id")
+    if company_id:
+        from app.PK07.CU07_ConsultarPlanLimites.service import (
+            FeatureNotEnabledError,
+            NoActiveSubscriptionError,
+            SaasPlanLimitsService,
+        )
+
+        try:
+            SaasPlanLimitsService(db).validate_feature_enabled(company_id, "PRODUCTOS")
+        except (NoActiveSubscriptionError, FeatureNotEnabledError) as exc:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": str(exc)},
+            )
+
     try:
         return AdminProductCreateResponse(
             data=AdminProductService(db).create_product(payload)

@@ -11,6 +11,7 @@ import { PasswordRecoveryModal } from './password-recovery-modal/password-recove
 
 const POST_LOGIN_ROUTE_BY_ROLE: Readonly<Record<string, string>> = {
   CLIENTE: '/',
+  SUPERADMIN: '/superadmin/empresas',
   ADMINISTRADOR: '/admin',
   ENCARGADO_SUCURSAL: '/staff/inicio',
   CAJERO: '/staff/inicio',

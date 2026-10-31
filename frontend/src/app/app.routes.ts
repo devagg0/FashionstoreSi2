@@ -4,6 +4,7 @@ import { adminChildGuard, adminGuard } from './core/guards/admin.guard';
 import { clientGuard } from './core/guards/client.guard';
 import { cashierGuard } from './core/guards/cashier.guard';
 import { staffChildGuard, staffGuard } from './core/guards/staff.guard';
+import { superadminChildGuard, superadminGuard } from './core/guards/superadmin.guard';
 import { SessionService } from './core/services/session.service';
 
 export const routes: Routes = [
@@ -184,6 +185,66 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'superadmin',
+    canActivate: [superadminGuard],
+    canActivateChild: [superadminChildGuard],
+    loadComponent: () =>
+      import('./layout/superadmin-layout/superadmin-layout').then(
+        ({ SuperadminLayout }) => SuperadminLayout,
+      ),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'empresas' },
+      {
+        path: 'empresas',
+        loadComponent: () =>
+          import('./pages/superadmin/manage-companies/manage-companies').then(
+            ({ ManageCompanies }) => ManageCompanies,
+          ),
+        title: 'Gestionar empresas | FashionStore SaaS',
+      },
+      {
+        path: 'empresas/nueva',
+        loadComponent: () =>
+          import('./pages/superadmin/register-company/register-company').then(
+            ({ RegisterCompany }) => RegisterCompany,
+          ),
+        title: 'Registrar empresa | FashionStore SaaS',
+      },
+      {
+        path: 'empresas/administradores',
+        loadComponent: () =>
+          import('./pages/superadmin/assign-company-admin/assign-company-admin').then(
+            ({ AssignCompanyAdmin }) => AssignCompanyAdmin,
+          ),
+        title: 'Asignar administrador | FashionStore SaaS',
+      },
+      {
+        path: 'empresas/recursos',
+        loadComponent: () =>
+          import('./pages/superadmin/company-resources/company-resources').then(
+            ({ CompanyResources }) => CompanyResources,
+          ),
+        title: 'Asociar usuarios y sucursales | FashionStore SaaS',
+      },
+      {
+        path: 'planes',
+        loadComponent: () =>
+          import('./pages/superadmin/manage-plans/manage-plans').then(
+            ({ ManagePlans }) => ManagePlans,
+          ),
+        title: 'Planes SaaS | FashionStore SaaS',
+      },
+      {
+        path: 'suscripciones',
+        loadComponent: () =>
+          import('./pages/superadmin/manage-subscriptions/manage-subscriptions').then(
+            ({ ManageSubscriptions }) => ManageSubscriptions,
+          ),
+        title: 'Gestión de suscripciones | FashionStore SaaS',
+      },
+    ],
+  },
+  {
     path: 'admin',
     canActivate: [adminGuard],
     canActivateChild: [adminChildGuard],
@@ -312,6 +373,14 @@ export const routes: Routes = [
             ({ AdminEmployeeBranches }) => AdminEmployeeBranches,
           ),
         title: 'Asignación de empleados | FashionStore',
+      },
+      {
+        path: 'suscripcion',
+        loadComponent: () =>
+          import('./pages/admin/subscription/admin-subscription').then(
+            ({ AdminSubscription }) => AdminSubscription,
+          ),
+        title: 'Mi suscripción | FashionStore',
       },
       {
         path: 'perfil',

@@ -1,0 +1,766 @@
+<main class="admin-page company-resources-page">
+  <!-- Hero Header -->
+  <header class="admin-hero">
+    <div class="admin-hero__icon" aria-hidden="true">
+      <app-icon name="users" [size]="28" />
+    </div>
+    <div class="admin-hero__content">
+      <p>CONTROL SAAS · PK07</p>
+      <h2>Asociar usuarios y sucursales a empresa</h2>
+      <span>
+        Administra la asignación de usuarios con roles válidos y la red de sucursales con propiedad exclusiva por empresa.
+      </span>
+    </div>
+    <div class="admin-hero__actions">
+      <a class="button-secondary" routerLink="/superadmin/empresas">
+        <app-icon name="dashboard" [size]="16" />
+        <span>Gestionar empresas</span>
+      </a>
+      <a class="button-secondary" routerLink="/superadmin/empresas/nueva">
+        <app-icon name="store" [size]="16" />
+        <span>Nueva empresa</span>
+      </a>
+      <a class="button-secondary" routerLink="/superadmin/empresas/administradores">
+        <app-icon name="user-plus" [size]="16" />
+        <span>Administradores</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Notificaciones globales -->
+  @if (feedbackSuccess(); as success) {
+    <div class="alert alert--success" role="status">
+      <app-icon name="circle-check" [size]="20" />
+      <span>{{ success }}</span>
+      <button type="button" aria-label="Cerrar notificación" (click)="feedbackSuccess.set(null)">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </div>
+  }
+
+  @if (feedbackError(); as error) {
+    <div class="alert alert--danger" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <span>{{ error }}</span>
+      <button type="button" aria-label="Cerrar alerta" (click)="feedbackError.set(null)">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </div>
+  }
+
+  <!-- Selector de Empresa -->
+  <section class="card company-selector-card">
+    <div class="card__header">
+      <div>
+        <p>EMPRESA OBJETIVO</p>
+        <h3>Selecciona la empresa contratante</h3>
+      </div>
+      @if (companiesLoading()) {
+        <span class="loading-tag">
+          <span class="spinner-small"></span> Cargando empresas…
+        </span>
+      }
+    </div>
+    <div class="card__body">
+      <div class="company-selector-row">
+        <div class="select-field">
+          <label for="company-select">Empresa activa:</label>
+          <div class="select-wrapper">
+            <select
+              id="company-select"
+              class="form-select"
+              [value]="selectedCompanyId() ?? ''"
+              (change)="onCompanySelectChange($event)"
+              [disabled]="companiesLoading()"
+            >
+              <option value="">-- Elige una empresa --</option>
+              @for (company of companies(); track company.id_empresa) {
+                <option [value]="company.id_empresa">
+                  {{ company.nombre }} ({{ company.codigo }})
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+
+        @if (selectedCompany(); as company) {
+          <div class="company-quick-badge">
+            <div class="badge-item">
+              <span class="badge-label">Código:</span>
+              <code>{{ company.codigo }}</code>
+            </div>
+            <div class="badge-item">
+              <span class="badge-label">NIT:</span>
+              <span>{{ company.nit || 'No registrado' }}</span>
+            </div>
+            <div class="badge-item">
+              <span class="badge-label">Zona horaria:</span>
+              <span>{{ company.zona_horaria }}</span>
+            </div>
+            <div class="badge-item">
+              <span class="badge-label">Estado:</span>
+              <span class="status status--activa">{{ company.estado }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Pestañas de Recursos -->
+  <div class="resources-tabs-nav" role="tablist">
+    <button
+      type="button"
+      class="tab-btn"
+      [class.tab-btn--active]="activeTab() === 'usuarios'"
+      (click)="activeTab.set('usuarios')"
+      role="tab"
+      [attr.aria-selected]="activeTab() === 'usuarios'"
+    >
+      <app-icon name="users" [size]="18" />
+      <span>Usuarios asociados</span>
+      <span class="tab-counter">{{ users().length }}</span>
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.tab-btn--active]="activeTab() === 'sucursales'"
+      (click)="activeTab.set('sucursales')"
+      role="tab"
+      [attr.aria-selected]="activeTab() === 'sucursales'"
+    >
+      <app-icon name="store" [size]="18" />
+      <span>Sucursales</span>
+      <span class="tab-counter">{{ branches().length }}</span>
+    </button>
+  </div>
+
+  <!-- SECCIÓN 1: USUARIOS ASOCIADOS -->
+  @if (activeTab() === 'usuarios') {
+    <section class="card resources-section" aria-labelledby="users-title">
+      <div class="card__header card__header--actions">
+        <div>
+          <p>MEMBRESÍAS SAAS</p>
+          <h3 id="users-title">Usuarios asociados a la empresa</h3>
+        </div>
+        <button
+          type="button"
+          class="button-primary"
+          (click)="openAssociateUserModal()"
+          [disabled]="!selectedCompanyId() || companiesLoading()"
+        >
+          <app-icon name="plus" [size]="16" />
+          <span>Asociar usuario</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros de Usuarios -->
+      <div class="filters-bar">
+        <div class="search-field">
+          <app-icon name="search" [size]="16" />
+          <input
+            type="search"
+            placeholder="Buscar por nombre o correo…"
+            [value]="userSearch()"
+            (input)="applyUserSearch($any($event.target).value)"
+            aria-label="Buscar usuarios asociados"
+          />
+        </div>
+        <div class="filter-field">
+          <label for="role-filter">Rol:</label>
+          <select
+            id="role-filter"
+            class="form-select-sm"
+            [value]="userRoleFilter()"
+            (change)="applyUserRoleFilter($any($event.target).value)"
+          >
+            <option value="">Todos los roles</option>
+            <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+            <option value="ENCARGADO_SUCURSAL">ENCARGADO_SUCURSAL</option>
+            <option value="CAJERO">CAJERO</option>
+            <option value="CLIENTE">CLIENTE</option>
+            <option value="PROVEEDOR">PROVEEDOR</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="state-filter">Estado:</label>
+          <select
+            id="state-filter"
+            class="form-select-sm"
+            [value]="userStateFilter()"
+            (change)="applyUserStateFilter($any($event.target).value)"
+          >
+            <option value="">Todos los estados</option>
+            <option value="ACTIVO">ACTIVO</option>
+            <option value="INVITADO">INVITADO</option>
+            <option value="SUSPENDIDO">SUSPENDIDO</option>
+            <option value="RETIRADO">RETIRADO</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabla de Usuarios -->
+      <div class="card__body table-body">
+        @if (usersLoading()) {
+          <div class="loading-state">
+            <span class="spinner"></span>
+            <p>Cargando usuarios asociados…</p>
+          </div>
+        } @else if (users().length === 0) {
+          <div class="empty-state">
+            <app-icon name="users" [size]="40" />
+            <h4>No se encontraron usuarios asociados</h4>
+            <p>Esta empresa no cuenta aún con usuarios bajo los filtros seleccionados.</p>
+            <button
+              type="button"
+              class="button-secondary button-secondary--sm"
+              (click)="openAssociateUserModal()"
+              [disabled]="!selectedCompanyId()"
+            >
+              <app-icon name="user-plus" [size]="16" />
+              <span>Asociar primer usuario</span>
+            </button>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Correo</th>
+                  <th>Teléfono</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Condición</th>
+                  <th>Asignado el</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (user of users(); track user.id_usuario) {
+                  <tr>
+                    <td>
+                      <div class="user-cell">
+                        <span class="user-avatar" aria-hidden="true">
+                          {{ user.nombre.charAt(0) }}{{ user.apellido.charAt(0) }}
+                        </span>
+                        <div>
+                          <strong>{{ user.nombre }} {{ user.apellido }}</strong>
+                          <small>ID: #{{ user.id_usuario }}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ user.correo }}</td>
+                    <td>{{ user.telefono || '—' }}</td>
+                    <td>
+                      <span class="role-badge" [attr.data-role]="user.rol">
+                        {{ user.rol }}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        class="status-chip"
+                        [class.status-chip--activo]="user.estado === 'ACTIVO'"
+                        [class.status-chip--invitado]="user.estado === 'INVITADO'"
+                        [class.status-chip--inactivo]="user.estado === 'SUSPENDIDO' || user.estado === 'RETIRADO'"
+                      >
+                        {{ user.estado }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (user.es_propietario) {
+                        <span class="badge-owner">
+                          <app-icon name="shield" [size]="12" />
+                          <span>Titular</span>
+                        </span>
+                      } @else {
+                        <span class="text-muted">Miembro</span>
+                      }
+                    </td>
+                    <td>{{ user.created_at | date: 'mediumDate' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- SECCIÓN 2: SUCURSALES -->
+  @if (activeTab() === 'sucursales') {
+    <section class="card resources-section" aria-labelledby="branches-title">
+      <div class="card__header card__header--actions">
+        <div>
+          <p>RED EMPRESARIAL</p>
+          <h3 id="branches-title">Sucursales con propiedad exclusiva</h3>
+        </div>
+        <div class="action-buttons-group">
+          <button
+            type="button"
+            class="button-secondary"
+            (click)="openAssociateBranchModal()"
+            [disabled]="!selectedCompanyId() || companiesLoading()"
+          >
+            <app-icon name="store" [size]="16" />
+            <span>Asociar existente</span>
+          </button>
+          <button
+            type="button"
+            class="button-primary"
+            (click)="openCreateBranchModal()"
+            [disabled]="!selectedCompanyId() || companiesLoading()"
+          >
+            <app-icon name="plus" [size]="16" />
+            <span>Crear sucursal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros de Sucursales -->
+      <div class="filters-bar">
+        <div class="search-field">
+          <app-icon name="search" [size]="16" />
+          <input
+            type="search"
+            placeholder="Buscar por nombre de sucursal…"
+            [value]="branchSearch()"
+            (input)="applyBranchSearch($any($event.target).value)"
+            aria-label="Buscar sucursales asociadas"
+          />
+        </div>
+        <div class="filter-field">
+          <label for="branch-state-filter">Estado:</label>
+          <select
+            id="branch-state-filter"
+            class="form-select-sm"
+            (change)="applyBranchStateFilter($any($event.target).value)"
+          >
+            <option value="">Todas</option>
+            <option value="true">Activas</option>
+            <option value="false">Inactivas</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabla de Sucursales -->
+      <div class="card__body table-body">
+        @if (branchesLoading()) {
+          <div class="loading-state">
+            <span class="spinner"></span>
+            <p>Cargando sucursales de la empresa…</p>
+          </div>
+        } @else if (branches().length === 0) {
+          <div class="empty-state">
+            <app-icon name="store" [size]="40" />
+            <h4>No se encontraron sucursales registradas</h4>
+            <p>Esta empresa no cuenta aún con sucursales asociadas bajo los filtros indicados.</p>
+            <button
+              type="button"
+              class="button-primary button-primary--sm"
+              (click)="openCreateBranchModal()"
+              [disabled]="!selectedCompanyId()"
+            >
+              <app-icon name="plus" [size]="16" />
+              <span>Crear primera sucursal</span>
+            </button>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Sucursal</th>
+                  <th>Ciudad</th>
+                  <th>Dirección</th>
+                  <th>Teléfono</th>
+                  <th>Horario</th>
+                  <th>Estado</th>
+                  <th>Registrada el</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (branch of branches(); track branch.id_sucursal) {
+                  <tr>
+                    <td>
+                      <strong>{{ branch.nombre }}</strong>
+                      <small class="block-sub">ID: #{{ branch.id_sucursal }}</small>
+                    </td>
+                    <td>
+                      <span class="city-tag">
+                        <app-icon name="map-pin" [size]="14" />
+                        <span>{{ branch.ciudad_nombre || ('Ciudad #' + branch.id_ciudad) }}</span>
+                      </span>
+                    </td>
+                    <td>{{ branch.direccion }}</td>
+                    <td>{{ branch.telefono || '—' }}</td>
+                    <td>
+                      @if (branch.hora_apertura && branch.hora_cierre) {
+                        <span>{{ branch.hora_apertura }} - {{ branch.hora_cierre }}</span>
+                      } @else {
+                        <span class="text-muted">No establecido</span>
+                      }
+                    </td>
+                    <td>
+                      <span
+                        class="status-chip"
+                        [class.status-chip--activo]="branch.estado"
+                        [class.status-chip--inactivo]="!branch.estado"
+                      >
+                        {{ branch.estado ? 'ACTIVA' : 'INACTIVA' }}
+                      </span>
+                    </td>
+                    <td>{{ branch.created_at | date: 'mediumDate' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- MODAL 1: ASOCIAR USUARIO EXISTENTE -->
+  @if (associateUserModalOpen()) {
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="associate-user-modal-title">
+      <div class="modal modal--lg">
+        <header class="modal__header">
+          <div class="modal-title-group">
+            <p>MEMBRESÍA EMPRESARIAL</p>
+            <h3 id="associate-user-modal-title">Asociar usuario a la empresa</h3>
+          </div>
+          <button type="button" class="modal__close" aria-label="Cerrar modal" (click)="closeAssociateUserModal()">
+            <app-icon name="close" [size]="18" />
+          </button>
+        </header>
+
+        <div class="modal__body">
+          @if (associateUserError(); as modalErr) {
+            <div class="alert alert--danger" role="alert">
+              <app-icon name="ban" [size]="18" />
+              <span>{{ modalErr }}</span>
+            </div>
+          }
+
+          <!-- Buscador y selección de candidato -->
+          <div class="candidate-picker">
+            <label class="field-label" for="candidate-search-input">
+              <span>Buscar usuario existente por nombre o correo:</span>
+            </label>
+            <div class="search-box-row">
+              <input
+                id="candidate-search-input"
+                type="search"
+                class="form-input"
+                placeholder="Ej. maria@gmail.com o Carlos…"
+                [value]="candidateSearch()"
+                (input)="candidateSearch.set($any($event.target).value)"
+                (keydown.enter)="loadCandidates()"
+              />
+              <button
+                type="button"
+                class="button-secondary"
+                (click)="loadCandidates()"
+                [disabled]="candidatesLoading()"
+              >
+                @if (candidatesLoading()) {
+                  <span class="spinner-small"></span>
+                } @else {
+                  <app-icon name="search" [size]="16" />
+                }
+                <span>Buscar</span>
+              </button>
+            </div>
+
+            <!-- Lista de candidatos -->
+            <div class="candidates-container">
+              @if (candidatesLoading()) {
+                <div class="loading-state">
+                  <span class="spinner-small"></span>
+                  <small>Buscando usuarios…</small>
+                </div>
+              } @else if (candidateUsers().length === 0) {
+                <p class="help-text">No se encontraron usuarios o ingresa un criterio de búsqueda.</p>
+              } @else {
+                <ul class="candidates-list">
+                  @for (candidate of candidateUsers(); track candidate.id_usuario) {
+                    <li
+                      class="candidate-item"
+                      [class.candidate-item--selected]="selectedCandidate()?.id_usuario === candidate.id_usuario"
+                      (click)="selectCandidate(candidate)"
+                      tabindex="0"
+                      role="button"
+                    >
+                      <div class="candidate-item__info">
+                        <strong>{{ candidate.nombre }} {{ candidate.apellido }}</strong>
+                        <span>{{ candidate.correo }}</span>
+                      </div>
+                      <div class="candidate-item__meta">
+                        <span class="role-pill">{{ candidate.rol_global }}</span>
+                        @if (selectedCandidate()?.id_usuario === candidate.id_usuario) {
+                          <span class="selected-check">
+                            <app-icon name="circle-check" [size]="18" />
+                          </span>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+
+          <!-- Formulario de Asociación -->
+          <form [formGroup]="associateUserForm" class="associate-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label" for="assoc-role-select">
+                  <span>Rol empresarial a asignar:</span>
+                  <div class="select-wrapper">
+                    <select id="assoc-role-select" class="form-select" formControlName="rol">
+                      <option value="CAJERO">CAJERO</option>
+                      <option value="ENCARGADO_SUCURSAL">ENCARGADO_SUCURSAL</option>
+                      <option value="CLIENTE">CLIENTE</option>
+                      <option value="PROVEEDOR">PROVEEDOR</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label class="field-label" for="assoc-state-select">
+                  <span>Estado de la membresía:</span>
+                  <div class="select-wrapper">
+                    <select id="assoc-state-select" class="form-select" formControlName="estado">
+                      <option value="ACTIVO">ACTIVO</option>
+                      <option value="INVITADO">INVITADO</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+
+          </form>
+        </div>
+
+        <footer class="modal__footer">
+          <button type="button" class="button-secondary" (click)="closeAssociateUserModal()" [disabled]="isSubmitting()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="button-primary"
+            (click)="submitAssociateUser()"
+            [disabled]="isSubmitting() || !associateUserForm.get('id_usuario')?.value"
+          >
+            @if (isSubmitting()) {
+              <span class="spinner-small"></span>
+              <span>Guardando…</span>
+            } @else {
+              <app-icon name="circle-check" [size]="16" />
+              <span>Confirmar asociación</span>
+            }
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL 2: CREAR NUEVA SUCURSAL -->
+  @if (createBranchModalOpen()) {
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="create-branch-modal-title">
+      <div class="modal">
+        <header class="modal__header">
+          <div class="modal-title-group">
+            <p>PROPIEDAD EXCLUSIVA</p>
+            <h3 id="create-branch-modal-title">Crear nueva sucursal</h3>
+          </div>
+          <button type="button" class="modal__close" aria-label="Cerrar modal" (click)="closeCreateBranchModal()">
+            <app-icon name="close" [size]="18" />
+          </button>
+        </header>
+
+        <form [formGroup]="createBranchForm" (ngSubmit)="submitCreateBranch()">
+          <div class="modal__body">
+            @if (createBranchError(); as modalErr) {
+              <div class="alert alert--danger" role="alert">
+                <app-icon name="ban" [size]="18" />
+                <span>{{ modalErr }}</span>
+              </div>
+            }
+
+            <div class="form-group">
+              <label class="field-label" for="branch-city-select">
+                <span>Ciudad:</span>
+                <div class="select-wrapper">
+                  <select id="branch-city-select" class="form-select" formControlName="id_ciudad">
+                    <option [value]="0">-- Selecciona una ciudad --</option>
+                    @for (city of cities(); track city.id_ciudad) {
+                      <option [value]="city.id_ciudad">{{ city.nombre }}</option>
+                    }
+                  </select>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="branch-name-input">
+                <span>Nombre de la sucursal:</span>
+                <input
+                  id="branch-name-input"
+                  type="text"
+                  class="form-input"
+                  formControlName="nombre"
+                  placeholder="Ej. Sucursal Central, Sucursal Norte…"
+                />
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="branch-address-input">
+                <span>Dirección física:</span>
+                <input
+                  id="branch-address-input"
+                  type="text"
+                  class="form-input"
+                  formControlName="direccion"
+                  placeholder="Ej. Av. San Martín #450…"
+                />
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="branch-phone-input">
+                <span>Teléfono de contacto (opcional):</span>
+                <input
+                  id="branch-phone-input"
+                  type="text"
+                  class="form-input"
+                  formControlName="telefono"
+                  placeholder="Ej. 78901234…"
+                />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label" for="branch-open-time">
+                  <span>Hora de apertura:</span>
+                  <input
+                    id="branch-open-time"
+                    type="time"
+                    class="form-input"
+                    formControlName="hora_apertura"
+                  />
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="branch-close-time">
+                  <span>Hora de cierre:</span>
+                  <input
+                    id="branch-close-time"
+                    type="time"
+                    class="form-input"
+                    formControlName="hora_cierre"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <footer class="modal__footer">
+            <button type="button" class="button-secondary" (click)="closeCreateBranchModal()" [disabled]="isSubmitting()">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="button-primary"
+              [disabled]="isSubmitting() || createBranchForm.invalid || +createBranchForm.get('id_ciudad')!.value <= 0"
+            >
+              @if (isSubmitting()) {
+                <span class="spinner-small"></span>
+                <span>Creando…</span>
+              } @else {
+                <app-icon name="plus" [size]="16" />
+                <span>Crear sucursal</span>
+              }
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL 3: ASOCIAR SUCURSAL EXISTENTE -->
+  @if (associateBranchModalOpen()) {
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="assoc-branch-modal-title">
+      <div class="modal">
+        <header class="modal__header">
+          <div class="modal-title-group">
+            <p>ASOCIACIÓN O REACTIVACIÓN</p>
+            <h3 id="assoc-branch-modal-title">Asociar sucursal existente</h3>
+          </div>
+          <button type="button" class="modal__close" aria-label="Cerrar modal" (click)="closeAssociateBranchModal()">
+            <app-icon name="close" [size]="18" />
+          </button>
+        </header>
+
+        <form [formGroup]="associateBranchForm" (ngSubmit)="submitAssociateBranch()">
+          <div class="modal__body">
+            @if (associateBranchError(); as modalErr) {
+              <div class="alert alert--danger" role="alert">
+                <app-icon name="ban" [size]="18" />
+                <span>{{ modalErr }}</span>
+              </div>
+            }
+
+            <div class="info-callout">
+              <app-icon name="shield" [size]="20" />
+              <p>
+                <strong>Regla de aislamiento multitenant:</strong> Cada sucursal pertenece exclusivamente a su empresa.
+                No se permite transferir sucursales entre empresas distintas para proteger los inventarios y ventas.
+                Este formulario permite asociar sucursales libres o reactivar sucursales de esta empresa.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="branch-id-input">
+                <span>Identificador de la sucursal (ID):</span>
+                <input
+                  id="branch-id-input"
+                  type="number"
+                  min="1"
+                  class="form-input"
+                  formControlName="id_sucursal"
+                  placeholder="Ej. 12"
+                />
+              </label>
+            </div>
+          </div>
+
+          <footer class="modal__footer">
+            <button type="button" class="button-secondary" (click)="closeAssociateBranchModal()" [disabled]="isSubmitting()">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="button-primary"
+              [disabled]="isSubmitting() || associateBranchForm.invalid || associateBranchForm.get('id_sucursal')?.value === 0"
+            >
+              @if (isSubmitting()) {
+                <span class="spinner-small"></span>
+                <span>Asociando…</span>
+              } @else {
+                <app-icon name="store" [size]="16" />
+                <span>Asociar sucursal</span>
+              }
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  }
+</main>
+

@@ -11,9 +11,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class ReservationDetail(Base):
+class ReservationDetail(TenantMixin, Base):
     __tablename__ = "t_detalle_reserva"
     __table_args__ = (
         UniqueConstraint(

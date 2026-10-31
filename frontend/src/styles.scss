@@ -1,6 +1,7 @@
 @use './app/layout/auth-layout/auth-layout';
 @use './app/pages/catalog/catalog-global';
 @use './app/pages/staff/staff';
+@use './app/pages/superadmin/manage-companies/manage-companies-dialogs';
 
 :root {
   --color-espresso: #2b2625;

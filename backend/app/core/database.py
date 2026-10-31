@@ -21,10 +21,18 @@ class Base(DeclarativeBase):
     pass
 
 
+# Registra filtros/asignación empresarial para todas las sesiones, incluidas
+# las creadas directamente por pruebas y scripts.
+from app.core import tenant_context as _tenant_context  # noqa: E402,F401
+
+
 def get_db():
     db = SessionLocal()
 
     try:
+        from app.core.tenant_context import bind_initial_company
+
+        bind_initial_company(db)
         yield db
     finally:
         db.close()

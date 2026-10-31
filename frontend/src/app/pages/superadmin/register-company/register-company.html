@@ -1,0 +1,166 @@
+<main class="company-page" aria-labelledby="company-title">
+  <header class="company-hero">
+    <div class="company-hero__icon" aria-hidden="true">
+      <app-icon name="store" [size]="25" />
+    </div>
+    <div>
+      <p>PK07 · GESTIÓN SAAS</p>
+      <h2 id="company-title">Registrar empresa contratante</h2>
+      <span>Crea el espacio empresarial que utilizará FashionStore.</span>
+    </div>
+    <span class="company-hero__badge">
+      <app-icon name="shield" [size]="15" />
+      Acceso SUPERADMIN
+    </span>
+  </header>
+
+  <div class="company-grid">
+    <section class="company-card" aria-labelledby="company-form-title">
+      <div class="company-card__heading">
+        <div>
+          <span>PASO 1 DE 1</span>
+          <h3 id="company-form-title">Datos de la empresa</h3>
+        </div>
+        <span class="required-copy">* Campos obligatorios</span>
+      </div>
+
+      @if (errorMessage()) {
+        <div class="form-notice form-notice--error" role="alert">
+          <app-icon name="ban" [size]="18" />
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      @if (createdCompany(); as company) {
+        <section class="success-panel" aria-live="polite">
+          <span class="success-panel__icon"><app-icon name="circle-check" [size]="30" /></span>
+          <p>REGISTRO COMPLETADO</p>
+          <h3>{{ company.nombre }}</h3>
+          <span>La empresa fue creada y ya está disponible en el plano SaaS.</span>
+
+          <dl class="company-result">
+            <div><dt>Código</dt><dd>{{ company.codigo }}</dd></div>
+            <div><dt>NIT</dt><dd>{{ company.nit || 'No registrado' }}</dd></div>
+            <div><dt>Zona horaria</dt><dd>{{ company.zona_horaria }}</dd></div>
+            <div><dt>Estado</dt><dd><span class="status-pill">{{ company.estado }}</span></dd></div>
+            <div><dt>ID empresa</dt><dd>#{{ company.id_empresa }}</dd></div>
+            <div><dt>Creada</dt><dd>{{ company.created_at | date: 'dd/MM/yyyy, HH:mm' }}</dd></div>
+          </dl>
+
+          <button class="secondary-action" type="button" (click)="registerAnother()">
+            <app-icon name="plus" [size]="17" />
+            Registrar otra empresa
+          </button>
+        </section>
+      } @else {
+        <form [formGroup]="companyForm" (ngSubmit)="submit()" novalidate>
+          <div class="form-grid">
+            <label class="field">
+              <span>Código único *</span>
+              <div class="field__control" [class.is-invalid]="isInvalid('codigo')">
+                <app-icon name="key" [size]="18" />
+                <input
+                  type="text"
+                  formControlName="codigo"
+                  maxlength="63"
+                  autocomplete="off"
+                  placeholder="ej. moda-andina"
+                  (blur)="normalizeCode()"
+                />
+              </div>
+              <small>Minúsculas, números y guiones simples.</small>
+              @if (isInvalid('codigo')) {
+                <em>Usa un código como “moda-andina”, de máximo 63 caracteres.</em>
+              }
+            </label>
+
+            <label class="field">
+              <span>Nombre comercial *</span>
+              <div class="field__control" [class.is-invalid]="isInvalid('nombre')">
+                <app-icon name="store" [size]="18" />
+                <input
+                  type="text"
+                  formControlName="nombre"
+                  maxlength="150"
+                  autocomplete="organization"
+                  placeholder="Razón social o nombre comercial"
+                />
+              </div>
+              <small>Será el nombre visible dentro de la plataforma.</small>
+              @if (isInvalid('nombre')) {
+                <em>Ingresa un nombre válido de máximo 150 caracteres.</em>
+              }
+            </label>
+
+            <label class="field">
+              <span>NIT <b>Opcional</b></span>
+              <div class="field__control" [class.is-invalid]="isInvalid('nit')">
+                <app-icon name="shield" [size]="18" />
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  formControlName="nit"
+                  maxlength="30"
+                  autocomplete="off"
+                  placeholder="Solo números"
+                />
+              </div>
+              <small>Entre 5 y 30 dígitos; debe ser único si se registra.</small>
+              @if (isInvalid('nit')) {
+                <em>El NIT debe contener únicamente entre 5 y 30 dígitos.</em>
+              }
+            </label>
+
+            <label class="field">
+              <span>Zona horaria *</span>
+              <div class="field__control field__control--select" [class.is-invalid]="isInvalid('zona_horaria')">
+                <app-icon name="map-pin" [size]="18" />
+                <select formControlName="zona_horaria">
+                  @for (timezone of timezones; track timezone.value) {
+                    <option [value]="timezone.value">{{ timezone.label }}</option>
+                  }
+                </select>
+              </div>
+              <small>Define cómo se mostrarán fechas y horarios empresariales.</small>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <p>
+              <app-icon name="lock" [size]="15" />
+              Esta operación no asigna usuarios ni activa suscripciones.
+            </p>
+            <button type="submit" [disabled]="submitting()">
+              @if (submitting()) {
+                <span class="button-spinner" aria-hidden="true"></span>
+                Registrando…
+              } @else {
+                <app-icon name="plus" [size]="18" />
+                Registrar empresa
+              }
+            </button>
+          </div>
+        </form>
+      }
+    </section>
+
+    <aside class="context-card" aria-label="Alcance del registro">
+      <span class="context-card__icon"><app-icon name="shield" [size]="23" /></span>
+      <p>ALCANCE DE CU01</p>
+      <h3>Un alta controlada y segura</h3>
+      <span>
+        El registro crea únicamente la identidad de la empresa. Los siguientes pasos se gestionan
+        en casos de uso separados.
+      </span>
+      <ul>
+        <li><app-icon name="circle-check" [size]="17" /><span>Estado inicial ACTIVA</span></li>
+        <li><app-icon name="lock" [size]="17" /><span>Sin administrador automático</span></li>
+        <li><app-icon name="lock" [size]="17" /><span>Sin suscripción automática</span></li>
+      </ul>
+      <div class="context-card__note">
+        <strong>Consejo</strong>
+        <span>Verifica el código y el NIT: ambos identifican a la empresa de forma única.</span>
+      </div>
+    </aside>
+  </div>
+</main>

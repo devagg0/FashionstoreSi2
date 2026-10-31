@@ -8,6 +8,8 @@ from app.models.employee import Employee
 from app.models.role import Role
 from app.models.supplier import Supplier
 from app.models.user import User
+from app.models.user_company import UserCompany
+from app.core.tenant_context import current_company_id
 
 
 class AdminUserRepository:
@@ -61,15 +63,19 @@ class AdminUserRepository:
     ) -> tuple[list[tuple[User, str]], int]:
         """Lista usuarios con su rol real y devuelve el total filtrado."""
         filters = {"search": search, "role": role, "state": state}
+        company_id = current_company_id(self.db)
         statement = self._apply_user_filters(
-            select(User, Role.nombre).join(Role, User.id_rol == Role.id_rol),
+            select(User, Role.nombre)
+            .join(UserCompany, UserCompany.id_usuario == User.id_usuario)
+            .join(Role, UserCompany.id_rol == Role.id_rol)
+            .where(UserCompany.id_empresa == company_id),
             **filters,
         )
         count_statement = self._apply_user_filters(
-            select(func.count(User.id_usuario)).join(
-                Role,
-                User.id_rol == Role.id_rol,
-            ),
+            select(func.count(User.id_usuario))
+            .join(UserCompany, UserCompany.id_usuario == User.id_usuario)
+            .join(Role, UserCompany.id_rol == Role.id_rol)
+            .where(UserCompany.id_empresa == company_id),
             **filters,
         )
 
@@ -88,10 +94,16 @@ class AdminUserRepository:
         for_update: bool = False,
     ) -> tuple[User, str] | None:
         """Obtiene un usuario y su rol; opcionalmente bloquea la fila."""
-        statement = select(User, Role.nombre).join(
-            Role,
-            User.id_rol == Role.id_rol,
-        ).where(User.id_usuario == user_id)
+        company_id = current_company_id(self.db)
+        statement = (
+            select(User, Role.nombre)
+            .join(UserCompany, UserCompany.id_usuario == User.id_usuario)
+            .join(Role, UserCompany.id_rol == Role.id_rol)
+            .where(
+                User.id_usuario == user_id,
+                UserCompany.id_empresa == company_id,
+            )
+        )
         if for_update:
             statement = statement.with_for_update(of=User)
 
@@ -145,5 +157,9 @@ class AdminUserRepository:
 
     def update_role(self, user: User, role: Role) -> None:
         """Asigna el id obtenido de t_rol sin confirmar la transacción."""
-        user.id_rol = role.id_rol
+        company_id = current_company_id(self.db)
+        membership = self.db.get(UserCompany, (company_id, user.id_usuario))
+        if membership is None:
+            raise LookupError("El usuario no pertenece a la empresa activa")
+        membership.id_rol = role.id_rol
         self.db.flush()

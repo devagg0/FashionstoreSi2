@@ -171,6 +171,7 @@ class AuthenticatedUserData(BaseModel):
     apellido: str
     correo: EmailStr
     rol: str
+    id_empresa: int | None = None
 
 
 class LoginResponse(BaseModel):

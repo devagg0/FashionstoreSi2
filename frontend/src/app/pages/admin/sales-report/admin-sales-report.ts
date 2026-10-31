@@ -7,6 +7,7 @@ import { AdminBranchesService, AdminBranch } from '../../../core/services/admin-
 import { AdminCategoriesService, AdminCategory } from '../../../core/services/admin-categories.service';
 import { AdminApiErrorService } from '../../../core/services/admin-api-error.service';
 import { GeneratedPdf, ReportPdfService } from '../../../core/services/report-pdf.service';
+import { SaasPlanLimitsService } from '../../../core/services/saas-plan-limits.service';
 import { ReportAIAnalysis, ReportAIService } from '../../../core/services/report-ai.service';
 import { SpeechRecognitionService } from '../../../core/services/speech-recognition.service';
 import { PdfReport } from '../../../core/utils/pdf';
@@ -37,6 +38,8 @@ export class AdminSalesReport {
   private readonly pdfService = inject(ReportPdfService);
   private readonly aiService = inject(ReportAIService);
   private readonly speech = inject(SpeechRecognitionService);
+  private readonly planLimitsService = inject(SaasPlanLimitsService);
+  readonly hasAiReports = this.planLimitsService.hasAiReports;
   private readonly destroyRef = inject(DestroyRef);
   private request?: Subscription;
   private aiRequest?: Subscription;

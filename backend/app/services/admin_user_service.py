@@ -17,6 +17,7 @@ from app.schemas.admin_user import (
 )
 from app.schemas.auth import AuthenticatedUserData
 from app.core.security import hash_password
+from app.core.tenant_context import current_company_id
 from app.services.auth_service import (
     AuthService,
     EmailAlreadyRegisteredError,
@@ -132,6 +133,12 @@ class AdminUserService:
                 email=email,
                 phone=payload.telefono,
                 password_hash=hash_password(payload.password.get_secret_value()),
+            )
+            company_id = current_company_id(self.db)
+            self.auth_repository.create_membership(
+                company_id=company_id,
+                user_id=user.id_usuario,
+                role_id=role.id_rol,
             )
             self.repository.create_employee(user_id=user.id_usuario)
 

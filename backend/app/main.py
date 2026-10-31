@@ -33,6 +33,13 @@ from app.routers.payments import router as payments_router
 from app.routers.auth import router as auth_router
 from app.routers.returns import router as returns_router
 from app.routers.receipts import router as receipts_router
+from app.PK07.CU01_RegistrarEmpresa.router import router as company_registration_router
+from app.PK07.CU02_GestionarEmpresas.router import router as company_management_router
+from app.PK07.CU03_AsignarAdministradorEmpresa.router import router as company_admin_router
+from app.PK07.CU04_AsociarUsuariosYSucursalesEmpresa.router import router as company_resources_router
+from app.PK07.CU05_GestionarPlanesSaaS.router import router as company_plans_router
+from app.PK07.CU06_GestionarSuscripciones.router import router as company_subscriptions_router
+from app.PK07.CU07_ConsultarPlanLimites.router import router as company_plan_limits_router
 
 
 app = FastAPI(
@@ -89,6 +96,13 @@ app.include_router(admin_inventory_router)
 app.include_router(admin_global_inventory_router)
 app.include_router(admin_inventory_movements_router)
 app.include_router(admin_employee_branches_router)
+app.include_router(company_registration_router)
+app.include_router(company_management_router)
+app.include_router(company_admin_router)
+app.include_router(company_resources_router)
+app.include_router(company_plans_router)
+app.include_router(company_subscriptions_router)
+app.include_router(company_plan_limits_router)
 
 
 @app.get("/")

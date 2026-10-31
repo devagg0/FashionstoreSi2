@@ -1,0 +1,572 @@
+<div class="subscription-page">
+  <!-- ENCABEZADO PRINCIPAL -->
+  <header class="page-heading">
+    <div>
+      <p>GESTIÓN SAAS EMPRESARIAL</p>
+      <h2>Mi suscripción</h2>
+      <span
+        >Consulta tu plan activo, vigencia, opciones de renovación y cambio de plan comercial</span
+      >
+    </div>
+    <div class="page-heading__actions">
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="openHistoryModal()"
+        title="Historial de suscripciones"
+      >
+        <app-icon name="dashboard" [size]="18" />
+        <span>Historial</span>
+      </button>
+      <button
+        type="button"
+        class="btn-refresh"
+        (click)="loadSubscriptionData()"
+        [disabled]="loading()"
+        title="Recargar datos"
+      >
+        <app-icon name="refresh" [size]="18" />
+      </button>
+    </div>
+  </header>
+
+  <!-- ALERTAS DE ESTADO -->
+  @if (verifyingPayment()) {
+    <div class="notice notice--info" role="status">
+      <app-icon name="refresh" [size]="20" />
+      <div class="notice__content">
+        <strong>Verificando pago con Stripe TEST...</strong>
+        <span
+          >Estamos conciliando tu transacción de forma segura con el servidor. No cierres esta
+          ventana.</span
+        >
+      </div>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="notice notice--success" role="alert">
+      <app-icon name="circle-check" [size]="20" />
+      <div class="notice__content">
+        <span>{{ successMessage() }}</span>
+      </div>
+      <button
+        type="button"
+        class="notice__close"
+        (click)="successMessage.set(null)"
+        aria-label="Cerrar notificación"
+      >
+        ×
+      </button>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="notice notice--error" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <div class="notice__content">
+        <span>{{ errorMessage() }}</span>
+      </div>
+      <button
+        type="button"
+        class="notice__close"
+        (click)="errorMessage.set(null)"
+        aria-label="Cerrar notificación"
+      >
+        ×
+      </button>
+    </div>
+  }
+
+  <!-- SPINNER DE CARGA -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando información de suscripción...</p>
+    </div>
+  } @else {
+    <!-- PANEL DE SUSCRIPCIÓN ACTIVA -->
+    @if (hasActiveSub() && currentSub(); as sub) {
+      <section class="active-subscription-card">
+        <div class="active-subscription-card__header">
+          <div class="badge-row">
+            <span class="status-badge" [attr.data-status]="sub.estado">{{ sub.estado }}</span>
+            <span class="days-badge" [class.days-badge--urgent]="sub.dias_restantes <= 7">
+              <app-icon name="circle-check" [size]="14" />
+              {{ sub.dias_restantes }} días restantes
+            </span>
+          </div>
+          <div class="plan-hero-title">
+            <span class="hero-label">Mi plan actual</span>
+            <h3>{{ sub.plan_nombre }}</h3>
+          </div>
+          <p class="plan-price-tag">
+            <strong>Bs {{ sub.plan_precio }}</strong>
+            <small
+              >/
+              {{ sub.plan_periodo_meses === 1 ? 'mes' : sub.plan_periodo_meses + ' meses' }}</small
+            >
+          </p>
+        </div>
+
+        <div class="active-subscription-card__body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span>Fecha de inicio</span>
+              <strong>{{ sub.fecha_inicio | date: 'dd/MM/yyyy' }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Vencimiento del período</span>
+              <strong>{{ sub.fecha_fin_periodo | date: 'dd/MM/yyyy' }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Sucursales permitidas</span>
+              <strong>Hasta {{ sub.limite_sucursales ?? 'ilimitadas' }} sucursales</strong>
+            </div>
+            <div class="info-item">
+              <span>IA Generativa</span>
+              <strong>{{ sub.tiene_ia ? 'Habilitada' : 'No incluida' }}</strong>
+            </div>
+          </div>
+
+          <!-- BENEFICIOS INCLUIDOS -->
+          <div class="included-benefits">
+            <span class="benefits-title">Beneficios incluidos en tu plan:</span>
+            <div class="benefits-tags">
+              <span class="benefit-tag"
+                ><app-icon name="check" [size]="14" /> Hasta
+                {{ sub.limite_sucursales ?? '10' }} sucursales</span
+              >
+              <span class="benefit-tag"
+                ><app-icon name="check" [size]="14" /> Catálogo y ventas</span
+              >
+              <span class="benefit-tag"
+                ><app-icon name="check" [size]="14" /> Reservas de prendas</span
+              >
+              <span class="benefit-tag"
+                ><app-icon name="check" [size]="14" /> Operación offline</span
+              >
+              <span class="benefit-tag"
+                ><app-icon name="check" [size]="14" /> Reportes comerciales</span
+              >
+              @if (sub.tiene_ia) {
+                <span class="benefit-tag benefit-tag--ai"
+                  ><app-icon name="sparkles" [size]="14" /> IA Generativa activa</span
+                >
+              }
+            </div>
+          </div>
+
+          <!-- BANNER DE CAMBIO DE PLAN PROGRAMADO -->
+          @if (sub.cambio_programado; as cambio) {
+            <div class="scheduled-change-banner">
+              <app-icon name="sparkles" [size]="20" />
+              <div>
+                <strong>Cambio de plan programado: {{ cambio.nombre_plan }}</strong>
+                <p>
+                  El nuevo plan entrará en vigencia automáticamente al concluir el ciclo actual el
+                  <strong>{{ cambio.fecha_programada | date: 'dd/MM/yyyy' }}</strong
+                  >. El pago ya fue liquidado.
+                </p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="active-subscription-card__footer">
+          <div class="plan-action-wrapper" title="Disponible al finalizar tu suscripción actual">
+            <button type="button" class="btn-primary" disabled aria-disabled="true">
+              <app-icon name="refresh" [size]="18" />
+              <span>Renovar suscripción</span>
+            </button>
+            <small class="disabled-hint">Disponible al finalizar tu suscripción actual</small>
+          </div>
+          <div class="plan-action-wrapper" title="Disponible al finalizar tu suscripción actual">
+            <button type="button" class="btn-secondary" disabled aria-disabled="true">
+              <app-icon name="ban" [size]="18" />
+              <span>Cambiar de plan</span>
+            </button>
+            <small class="disabled-hint">Disponible al finalizar tu suscripción actual</small>
+          </div>
+        </div>
+      </section>
+    } @else {
+      <!-- ESTADO SIN SUSCRIPCIÓN ACTIVA -->
+      <section class="no-subscription-banner">
+        <div class="no-subscription-banner__icon">
+          <app-icon name="layers" [size]="32" />
+        </div>
+        <div class="no-subscription-banner__text">
+          <h3>Tu empresa aún no cuenta con una suscripción activa</h3>
+          <p>
+            Elige uno de nuestros planes comerciales oficiales para habilitar tus sucursales y la
+            gestión comercial de FashionStore.
+          </p>
+        </div>
+      </section>
+    }
+
+    <!-- SECCIÓN DE PLANES COMERCIALES -->
+    <section class="plans-section">
+      <div class="section-title">
+        <h3>Planes comerciales disponibles</h3>
+        <p>Precios oficiales y condiciones contratables en moneda nacional (BOB)</p>
+      </div>
+
+      <div class="plans-grid">
+        @for (plan of commercialPlans(); track plan.id_plan_saas) {
+          <article
+            class="plan-card"
+            [class.plan-card--recommended]="plan.codigo === 'PROFESIONAL'"
+            [class.plan-card--current]="isCurrentPlan(plan.id_plan_saas)"
+          >
+            @if (plan.codigo === 'PROFESIONAL') {
+              <div class="recommended-badge">
+                <app-icon name="sparkles" [size]="14" />
+                <span>RECOMENDADO</span>
+              </div>
+            }
+
+            <div class="plan-card__header">
+              <span class="plan-type">{{ plan.codigo }}</span>
+              <h4>{{ plan.nombre }}</h4>
+              <p class="plan-description">{{ plan.descripcion }}</p>
+              <div class="plan-price">
+                <span class="currency">Bs</span>
+                <span class="amount">{{ plan.precio }}</span>
+                <span class="period">/ {{ plan.periodo_meses }} meses</span>
+              </div>
+            </div>
+
+            <div class="plan-card__features">
+              <p class="features-label">Características incluidas:</p>
+              <ul>
+                <li class="feature-item feature-item--highlight">
+                  <app-icon name="check" [size]="16" />
+                  <span>
+                    Hasta <strong>{{ plan.limite_sucursales }} sucursales</strong> operativas
+                  </span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="16" />
+                  <span>Catálogo y gestión de productos</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="16" />
+                  <span>Punto de venta y facturación</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="16" />
+                  <span>Gestión de reservas de prendas</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="16" />
+                  <span>Soporte offline y sincronización</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="16" />
+                  <span>Reportes financieros convencionales</span>
+                </li>
+                @if (plan.tiene_ia) {
+                  <li class="feature-item feature-item--ai">
+                    <app-icon name="sparkles" [size]="16" />
+                    <span><strong>Reportes generativos con IA</strong></span>
+                  </li>
+                } @else {
+                  <li class="feature-item feature-item--disabled">
+                    <app-icon name="close" [size]="16" />
+                    <span>Sin reportes generativos con IA</span>
+                  </li>
+                }
+              </ul>
+            </div>
+
+            <div class="plan-card__action">
+              @if (hasActiveSub()) {
+                @if (isCurrentPlan(plan.id_plan_saas)) {
+                  <div class="current-plan-pill">
+                    <app-icon name="circle-check" [size]="16" />
+                    <span>Tu plan actual</span>
+                  </div>
+                  <div class="plan-action-wrapper">
+                    <button
+                      type="button"
+                      class="btn-outline btn-block"
+                      disabled
+                      aria-disabled="true"
+                      title="Disponible al finalizar tu suscripción actual"
+                    >
+                      Renovar este plan
+                    </button>
+                    <small class="disabled-hint"
+                      >Disponible al finalizar tu suscripción actual</small
+                    >
+                  </div>
+                } @else {
+                  <div class="plan-action-wrapper">
+                    <button
+                      type="button"
+                      class="btn-secondary-action btn-block"
+                      disabled
+                      aria-disabled="true"
+                      title="Disponible al finalizar tu suscripción actual"
+                    >
+                      <app-icon name="ban" [size]="16" />
+                      <span>Cambiar de plan</span>
+                    </button>
+                    <small class="disabled-hint"
+                      >Disponible al finalizar tu suscripción actual</small
+                    >
+                  </div>
+                }
+              } @else {
+                <button
+                  type="button"
+                  class="btn-primary btn-block"
+                  (click)="openCheckoutModal(plan, 'CONTRATACION')"
+                >
+                  Contratar {{ plan.nombre }}
+                </button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- MODAL DE CHECKOUT STRIPE -->
+  @if (checkoutModalOpen() && selectedPlan(); as plan) {
+    <div class="modal-backdrop" (click)="closeCheckoutModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <span class="modal-subtitle">{{ getOperationTitle(selectedOperation()) }}</span>
+            <h3>{{ plan.nombre }}</h3>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            (click)="closeCheckoutModal()"
+            aria-label="Cerrar modal"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <div class="checkout-summary-box">
+            <div class="summary-line">
+              <span>Operación:</span>
+              <strong>{{ selectedOperation() }}</strong>
+            </div>
+            <div class="summary-line">
+              <span>Duración del período:</span>
+              <strong>{{ plan.periodo_meses }} meses</strong>
+            </div>
+            <div class="summary-line summary-line--total">
+              <span>Importe total:</span>
+              <strong>Bs {{ plan.precio }} {{ plan.moneda }}</strong>
+            </div>
+          </div>
+
+          @if (selectedOperation() === 'CAMBIO_PLAN') {
+            <div class="notice notice--info modal-notice">
+              <app-icon name="circle-check" [size]="16" />
+              <span>
+                El cambio se programará para entrar en vigencia al finalizar el período actual, sin
+                cobrar duplicado ni interrumpir tu servicio actual.
+              </span>
+            </div>
+          }
+
+          <!-- SELECTOR DE MÉTODO DE PAGO -->
+          <div class="payment-methods-selector">
+            <label
+              class="method-option"
+              [class.is-selected]="selectedPaymentMethod() === 'TARJETA'"
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="TARJETA"
+                [checked]="selectedPaymentMethod() === 'TARJETA'"
+                (change)="selectPaymentMethod('TARJETA')"
+              />
+              <div class="method-option__content">
+                <strong>Tarjeta de Crédito / Débito</strong>
+                <small>Stripe Checkout TEST seguro</small>
+              </div>
+            </label>
+
+            <label class="method-option" [class.is-selected]="selectedPaymentMethod() === 'QR'">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="QR"
+                [checked]="selectedPaymentMethod() === 'QR'"
+                (change)="selectPaymentMethod('QR')"
+              />
+              <div class="method-option__content">
+                <strong>Pago con Código QR</strong>
+                <small>Abre el mismo Stripe Checkout TEST</small>
+              </div>
+            </label>
+          </div>
+
+          <!-- ESTADO DE LA SESIÓN DE CHECKOUT -->
+          @if (activeCheckoutSession(); as session) {
+            <div class="session-active-box">
+              @if (session.metodo_pago === 'QR') {
+                <div class="qr-container">
+                  <div class="qr-code-placeholder">
+                    <app-icon name="layers" [size]="48" />
+                    <p>Escanea este código o abre el enlace:</p>
+                    <a
+                      [href]="session.url_checkout"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="btn-link"
+                    >
+                      Abrir enlace de pago Stripe
+                    </a>
+                  </div>
+                </div>
+              } @else {
+                <div class="card-redirect-container">
+                  <app-icon name="circle-check" [size]="32" />
+                  <p>Sesión de Checkout iniciada. Si no se abrió la ventana, haz clic aquí:</p>
+                  <a [href]="session.url_checkout" target="_self" class="btn-primary">
+                    Completar pago en Stripe
+                  </a>
+                </div>
+              }
+
+              <div class="verification-step">
+                <p>Una vez completado el pago en Stripe, haz clic para verificar:</p>
+                <button
+                  type="button"
+                  class="btn-primary btn-block"
+                  (click)="verifyCurrentActiveSession()"
+                  [disabled]="processingCheckout()"
+                >
+                  @if (processingCheckout()) {
+                    <span>Verificando pago...</span>
+                  } @else {
+                    <span>Verificar y activar suscripción</span>
+                  }
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (checkoutError()) {
+            <div class="notice notice--error modal-notice" role="alert">
+              <span>{{ checkoutError() }}</span>
+            </div>
+          }
+        </div>
+
+        <footer class="modal-footer">
+          @if (!activeCheckoutSession()) {
+            <button
+              type="button"
+              class="btn-primary btn-block"
+              (click)="initiateStripeCheckout()"
+              [disabled]="processingCheckout()"
+            >
+              @if (processingCheckout()) {
+                <span>Iniciando Checkout...</span>
+              } @else {
+                <span>Continuar a Stripe Checkout</span>
+              }
+            </button>
+          } @else {
+            <button type="button" class="btn-outline" (click)="closeCheckoutModal()">
+              Cerrar ventana
+            </button>
+          }
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL DE HISTORIAL -->
+  @if (historyModalOpen()) {
+    <div class="modal-backdrop" (click)="closeHistoryModal()">
+      <div
+        class="modal-card modal-card--wide"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+      >
+        <header class="modal-header">
+          <div>
+            <span class="modal-subtitle">REGISTRO HISTÓRICO</span>
+            <h3>Historial de suscripciones</h3>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            (click)="closeHistoryModal()"
+            aria-label="Cerrar modal"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="modal-body">
+          @if (loadingHistory()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Cargando historial...</p>
+            </div>
+          } @else if (historyItems().length === 0) {
+            <p class="empty-state">
+              No existen suscripciones registradas previamente para esta empresa.
+            </p>
+          } @else {
+            <div class="table-responsive">
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Estado</th>
+                    <th>Inicio</th>
+                    <th>Fin de período</th>
+                    <th>Proveedor</th>
+                    <th>Referencia externa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of historyItems(); track item.id_suscripcion) {
+                    <tr>
+                      <td>
+                        <strong>{{ item.plan_nombre }}</strong>
+                      </td>
+                      <td>
+                        <span class="status-badge" [attr.data-status]="item.estado">{{
+                          item.estado
+                        }}</span>
+                      </td>
+                      <td>{{ item.fecha_inicio | date: 'dd/MM/yyyy' }}</td>
+                      <td>{{ item.fecha_fin_periodo | date: 'dd/MM/yyyy' }}</td>
+                      <td>{{ item.proveedor || 'N/A' }}</td>
+                      <td>
+                        <code class="ref-code">{{ item.referencia_externa || '-' }}</code>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn-outline" (click)="closeHistoryModal()">Cerrar</button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>

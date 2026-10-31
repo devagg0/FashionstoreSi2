@@ -26,6 +26,11 @@ from app.services.admin_branch_service import (
     BranchCityInactiveError,
     BranchNotFoundError,
 )
+from app.PK07.CU07_ConsultarPlanLimites.service import (
+    BranchLimitExceededError,
+    FeatureNotEnabledError,
+    NoActiveSubscriptionError,
+)
 
 
 router = APIRouter(
@@ -149,6 +154,8 @@ def create_branch(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "La ciudad seleccionada está inactiva",
         )
+    except (BranchLimitExceededError, NoActiveSubscriptionError, FeatureNotEnabledError) as error:
+        return _error_response(status.HTTP_403_FORBIDDEN, str(error))
     except AdminBranchPersistenceError:
         return _error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -237,6 +244,8 @@ def update_branch_status(
         )
     except BranchNotFoundError:
         return _error_response(status.HTTP_404_NOT_FOUND, "Sucursal no encontrada")
+    except (BranchLimitExceededError, NoActiveSubscriptionError, FeatureNotEnabledError) as error:
+        return _error_response(status.HTTP_403_FORBIDDEN, str(error))
     except AdminBranchPersistenceError:
         return _error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,

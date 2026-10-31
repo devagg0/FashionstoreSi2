@@ -42,9 +42,9 @@
         <div class="filter-actions">
           <button class="modal-button modal-button--primary" type="button" (click)="generatePdf()">Generar PDF</button>
           <button class="modal-button modal-button--secondary" type="button" [disabled]="!pdf()" (click)="downloadPdf()">Descargar PDF</button>
-          <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading()" (click)="analyzeWithAI()">{{ aiLoading() ? 'Analizando…' : 'Analizar con IA' }}</button>
+          <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading() || !hasAiReports()" [attr.title]="!hasAiReports() ? 'Análisis con IA disponible en Plan Profesional' : null" (click)="analyzeWithAI()">{{ aiLoading() ? 'Analizando…' : 'Analizar con IA' }}</button>
           @if (voiceSupported()) {
-            <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading() || voiceListening()" (click)="analyzeWithVoice()" aria-label="Analizar con IA por voz" title="Analizar con IA por voz">
+            <button class="modal-button modal-button--secondary" type="button" [disabled]="aiLoading() || voiceListening() || !hasAiReports()" [attr.title]="!hasAiReports() ? 'Consulta por voz disponible en Plan Profesional' : null" (click)="analyzeWithVoice()" aria-label="Analizar con IA por voz" title="Analizar con IA por voz">
               {{ voiceListening() ? '🎙️ Escuchando…' : '🎙️ Preguntar por voz' }}
             </button>
           }

@@ -7,9 +7,10 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Nu
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Payment(Base):
+class Payment(TenantMixin, Base):
     __tablename__ = "t_pago"
     __table_args__ = (
         UniqueConstraint("clave_idempotencia", name="uq_pago_idempotencia"),

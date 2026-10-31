@@ -1,7 +1,8 @@
-import { Component, computed, HostListener, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, computed, DestroyRef, HostListener, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { SaasPlanLimitsService } from '../../core/services/saas-plan-limits.service';
 import { SessionService } from '../../core/services/session.service';
 import { Icon } from '../../shared/components/icon/icon';
 
@@ -11,9 +12,12 @@ import { Icon } from '../../shared/components/icon/icon';
   templateUrl: './admin-layout.html',
   styleUrl: './admin-layout.scss',
 })
-export class AdminLayout {
+export class AdminLayout implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly planLimitsService = inject(SaasPlanLimitsService);
+
   private readonly activeUrl = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -24,6 +28,11 @@ export class AdminLayout {
 
   protected readonly sidebarOpen = signal(false);
   protected readonly user = this.sessionService.currentUser;
+
+  // Estado del plan y suscripción SaaS
+  protected readonly hasActiveSubscription = this.planLimitsService.hasActiveSubscription;
+  protected readonly hasNoActiveSubscription = computed(() => !this.hasActiveSubscription());
+
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
     if (url.startsWith('/admin/reporte-ventas')) return 'Reporte de ventas';
@@ -44,17 +53,30 @@ export class AdminLayout {
     if (url.startsWith('/admin/sucursales')) return 'Sucursales';
     if (url.startsWith('/admin/asignaciones-sucursal')) return 'Asignación de empleados';
     if (url.startsWith('/admin/temporadas-colecciones')) return 'Temporadas y colecciones';
+    if (url.startsWith('/admin/suscripcion')) return 'Mi suscripción';
     if (url.startsWith('/admin/perfil')) return 'Mi perfil';
     return 'Resumen';
   });
+
   protected readonly usersSectionActive = computed(() =>
     /^\/admin\/(usuarios|roles)(?:[/?#]|$)/.test(this.activeUrl()),
   );
+
   protected readonly initials = computed(() => {
     const currentUser = this.user();
     if (!currentUser) return 'AD';
     return `${currentUser.nombre.charAt(0)}${currentUser.apellido.charAt(0)}`.toUpperCase();
   });
+
+  ngOnInit(): void {
+    // Carga de plan y límites al ingresar al layout administrativo
+    this.planLimitsService
+      .getCurrentPlanLimits()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        error: () => {},
+      });
+  }
 
   protected toggleSidebar(): void {
     this.sidebarOpen.update((isOpen) => !isOpen);

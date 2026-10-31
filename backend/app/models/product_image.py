@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class ProductImage(Base):
+class ProductImage(TenantMixin, Base):
     __tablename__ = "t_imagen_producto"
 
     id_imagen_producto: Mapped[int] = mapped_column(

@@ -4,9 +4,10 @@ from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Client(Base):
+class Client(TenantMixin, Base):
     __tablename__ = "t_cliente"
 
     id_cliente: Mapped[int] = mapped_column(
@@ -16,7 +17,6 @@ class Client(Base):
         Integer,
         ForeignKey("t_usuario.id_usuario"),
         nullable=False,
-        unique=True,
     )
     fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     genero: Mapped[str | None] = mapped_column(String(30), nullable=True)

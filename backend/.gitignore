@@ -1,5 +1,6 @@
 .venv/
 .env
+.env.superadmin
 __pycache__/
 *.pyc
 .pytest_cache/

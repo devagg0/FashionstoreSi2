@@ -1,0 +1,563 @@
+<main class="plans-page" aria-labelledby="plans-title">
+  <!-- Encabezado de la página -->
+  <header class="page-heading">
+    <div>
+      <p>PK07 · GESTIÓN SAAS</p>
+      <h2 id="plans-title">Planes SaaS</h2>
+      <span>Administración centralizada de tarifas, límites de sucursales e inteligencia artificial.</span>
+    </div>
+    <div class="page-heading__actions">
+      <button class="btn-primary" type="button" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18" />
+        <span>Nuevo Plan</span>
+      </button>
+      <button class="btn-secondary" type="button" (click)="loadPlans()" [disabled]="loading()" title="Recargar catálogo">
+        <app-icon name="refresh" [size]="17" />
+        <span class="sr-only">Recargar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Notificaciones de éxito y error -->
+  @if (successMessage()) {
+    <div class="notice notice--success" role="status">
+      <app-icon name="circle-check" [size]="18" />
+      <span>{{ successMessage() }}</span>
+      <button type="button" (click)="successMessage.set(null)" aria-label="Cerrar notificación">×</button>
+    </div>
+  }
+  @if (errorMessage()) {
+    <div class="notice notice--error" role="alert">
+      <app-icon name="ban" [size]="18" />
+      <span>{{ errorMessage() }}</span>
+      <button type="button" (click)="loadPlans()">Reintentar</button>
+    </div>
+  }
+
+  <!-- Barra de búsqueda y filtros -->
+  <section class="filter-card" aria-label="Filtros de planes">
+    <form [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+      <label class="search-field">
+        <app-icon name="search" [size]="18" />
+        <input
+          type="search"
+          formControlName="search"
+          maxlength="100"
+          placeholder="Buscar plan por código, nombre o descripción…"
+        />
+      </label>
+      <label class="select-field">
+        <app-icon name="filter" [size]="17" />
+        <select formControlName="estado" aria-label="Filtrar por estado">
+          <option value="">Todos los planes</option>
+          <option value="true">Planes activos</option>
+          <option value="false">Planes inactivos</option>
+        </select>
+      </label>
+      <button class="filter-submit" type="submit" [disabled]="loading()">Aplicar filtros</button>
+      <button class="filter-reset" type="button" (click)="resetFilters()" [disabled]="loading()">
+        Limpiar
+      </button>
+    </form>
+  </section>
+
+  <!-- Visualización de tarjetas de planes SaaS -->
+  <section class="plans-container" aria-labelledby="plans-catalog-title">
+    <div class="plans-container__header">
+      <div>
+        <p>CATÁLOGO DE SUSCRIPCIÓN</p>
+        <h3 id="plans-catalog-title">Tarifas y capacidades disponibles</h3>
+      </div>
+      <span class="plans-total"><strong>{{ plans().length }}</strong> {{ plans().length === 1 ? 'plan registrado' : 'planes registrados' }}</span>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state" role="status">
+        <span class="spinner"></span>
+        <p>Cargando planes SaaS…</p>
+      </div>
+    } @else if (plans().length === 0) {
+      <div class="empty-state">
+        <app-icon name="layers" [size]="38" />
+        <strong>No se encontraron planes SaaS</strong>
+        <p>No hay planes que coincidan con los filtros seleccionados o el catálogo no ha sido iniciado.</p>
+        <button class="btn-primary" type="button" (click)="openCreateModal()">Crear primer plan</button>
+      </div>
+    } @else {
+      <div class="plans-grid">
+        @for (plan of plans(); track plan.id_plan_saas) {
+          <article
+            class="plan-card"
+            [class.plan-card--recommended]="isRecommended(plan)"
+            [class.plan-card--inactive]="!plan.estado"
+            [attr.aria-label]="plan.nombre"
+          >
+            <!-- Badge de recomendación -->
+            @if (isRecommended(plan)) {
+              <div class="plan-card__ribbon">
+                <app-icon name="sparkles" [size]="14" />
+                <span>MÁS POPULAR / RECOMENDADO</span>
+              </div>
+            }
+
+            <!-- Encabezado de la tarjeta -->
+            <div class="plan-card__top">
+              <div class="plan-card__meta">
+                <span class="plan-code">{{ plan.codigo }}</span>
+                <span class="status-pill" [class.status-pill--active]="plan.estado">
+                  {{ plan.estado ? 'Activo' : 'Inactivo' }}
+                </span>
+              </div>
+              <h4 class="plan-card__name">{{ plan.nombre }}</h4>
+              <p class="plan-card__desc">
+                {{ plan.descripcion || 'Plan comercial disponible para suscripciones empresariales en FashionStore.' }}
+              </p>
+            </div>
+
+            <!-- Precios y facturación -->
+            <div class="plan-card__price-box">
+              <div class="plan-price">
+                <span class="currency">{{ plan.moneda }}</span>
+                <span class="amount">{{ plan.precio | number:'1.2-2' }}</span>
+                <span class="period">/ {{ plan.periodo_meses === 1 ? 'mes' : plan.periodo_meses + ' meses' }}</span>
+              </div>
+              <div class="subscribers-indicator" title="Suscripciones activas registradas">
+                <app-icon name="users" [size]="15" />
+                <span>
+                  <strong>{{ plan.suscripciones_activas }}</strong>
+                  {{ plan.suscripciones_activas === 1 ? 'suscripción activa' : 'suscripciones activas' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Separador estético -->
+            <hr class="plan-card__divider" />
+
+            <!-- Lista de funcionalidades oficiales y parametrizables -->
+            <div class="plan-card__features">
+              <span class="features-label">Capacidades del plan:</span>
+              <ul class="features-list">
+                <!-- Límite de sucursales -->
+                <li class="feature-item feature-item--highlight">
+                  <app-icon name="store" [size]="17" />
+                  <span>
+                    <strong>Hasta {{ getBranchLimit(plan) }} sucursales</strong> operativas simultáneas
+                  </span>
+                </li>
+
+                <!-- Inteligencia Artificial -->
+                @if (hasAiReports(plan)) {
+                  <li class="feature-item feature-item--ai">
+                    <app-icon name="sparkles" [size]="17" />
+                    <span><strong>Reportes generativos con IA</strong> incluidos</span>
+                  </li>
+                } @else {
+                  <li class="feature-item feature-item--disabled">
+                    <app-icon name="ban" [size]="16" />
+                    <span>Reportes generativos con IA (no incluido)</span>
+                  </li>
+                }
+
+                <!-- Funcionalidades convencionales incluidas en ambos planes -->
+                <li class="feature-item">
+                  <app-icon name="check" [size]="17" />
+                  <span>Gestión integral de productos y catálogo</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="17" />
+                  <span>Ventas y punto de venta en línea (POS)</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="17" />
+                  <span>Gestión de reservas y apartados de prendas</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="17" />
+                  <span>Modo offline con sincronización automática</span>
+                </li>
+                <li class="feature-item">
+                  <app-icon name="check" [size]="17" />
+                  <span>Reportes y analíticas estándar de negocio</span>
+                </li>
+
+                <!-- Otras funcionalidades personalizadas dinámicas -->
+                @for (cust of getCustomFeatures(plan); track cust.id_funcionalidad_saas) {
+                  <li class="feature-item" [class.feature-item--disabled]="!cust.habilitada">
+                    <app-icon [name]="cust.habilitada ? 'check' : 'ban'" [size]="17" />
+                    <span>{{ cust.nombre }} {{ cust.limite ? '(Límite: ' + cust.limite + ')' : '' }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+
+            <!-- Acciones de gestión para SUPERADMIN -->
+            <footer class="plan-card__footer">
+              <button
+                class="btn-card-action"
+                type="button"
+                (click)="openEditModal(plan)"
+                title="Editar precio, nombre y período"
+              >
+                <app-icon name="pencil" [size]="16" />
+                <span>Editar</span>
+              </button>
+              <button
+                class="btn-card-action"
+                type="button"
+                (click)="openFeaturesModal(plan)"
+                title="Configurar funcionalidades y límites numéricos"
+              >
+                <app-icon name="layers" [size]="16" />
+                <span>Funciones</span>
+              </button>
+              <button
+                class="btn-card-action"
+                type="button"
+                (click)="openStatusModal(plan)"
+                [title]="plan.estado ? 'Desactivar plan' : 'Activar plan'"
+              >
+                <app-icon [name]="plan.estado ? 'ban' : 'circle-check'" [size]="16" />
+                <span>{{ plan.estado ? 'Desactivar' : 'Activar' }}</span>
+              </button>
+              <button
+                class="btn-card-action btn-card-action--danger"
+                type="button"
+                (click)="openDeleteModal(plan)"
+                title="Eliminar plan SaaS"
+              >
+                <app-icon name="close" [size]="16" />
+                <span>Eliminar</span>
+              </button>
+            </footer>
+          </article>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- MODALES DE GESTIÓN                                              -->
+  <!-- ============================================================== -->
+  @if (activeModal()) {
+    <div class="plan-modal-layer" role="dialog" aria-modal="true">
+      <button class="modal-backdrop" type="button" aria-label="Cerrar modal" (click)="closeModal()"></button>
+
+      <!-- 1. MODAL CREAR PLAN -->
+      @if (activeModal() === 'create') {
+        <div class="modal modal--form" aria-labelledby="create-modal-title">
+          <div class="modal__header">
+            <div>
+              <p>SUPERADMIN · NUEVO PLAN</p>
+              <h3 id="create-modal-title">Registrar nuevo plan SaaS</h3>
+            </div>
+            <button type="button" (click)="closeModal()" aria-label="Cerrar modal">
+              <app-icon name="close" [size]="18" />
+            </button>
+          </div>
+
+          @if (modalErrorMessage()) {
+            <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p>
+          }
+
+          <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="plan-form">
+            <div class="form-grid">
+              <label>
+                <span>Código identificador *</span>
+                <input
+                  type="text"
+                  formControlName="codigo"
+                  placeholder="Ej: ENTERPRISE, EMPRENDEDOR"
+                  style="text-transform: uppercase"
+                />
+                @if (createForm.get('codigo')?.touched && createForm.get('codigo')?.errors?.['required']) {
+                  <em>El código es obligatorio.</em>
+                }
+              </label>
+
+              <label>
+                <span>Nombre comercial *</span>
+                <input type="text" formControlName="nombre" placeholder="Ej: Plan Corporativo" />
+                @if (createForm.get('nombre')?.touched && createForm.get('nombre')?.errors?.['required']) {
+                  <em>El nombre es obligatorio.</em>
+                }
+              </label>
+
+              <label class="form-grid__full">
+                <span>Descripción</span>
+                <textarea
+                  formControlName="descripcion"
+                  rows="2"
+                  placeholder="Breve resumen de cobertura y propuesta de valor..."
+                ></textarea>
+              </label>
+
+              <label>
+                <span>Precio (BOB) *</span>
+                <input type="number" formControlName="precio" min="0" step="0.01" />
+                @if (createForm.get('precio')?.touched && createForm.get('precio')?.errors?.['min']) {
+                  <em>El precio no puede ser negativo.</em>
+                }
+              </label>
+
+              <label>
+                <span>Periodo facturación (meses) *</span>
+                <input type="number" formControlName="periodo_meses" min="1" step="1" />
+                @if (createForm.get('periodo_meses')?.touched && createForm.get('periodo_meses')?.errors?.['min']) {
+                  <em>Mínimo 1 mes de periodo.</em>
+                }
+              </label>
+
+              <label>
+                <span>Límite de sucursales *</span>
+                <input type="number" formControlName="limite_sucursales" min="1" step="1" />
+                <b>Cantidad máxima de sucursales simultáneas.</b>
+              </label>
+
+              <div class="checkbox-field">
+                <label class="toggle-control">
+                  <input type="checkbox" formControlName="habilitar_ia" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Habilitar reportes generativos con IA</span>
+                </label>
+              </div>
+
+              <div class="checkbox-field">
+                <label class="toggle-control">
+                  <input type="checkbox" formControlName="estado" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Plan activo de inmediato</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-cancel" type="button" (click)="closeModal()" [disabled]="modalSaving()">
+                Cancelar
+              </button>
+              <button class="btn-submit" type="submit" [disabled]="modalSaving()">
+                {{ modalSaving() ? 'Creando plan…' : 'Crear Plan SaaS' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- 2. MODAL EDITAR PLAN -->
+      @if (activeModal() === 'edit' && selectedPlan(); as plan) {
+        <div class="modal modal--form" aria-labelledby="edit-modal-title">
+          <div class="modal__header">
+            <div>
+              <p>SUPERADMIN · EDITAR PLAN</p>
+              <h3 id="edit-modal-title">Modificar {{ plan.nombre }} ({{ plan.codigo }})</h3>
+            </div>
+            <button type="button" (click)="closeModal()" aria-label="Cerrar modal">
+              <app-icon name="close" [size]="18" />
+            </button>
+          </div>
+
+          @if (plan.suscripciones_activas > 0) {
+            <div class="warning-alert">
+              <app-icon name="shield" [size]="18" />
+              <div>
+                <strong>Plan con {{ plan.suscripciones_activas }} {{ plan.suscripciones_activas === 1 ? 'suscriptor activo' : 'suscriptores activos' }}</strong>
+                <p>Las condiciones comerciales de precio y periodo están protegidas por el backend para respetar contratos vigentes.</p>
+              </div>
+            </div>
+          }
+
+          @if (modalErrorMessage()) {
+            <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p>
+          }
+
+          <form [formGroup]="editForm" (ngSubmit)="submitEdit()" class="plan-form">
+            <div class="form-grid">
+              <label class="form-grid__full">
+                <span>Nombre comercial *</span>
+                <input type="text" formControlName="nombre" />
+                @if (editForm.get('nombre')?.touched && editForm.get('nombre')?.errors?.['required']) {
+                  <em>El nombre es obligatorio.</em>
+                }
+              </label>
+
+              <label class="form-grid__full">
+                <span>Descripción</span>
+                <textarea formControlName="descripcion" rows="2"></textarea>
+              </label>
+
+              <label>
+                <span>Precio (BOB) *</span>
+                <input type="number" formControlName="precio" min="0" step="0.01" />
+                @if (plan.suscripciones_activas > 0) {
+                  <b>Protegido contra cambios si hay clientes suscritos.</b>
+                }
+              </label>
+
+              <label>
+                <span>Periodo facturación (meses) *</span>
+                <input type="number" formControlName="periodo_meses" min="1" step="1" />
+              </label>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-cancel" type="button" (click)="closeModal()" [disabled]="modalSaving()">
+                Cancelar
+              </button>
+              <button class="btn-submit" type="submit" [disabled]="modalSaving()">
+                {{ modalSaving() ? 'Guardando…' : 'Guardar Cambios' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- 3. MODAL CONFIGURAR FUNCIONALIDADES Y LÍMITES -->
+      @if (activeModal() === 'features' && selectedPlan(); as plan) {
+        <div class="modal modal--features" aria-labelledby="features-modal-title">
+          <div class="modal__header">
+            <div>
+              <p>SUPERADMIN · CAPACIDADES SAAS</p>
+              <h3 id="features-modal-title">Límites y Funciones: {{ plan.nombre }}</h3>
+            </div>
+            <button type="button" (click)="closeModal()" aria-label="Cerrar modal">
+              <app-icon name="close" [size]="18" />
+            </button>
+          </div>
+
+          <p class="features-intro">
+            Ajusta los módulos disponibles y el número máximo de sucursales permitidas para las empresas suscritas a este plan.
+          </p>
+
+          @if (modalErrorMessage()) {
+            <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p>
+          }
+
+          <form [formGroup]="featuresForm" (ngSubmit)="submitFeatures()" class="features-config-form">
+            <div class="features-list-editor" formArrayName="features">
+              @for (ctrl of featuresArray.controls; track ctrl.value.codigo; let i = $index) {
+                <div [formGroupName]="i" class="feature-row" [class.feature-row--disabled]="!ctrl.value.habilitada">
+                  <div class="feature-row__main">
+                    <label class="toggle-control">
+                      <input type="checkbox" formControlName="habilitada" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <div class="feature-row__info">
+                      <strong>{{ ctrl.value.nombre }}</strong>
+                      <small>Código: <code>{{ ctrl.value.codigo }}</code></small>
+                    </div>
+                  </div>
+
+                  @if (ctrl.value.codigo === 'SUCURSALES') {
+                    <div class="feature-row__limit">
+                      <label>
+                        <span>Límite máx. sucursales:</span>
+                        <input
+                          type="number"
+                          formControlName="limite"
+                          min="1"
+                          step="1"
+                          [readonly]="!ctrl.value.habilitada"
+                        />
+                      </label>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-cancel" type="button" (click)="closeModal()" [disabled]="modalSaving()">
+                Cancelar
+              </button>
+              <button class="btn-submit" type="submit" [disabled]="modalSaving()">
+                {{ modalSaving() ? 'Guardando capacidades…' : 'Guardar Configuración' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- 4. MODAL ACTIVAR / DESACTIVAR ESTADO -->
+      @if (activeModal() === 'status' && selectedPlan(); as plan) {
+        <div class="modal modal--confirm" aria-labelledby="status-modal-title">
+          <div class="confirm-icon" [class.confirm-icon--danger]="plan.estado">
+            <app-icon [name]="plan.estado ? 'ban' : 'circle-check'" [size]="28" />
+          </div>
+
+          <h3 id="status-modal-title">
+            {{ plan.estado ? '¿Desactivar plan ' + plan.nombre + '?' : '¿Activar plan ' + plan.nombre + '?' }}
+          </h3>
+
+          <p class="confirm-text">
+            @if (plan.estado) {
+              Al desactivarlo, ninguna empresa podrá seleccionar este plan para nuevas suscripciones.
+              @if (plan.suscripciones_activas > 0) {
+                <span class="danger-highlight">
+                  Atención: El plan posee {{ plan.suscripciones_activas }} suscripciones activas vigentes. El sistema impedirá su desactivación si las suscripciones continúan activas.
+                </span>
+              }
+            } @else {
+              Al activarlo, el plan estará disponible de inmediato en la plataforma SaaS.
+            }
+          </p>
+
+          @if (modalErrorMessage()) {
+            <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p>
+          }
+
+          <div class="modal-actions">
+            <button class="btn-cancel" type="button" (click)="closeModal()" [disabled]="modalSaving()">
+              Cancelar
+            </button>
+            <button
+              class="btn-submit"
+              [class.btn-danger]="plan.estado"
+              type="button"
+              (click)="confirmToggleStatus()"
+              [disabled]="modalSaving()"
+            >
+              {{ modalSaving() ? 'Actualizando…' : (plan.estado ? 'Confirmar Desactivación' : 'Confirmar Activación') }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- 5. MODAL ELIMINAR PLAN -->
+      @if (activeModal() === 'delete' && selectedPlan(); as plan) {
+        <div class="modal modal--confirm" aria-labelledby="delete-modal-title">
+          <div class="confirm-icon confirm-icon--danger">
+            <app-icon name="close" [size]="28" />
+          </div>
+
+          <h3 id="delete-modal-title">¿Eliminar definitivamente el plan {{ plan.nombre }}?</h3>
+
+          <p class="confirm-text">
+            Esta acción eliminará el plan SaaS y sus configuraciones de características. Esta operación no se puede deshacer.
+            @if (plan.suscripciones_activas > 0) {
+              <span class="danger-highlight">
+                Este plan cuenta con {{ plan.suscripciones_activas }} suscripciones activas. La arquitectura protege la integridad y denegará la eliminación.
+              </span>
+            }
+          </p>
+
+          @if (modalErrorMessage()) {
+            <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p>
+          }
+
+          <div class="modal-actions">
+            <button class="btn-cancel" type="button" (click)="closeModal()" [disabled]="modalSaving()">
+              Cancelar
+            </button>
+            <button
+              class="btn-submit btn-danger"
+              type="button"
+              (click)="confirmDelete()"
+              [disabled]="modalSaving()"
+            >
+              {{ modalSaving() ? 'Eliminando…' : 'Sí, Eliminar Plan' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</main>

@@ -14,9 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class InventoryMovement(Base):
+class InventoryMovement(TenantMixin, Base):
     __tablename__ = "t_movimiento_inventario"
     __table_args__ = (
         CheckConstraint(

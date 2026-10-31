@@ -1,0 +1,287 @@
+<main class="companies-page" aria-labelledby="companies-title">
+  <header class="page-heading">
+    <div>
+      <p>PK07 · GESTIÓN SAAS</p>
+      <h2 id="companies-title">Empresas contratantes</h2>
+      <span>Consulta y administra las organizaciones vinculadas a FashionStore.</span>
+    </div>
+    <a routerLink="/superadmin/empresas/nueva">
+      <app-icon name="plus" [size]="18" />
+      Registrar empresa
+    </a>
+  </header>
+
+  @if (successMessage()) {
+    <div class="notice notice--success" role="status">
+      <app-icon name="circle-check" [size]="18" />
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+  @if (errorMessage()) {
+    <div class="notice notice--error" role="alert">
+      <app-icon name="ban" [size]="18" />
+      <span>{{ errorMessage() }}</span>
+      <button type="button" (click)="loadCompanies(pagination().page)">Reintentar</button>
+    </div>
+  }
+
+  <section class="filter-card" aria-label="Filtros de empresas">
+    <form [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+      <label class="search-field">
+        <app-icon name="search" [size]="18" />
+        <input
+          type="search"
+          formControlName="search"
+          maxlength="150"
+          placeholder="Buscar por nombre, código o NIT"
+        />
+      </label>
+      <label class="select-field">
+        <app-icon name="filter" [size]="17" />
+        <select formControlName="estado" aria-label="Filtrar por estado">
+          <option value="">Todos los estados</option>
+          <option value="ACTIVA">Activas</option>
+          <option value="SUSPENDIDA">Suspendidas</option>
+          <option value="CANCELADA">Canceladas</option>
+        </select>
+      </label>
+      <button class="filter-submit" type="submit" [disabled]="loading()">Aplicar filtros</button>
+      <button class="filter-reset" type="button" (click)="resetFilters()" [disabled]="loading()">
+        Limpiar
+      </button>
+    </form>
+  </section>
+
+  <section class="table-card" aria-labelledby="company-list-title">
+    <div class="table-card__header">
+      <div>
+        <p>DIRECTORIO EMPRESARIAL</p>
+        <h3 id="company-list-title">Empresas registradas</h3>
+      </div>
+      <span><strong>{{ pagination().total }}</strong> resultados</span>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Empresa</th>
+            <th>NIT</th>
+            <th>Estado</th>
+            <th><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr><td colspan="5" class="loading-state" role="status"><span></span>Cargando empresas…</td></tr>
+          } @else {
+            @for (company of companies(); track company.id_empresa) {
+              <tr>
+                <td data-label="Código"><code>{{ company.codigo }}</code></td>
+                <td data-label="Empresa">
+                  <strong>{{ company.nombre }}</strong>
+                  <small>{{ company.zona_horaria }}</small>
+                </td>
+                <td data-label="NIT">{{ company.nit || 'No registrado' }}</td>
+                <td data-label="Estado">
+                  <span class="status" [class]="'status status--' + company.estado.toLowerCase()">
+                    {{ company.estado }}
+                  </span>
+                </td>
+                <td class="row-actions" data-label="Acciones">
+                  <button type="button" title="Ver detalle" (click)="openDetails(company)">
+                    <app-icon name="eye" [size]="17" />
+                  </button>
+                  <button type="button" title="Editar empresa" (click)="openEdit(company)">
+                    <app-icon name="pencil" [size]="17" />
+                  </button>
+                  @if (company.estado === 'ACTIVA') {
+                    <button
+                      type="button"
+                      title="Asignar administrador"
+                      [routerLink]="['/superadmin/empresas/administradores']"
+                      [queryParams]="{ empresa: company.id_empresa }"
+                    >
+                      <app-icon name="user-plus" [size]="17" />
+                    </button>
+                  }
+                  @if (company.estado === 'ACTIVA') {
+                    <button type="button" title="Suspender" (click)="openStateDialog(company, 'SUSPENDIDA')">
+                      <app-icon name="ban" [size]="17" />
+                    </button>
+                  } @else if (company.estado === 'SUSPENDIDA') {
+                    <button type="button" title="Activar" (click)="openStateDialog(company, 'ACTIVA')">
+                      <app-icon name="refresh" [size]="17" />
+                    </button>
+                  }
+                  @if (company.estado !== 'CANCELADA') {
+                    <button class="danger-action" type="button" title="Cancelar" (click)="openStateDialog(company, 'CANCELADA')">
+                      <app-icon name="close" [size]="17" />
+                    </button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-state">
+                  <app-icon name="store" [size]="28" />
+                  <strong>No encontramos empresas</strong>
+                  <span>Ajusta los filtros o registra una nueva empresa.</span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" (click)="previousPage()" [disabled]="loading() || pagination().page <= 1">
+        <app-icon name="chevron-left" [size]="16" /> Anterior
+      </button>
+      <span>Página {{ pagination().page }} de {{ pagination().total_pages || 1 }}</span>
+      <button type="button" (click)="nextPage()" [disabled]="loading() || pagination().page >= pagination().total_pages">
+        Siguiente <app-icon name="chevron-right" [size]="16" />
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (modal(); as activeModal) {
+  <div class="modal-layer company-modal-layer">
+    <button class="modal-backdrop" type="button" aria-label="Cerrar diálogo" (click)="closeModal()"></button>
+
+    @if (activeModal === 'detail') {
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="modal__header">
+          <div><p>DETALLE EMPRESARIAL</p><h3 id="detail-title">Información de la empresa</h3></div>
+          <button type="button" aria-label="Cerrar" (click)="closeModal()"><app-icon name="close" [size]="18" /></button>
+        </div>
+        @if (detailLoading()) {
+          <div class="modal-loading" role="status"><span></span>Cargando información…</div>
+        } @else if (selectedCompany(); as company) {
+          <div class="detail-identity">
+            <span><app-icon name="store" [size]="23" /></span>
+            <div><h4>{{ company.nombre }}</h4><code>{{ company.codigo }}</code></div>
+            <span class="status" [class]="'status status--' + company.estado.toLowerCase()">{{ company.estado }}</span>
+          </div>
+          <dl class="detail-grid">
+            <div><dt>ID empresa</dt><dd>#{{ company.id_empresa }}</dd></div>
+            <div><dt>NIT</dt><dd>{{ company.nit || 'No registrado' }}</dd></div>
+            <div><dt>Zona horaria</dt><dd>{{ company.zona_horaria }}</dd></div>
+            <div><dt>Creada</dt><dd>{{ company.created_at | date: 'dd/MM/yyyy, HH:mm' }}</dd></div>
+            <div><dt>Última actualización</dt><dd>{{ company.updated_at | date: 'dd/MM/yyyy, HH:mm' }}</dd></div>
+          </dl>
+
+          <div class="company-plan-section">
+            <h5>PLAN SAAS Y CONSUMO</h5>
+            @if (planLoading()) {
+              <div class="plan-loading-hint">Consultando plan y límites…</div>
+            } @else if (companyPlan(); as cp) {
+              <div class="company-plan-box">
+                <div class="company-plan-box__row">
+                  <div>
+                    <strong>{{ cp.plan ? cp.plan.nombre : 'Sin plan activo' }}</strong>
+                    <span class="plan-code">({{ cp.plan ? cp.plan.codigo : 'SIN PLAN' }})</span>
+                  </div>
+                  <span class="status" [class]="'status status--' + (cp.suscripcion?.estado?.toLowerCase() ?? 'inactiva')">
+                    {{ cp.suscripcion?.estado ?? (cp.tiene_suscripcion_activa ? 'ACTIVA' : 'SIN PLAN') }}
+                  </span>
+                </div>
+
+                <div class="company-plan-box__metrics">
+                  <div>
+                    <small>Vigencia</small>
+                    <span>
+                      @if (cp.suscripcion) {
+                        {{ cp.suscripcion.dias_restantes }} días restantes (vence {{ cp.suscripcion.fecha_fin_periodo | date: 'dd/MM/yyyy' }})
+                      } @else {
+                        Sin suscripción activa
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <small>Sucursales activas</small>
+                    <span>
+                      {{ cp.consumo_sucursales.sucursales_activas }} / {{ cp.consumo_sucursales.limite_sucursales ?? 'Ilimitadas' }}
+                      @if (cp.consumo_sucursales.limite_alcanzado) {
+                        <strong class="quota-reached-badge">Límite alcanzado</strong>
+                      } @else if (cp.consumo_sucursales.disponibles_para_crear !== null) {
+                        ({{ cp.consumo_sucursales.disponibles_para_crear }} disp.)
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                <div class="company-plan-box__features">
+                  <small>Funcionalidades disponibles:</small>
+                  <div class="features-pill-list">
+                    @for (feat of cp.funcionalidades; track feat.codigo) {
+                      @if (feat.habilitada) {
+                        <span class="feature-tag">{{ feat.nombre }}</span>
+                      }
+                    }
+                    @if (cp.tiene_ia) {
+                      <span class="feature-tag feature-tag--ai">✨ Reportes con IA</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+        @if (modalErrorMessage()) { <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p> }
+      </section>
+    }
+
+    @if (activeModal === 'edit' && selectedCompany(); as company) {
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+        <div class="modal__header">
+          <div><p>EDITAR EMPRESA</p><h3 id="edit-title">{{ company.nombre }}</h3></div>
+          <button type="button" aria-label="Cerrar" (click)="closeModal()" [disabled]="saving()"><app-icon name="close" [size]="18" /></button>
+        </div>
+        <form class="edit-form" [formGroup]="editForm" (ngSubmit)="saveEdit()" novalidate>
+          <label><span>Código *</span><input formControlName="codigo" maxlength="63" />
+            @if (isEditInvalid('codigo')) { <em>Usa minúsculas, números y guiones simples.</em> }
+          </label>
+          <label><span>Nombre *</span><input formControlName="nombre" maxlength="150" />
+            @if (isEditInvalid('nombre')) { <em>Ingresa un nombre válido.</em> }
+          </label>
+          <label><span>NIT <b>Opcional</b></span><input formControlName="nit" inputmode="numeric" maxlength="30" />
+            @if (isEditInvalid('nit')) { <em>Debe contener entre 5 y 30 dígitos.</em> }
+          </label>
+          <label><span>Zona horaria *</span><select formControlName="zona_horaria">
+            @for (timezone of timezones; track timezone.value) { <option [value]="timezone.value">{{ timezone.label }}</option> }
+          </select></label>
+          @if (modalErrorMessage()) { <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p> }
+          <div class="modal-actions">
+            <button class="button-secondary" type="button" (click)="closeModal()" [disabled]="saving()">Cancelar</button>
+            <button class="button-primary" type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar cambios' }}</button>
+          </div>
+        </form>
+      </section>
+    }
+
+    @if (activeModal === 'state' && selectedCompany(); as company) {
+      <section class="modal modal--confirm" role="alertdialog" aria-modal="true" aria-labelledby="state-title">
+        <span class="confirm-icon" [class.confirm-icon--danger]="stateTarget() === 'CANCELADA'">
+          <app-icon [name]="stateTarget() === 'ACTIVA' ? 'refresh' : 'shield'" [size]="25" />
+        </span>
+        <p>CAMBIO DE ESTADO</p>
+        <h3 id="state-title">¿Confirmas {{ stateVerb(stateTarget()) }} la empresa?</h3>
+        <span><strong>{{ company.nombre }}</strong> pasará de {{ company.estado }} a {{ stateTarget() }}.</span>
+        @if (stateTarget() === 'CANCELADA') {
+          <div class="warning-copy">La cancelación es definitiva y no permite reactivar la empresa.</div>
+        }
+        @if (modalErrorMessage()) { <p class="modal-error" role="alert">{{ modalErrorMessage() }}</p> }
+        <div class="modal-actions">
+          <button class="button-secondary" type="button" (click)="closeModal()" [disabled]="saving()">Volver</button>
+          <button class="button-primary" [class.button-danger]="stateTarget() === 'CANCELADA'" type="button" (click)="confirmStateChange()" [disabled]="saving()">
+            {{ saving() ? 'Actualizando…' : 'Confirmar cambio' }}
+          </button>
+        </div>
+      </section>
+    }
+  </div>
+}

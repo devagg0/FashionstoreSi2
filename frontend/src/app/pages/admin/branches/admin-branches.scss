@@ -52,7 +52,7 @@
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -541,4 +541,45 @@ td {
 td,
 dd {
   overflow-wrap: anywhere;
+}
+
+.page-heading__action.is-disabled,
+.page-heading__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #666;
+  border-color: #666;
+
+  &:hover {
+    background: #666;
+    border-color: #666;
+  }
+}
+
+.saas-quota-banner {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #8d6e63;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  a {
+    color: #c87d55;
+    font-weight: 700;
+    text-decoration: underline;
+  }
+}
+
+.summary-card__icon--quota {
+  background: #fdf5f0;
+  color: #c87d55;
+}
+
+.quota-warning {
+  color: #c62828;
+  font-weight: 700;
 }

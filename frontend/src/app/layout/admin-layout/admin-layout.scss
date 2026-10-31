@@ -262,3 +262,75 @@
     padding: 26px 18px 40px;
   }
 }
+
+.admin-navigation a.is-locked {
+  opacity: 0.62;
+  color: rgb(255 255 255 / 45%);
+
+  .nav-lock {
+    margin-left: auto;
+    font-size: 0.72rem;
+    opacity: 0.8;
+  }
+}
+
+.saas-subscription-alert {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 18px 28px 0;
+  padding: 14px 20px;
+  background: #fff3ed;
+  border: 1px solid #e9aa9b;
+  border-radius: 12px;
+  color: #8c3b2b;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fcdbd4;
+    color: #b73e23;
+    flex-shrink: 0;
+  }
+
+  &__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #782617;
+    }
+
+    span {
+      font-size: 0.84rem;
+      color: #8c3b2b;
+    }
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: #c87d55;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 8px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #b66a42;
+    }
+  }
+}

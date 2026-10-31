@@ -11,13 +11,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class ProductSupplier(Base):
+class ProductSupplier(TenantMixin, Base):
     __tablename__ = "t_producto_proveedor"
     __table_args__ = (
         CheckConstraint(
-            "costo_referencia IS NULL OR costo_referencia >= 0"
+            "costo_referencia IS NULL OR costo_referencia >= 0",
+            name="t_producto_proveedor_costo_referencia_check",
         ),
         UniqueConstraint("id_producto", "id_proveedor"),
     )

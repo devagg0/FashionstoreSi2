@@ -83,6 +83,25 @@ def create(
     idempotency_key: Annotated[UUID, Header(description="UUID por intento de venta; reutilizar ante doble clic o reintento")],
     db: Session = Depends(get_db),
 ):
+    if isinstance(cashier, JSONResponse):
+        return cashier
+
+    company_id = getattr(cashier, "id_empresa", None) or getattr(db, "info", {}).get("empresa_id")
+    if company_id:
+        from app.PK07.CU07_ConsultarPlanLimites.service import (
+            FeatureNotEnabledError,
+            NoActiveSubscriptionError,
+            SaasPlanLimitsService,
+        )
+
+        try:
+            SaasPlanLimitsService(db).validate_feature_enabled(company_id, "VENTAS")
+        except (NoActiveSubscriptionError, FeatureNotEnabledError) as exc:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": str(exc)},
+            )
+
     return _execute(cashier, lambda: StaffSalesService(db).create(cashier.id_usuario, payload, idempotency_key), SaleResponse)
 
 

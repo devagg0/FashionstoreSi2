@@ -10,6 +10,8 @@ import {
   AdminBranchesService,
 } from '../../../core/services/admin-branches.service';
 import { AdminCitiesService, AdminCity } from '../../../core/services/admin-cities.service';
+import { RouterLink } from '@angular/router';
+import { SaasPlanLimitsService } from '../../../core/services/saas-plan-limits.service';
 import { Icon } from '../../../shared/components/icon/icon';
 import { trimmedLengthValidator } from '../../../shared/validators/auth.validators';
 
@@ -22,7 +24,7 @@ const EMPTY_PAGINATION: AdminBranchPagination = {
 
 @Component({
   selector: 'app-admin-branches',
-  imports: [Icon, ReactiveFormsModule],
+  imports: [Icon, ReactiveFormsModule, RouterLink],
   templateUrl: './admin-branches.html',
   styleUrl: './admin-branches.scss',
 })
@@ -30,6 +32,13 @@ export class AdminBranches implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly branchesService = inject(AdminBranchesService);
   private readonly citiesService = inject(AdminCitiesService);
+  private readonly planLimitsService = inject(SaasPlanLimitsService);
+
+  protected readonly branchConsumption = this.planLimitsService.currentBranchConsumption;
+  protected readonly isBranchLimitReached = this.planLimitsService.isBranchLimitReached;
+  protected readonly canCreateBranch = this.planLimitsService.canCreateBranch;
+  protected readonly branchLimit = this.planLimitsService.branchLimit;
+  protected readonly availableQuota = this.planLimitsService.availableBranchesQuota;
   protected readonly cityOptions = signal<AdminCity[]>([]);
   protected readonly citiesLoading = signal(false);
   protected readonly citiesError = signal<string | null>(null);
@@ -159,6 +168,12 @@ export class AdminBranches implements OnInit {
   }
 
   protected openBranchModal(branch: AdminBranch | null = null): void {
+    if (!branch && !this.canCreateBranch()) {
+      this.errorMessage.set(
+        'No es posible crear más sucursales: has alcanzado el límite máximo permitido por tu plan SaaS.',
+      );
+      return;
+    }
     this.clearMessages();
     this.editingBranch.set(branch);
     this.loadCityOptions();
@@ -298,6 +313,14 @@ export class AdminBranches implements OnInit {
     const branch = this.statusBranch();
     if (!branch || this.saving()) return;
 
+    if (!branch.estado && !this.canCreateBranch()) {
+      this.statusBranch.set(null);
+      this.errorMessage.set(
+        'No es posible activar la sucursal: has alcanzado el límite máximo permitido por tu plan SaaS.',
+      );
+      return;
+    }
+
     this.saving.set(true);
     this.branchesService
       .updateStatus(branch.id_sucursal, !branch.estado)
@@ -364,6 +387,7 @@ export class AdminBranches implements OnInit {
 
   private loadStats(): void {
     this.statsLoading.set(true);
+    this.planLimitsService.getCurrentBranchConsumption().subscribe({ error: () => {} });
     forkJoin({
       all: this.branchesService.listBranches({ page: 1, pageSize: 1 }),
       active: this.branchesService.listBranches({ estado: true, page: 1, pageSize: 1 }),
