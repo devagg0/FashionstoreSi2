@@ -1,0 +1,111 @@
+<div class="admin-shell" [class.sidebar-is-open]="sidebarOpen()">
+  <button
+    class="admin-backdrop"
+    type="button"
+    aria-label="Cerrar navegación global"
+    (click)="closeSidebar()"
+  ></button>
+
+  <aside id="superadmin-sidebar" class="admin-sidebar" aria-label="Navegación SUPERADMIN">
+    <div class="admin-sidebar__brand">
+      <a routerLink="/superadmin" (click)="closeSidebar()">FASHIONSTORE</a>
+      <span>PLATAFORMA SAAS</span>
+    </div>
+
+    <nav class="admin-navigation">
+      <p>CONTROL GLOBAL</p>
+      <a
+        routerLink="/superadmin/empresas"
+        routerLinkActive="is-active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="dashboard" [size]="20" />
+        <span>Gestionar empresas</span>
+      </a>
+      <a
+        routerLink="/superadmin/empresas/nueva"
+        routerLinkActive="is-active"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="store" [size]="20" />
+        <span>Registrar empresa</span>
+      </a>
+      <a
+        routerLink="/superadmin/empresas/administradores"
+        routerLinkActive="is-active"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="user-plus" [size]="20" />
+        <span>Asignar administrador</span>
+      </a>
+      <a
+        routerLink="/superadmin/empresas/recursos"
+        routerLinkActive="is-active"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="users" [size]="20" />
+        <span>Usuarios y sucursales</span>
+      </a>
+      <a
+        routerLink="/superadmin/planes"
+        routerLinkActive="is-active"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="layers" [size]="20" />
+        <span>Planes SaaS</span>
+      </a>
+      <a
+        routerLink="/superadmin/suscripciones"
+        routerLinkActive="is-active"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="circle-check" [size]="20" />
+        <span>Suscripciones</span>
+      </a>
+    </nav>
+
+    <div class="admin-sidebar__footer">
+      <button type="button" (click)="logout()">
+        <app-icon name="log-out" [size]="20" />
+        <span>Cerrar sesión</span>
+      </button>
+      <p>FashionStore · Gestión SaaS</p>
+    </div>
+  </aside>
+
+  <div class="admin-workspace">
+    <header class="admin-topbar">
+      <div class="admin-topbar__section">
+        <button
+          class="admin-topbar__menu"
+          type="button"
+          aria-label="Abrir navegación global"
+          aria-controls="superadmin-sidebar"
+          [attr.aria-expanded]="sidebarOpen()"
+          (click)="toggleSidebar()"
+        >
+          <app-icon name="menu" [size]="22" />
+        </button>
+        <div>
+          <span>Administración global</span>
+          <h1>Gesti&oacute;n SaaS</h1>
+        </div>
+      </div>
+
+      @if (user(); as currentUser) {
+        <div class="admin-identity" aria-label="Sesión SUPERADMIN activa">
+          <span class="admin-identity__copy">
+            <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+            <small>{{ currentUser.rol }}</small>
+          </span>
+          <span class="admin-identity__avatar" aria-hidden="true">{{ initials() }}</span>
+        </div>
+      }
+    </header>
+
+    <div id="main-content" class="admin-main">
+      <router-outlet />
+    </div>
+  </div>
+</div>

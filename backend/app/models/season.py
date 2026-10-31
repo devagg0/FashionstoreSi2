@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, Date, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Season(Base):
+class Season(TenantMixin, Base):
     __tablename__ = "t_temporada"
 
     id_temporada: Mapped[int] = mapped_column(

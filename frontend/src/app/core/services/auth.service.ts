@@ -35,6 +35,7 @@ export interface AuthenticatedUser {
   apellido: string;
   correo: string;
   rol: string;
+  id_empresa?: number | null;
   estado?: boolean;
 }
 

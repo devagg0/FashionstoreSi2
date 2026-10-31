@@ -5,8 +5,9 @@ from uuid import UUID
 from sqlalchemy import Integer, String, Numeric, DateTime, Uuid, ForeignKeyConstraint, UniqueConstraint, CheckConstraint, Index, text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
-class Return(Base):
+class Return(TenantMixin, Base):
     __tablename__ = "t_devolucion"
     __table_args__ = (
         CheckConstraint("tipo IN ('DEVOLUCION','CANCELACION')", name='ck_devolucion_tipo'),
@@ -20,10 +21,10 @@ class Return(Base):
         Index('ix_devolucion_venta_created_at', 'id_venta', 'created_at'),
         Index('ix_devolucion_estado_created_at', 'estado', 'created_at'),
         Index('uq_devolucion_cancelacion_activa', 'id_venta', unique=True, postgresql_where=text("tipo = 'CANCELACION' AND estado IN ('SOLICITADA','APROBADA','PROCESADA')"), sqlite_where=text("tipo = 'CANCELACION' AND estado IN ('SOLICITADA','APROBADA','PROCESADA')")),
-        ForeignKeyConstraint(["id_venta"], ["t_venta.id_venta"]),
-        ForeignKeyConstraint(["id_usuario_solicitante"], ["t_usuario.id_usuario"]),
-        ForeignKeyConstraint(["id_usuario_resolutor"], ["t_usuario.id_usuario"]),
-        ForeignKeyConstraint(["id_movimiento_inventario"], ["t_movimiento_inventario.id_movimiento_inventario"]),
+        ForeignKeyConstraint(["id_venta"], ["t_venta.id_venta"], name="fk_devolucion_venta", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_usuario_solicitante"], ["t_usuario.id_usuario"], name="fk_devolucion_solicitante", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_usuario_resolutor"], ["t_usuario.id_usuario"], name="fk_devolucion_resolutor", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_movimiento_inventario"], ["t_movimiento_inventario.id_movimiento_inventario"], name="fk_devolucion_movimiento", ondelete="RESTRICT"),
         UniqueConstraint("id_devolucion", "id_venta"), UniqueConstraint("clave_idempotencia"),
         UniqueConstraint("id_movimiento_inventario"),
     )
@@ -41,15 +42,15 @@ class Return(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-class ReturnDetail(Base):
+class ReturnDetail(TenantMixin, Base):
     __tablename__ = "t_detalle_devolucion"
     __table_args__ = (
         CheckConstraint('cantidad > 0', name='ck_detalle_devolucion_cantidad'),
         CheckConstraint('cantidad_reintegrar >= 0 AND cantidad_reintegrar <= cantidad', name='ck_detalle_devolucion_reintegro'),
         CheckConstraint('importe_restitucion >= 0', name='ck_detalle_devolucion_importe'),
         Index('ix_detalle_devolucion_linea_venta', 'id_venta', 'id_variante_producto'),
-        ForeignKeyConstraint(["id_devolucion", "id_venta"], ["t_devolucion.id_devolucion", "t_devolucion.id_venta"]),
-        ForeignKeyConstraint(["id_venta", "id_variante_producto"], ["t_detalle_venta.id_venta", "t_detalle_venta.id_variante_producto"]),
+        ForeignKeyConstraint(["id_devolucion", "id_venta"], ["t_devolucion.id_devolucion", "t_devolucion.id_venta"], name="fk_detalle_devolucion_cabecera", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_venta", "id_variante_producto"], ["t_detalle_venta.id_venta", "t_detalle_venta.id_variante_producto"], name="fk_detalle_devolucion_linea_venta", ondelete="RESTRICT"),
         UniqueConstraint("id_devolucion", "id_variante_producto"),
     )
     id_detalle_devolucion: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -62,7 +63,7 @@ class ReturnDetail(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-class Refund(Base):
+class Refund(TenantMixin, Base):
     __tablename__ = "t_reembolso"
     __table_args__ = (
         CheckConstraint("estado IN ('PENDIENTE','APROBADO','RECHAZADO')", name='ck_reembolso_estado'),
@@ -72,9 +73,9 @@ class Refund(Base):
         Index('ix_reembolso_pago_estado', 'id_pago', 'estado'),
         Index('ix_reembolso_devolucion_created_at', 'id_devolucion', 'created_at'),
         Index('uq_reembolso_devolucion_pendiente', 'id_devolucion', unique=True, postgresql_where=text("estado = 'PENDIENTE'"), sqlite_where=text("estado = 'PENDIENTE'")),
-        ForeignKeyConstraint(["id_pago", "id_venta"], ["t_pago.id_pago", "t_pago.id_venta"]),
-        ForeignKeyConstraint(["id_devolucion", "id_venta"], ["t_devolucion.id_devolucion", "t_devolucion.id_venta"]),
-        ForeignKeyConstraint(["id_usuario_responsable"], ["t_usuario.id_usuario"]),
+        ForeignKeyConstraint(["id_pago", "id_venta"], ["t_pago.id_pago", "t_pago.id_venta"], name="fk_reembolso_pago_venta", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_devolucion", "id_venta"], ["t_devolucion.id_devolucion", "t_devolucion.id_venta"], name="fk_reembolso_devolucion_venta", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["id_usuario_responsable"], ["t_usuario.id_usuario"], name="fk_reembolso_responsable", ondelete="RESTRICT"),
         UniqueConstraint("clave_idempotencia"), UniqueConstraint("id_pago", "referencia_externa"),
     )
     id_reembolso: Mapped[int] = mapped_column(Integer, primary_key=True)

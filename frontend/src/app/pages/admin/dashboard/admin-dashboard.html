@@ -3,10 +3,10 @@
     <div>
       <p>VISTA GENERAL</p>
       <h2 id="dashboard-title">Resumen administrativo</h2>
-      <span>Información actual de usuarios y roles disponible en CU03.</span>
+      <span>Información de tu suscripción, sucursales y operaciones comerciales.</span>
     </div>
-    <a class="page-heading__action" routerLink="/admin/usuarios">
-      Gestionar usuarios
+    <a class="page-heading__action" routerLink="/admin/suscripcion">
+      Mi suscripción
       <app-icon name="chevron-right" [size]="17" />
     </a>
   </div>
@@ -21,6 +21,123 @@
     </div>
   }
 
+  <!-- TARJETA ELEGANTE DE PLAN SAAS Y LÍMITES -->
+  <section class="saas-plan-card" aria-label="Información de plan y suscripción SaaS">
+    @if (planLoading()) {
+      <div class="saas-plan-card__loading" role="status">
+        <app-icon name="refresh" [size]="20" />
+        <span>Consultando estado y límites de su suscripción…</span>
+      </div>
+    } @else if (planLimits(); as limits) {
+      <div class="saas-plan-card__header">
+        <div class="saas-plan-card__title-group">
+          <span
+            class="saas-plan-badge"
+            [class.saas-plan-badge--active]="limits.tiene_suscripcion_activa"
+          >
+            {{ limits.plan?.nombre ?? 'Sin plan activo' }}
+          </span>
+          <span
+            class="saas-status-badge"
+            [class.saas-status-badge--active]="limits.tiene_suscripcion_activa"
+            [class.saas-status-badge--inactive]="!limits.tiene_suscripcion_activa"
+          >
+            {{
+              limits.suscripcion?.estado ??
+                (limits.tiene_suscripcion_activa ? 'ACTIVA' : 'SIN PLAN')
+            }}
+          </span>
+        </div>
+        <a routerLink="/admin/suscripcion" class="saas-plan-card__manage-link">
+          Gestionar plan
+          <app-icon name="chevron-right" [size]="16" />
+        </a>
+      </div>
+
+      <div class="saas-plan-card__grid">
+        <!-- Vigencia y Período -->
+        <div class="saas-metric-box">
+          <span class="saas-metric-box__label">Vigencia del plan</span>
+          @if (limits.suscripcion; as sub) {
+            <strong class="saas-metric-box__value">
+              {{ sub.dias_restantes }} días restantes
+            </strong>
+            <span class="saas-metric-box__hint">
+              Vence el {{ sub.fecha_fin_periodo | date: 'dd/MM/yyyy' }}
+            </span>
+          } @else {
+            <strong class="saas-metric-box__value text-muted">Sin suscripción vigente</strong>
+            <span class="saas-metric-box__hint"
+              >Contrata un plan para habilitar operaciones comerciales</span
+            >
+          }
+        </div>
+
+        <!-- Consumo de Sucursales -->
+        <div class="saas-metric-box">
+          <div class="saas-metric-box__header-inline">
+            <span class="saas-metric-box__label">Sucursales utilizadas</span>
+            <span class="saas-metric-box__quota">
+              {{ limits.consumo_sucursales.sucursales_activas }} /
+              {{ limits.consumo_sucursales.limite_sucursales ?? 'Ilimitadas' }}
+            </span>
+          </div>
+
+          <div class="saas-progress-track">
+            <div
+              class="saas-progress-bar"
+              [class.saas-progress-bar--full]="limits.consumo_sucursales.limite_alcanzado"
+              [style.width.%]="branchUsagePercent()"
+            ></div>
+          </div>
+
+          <span class="saas-metric-box__hint">
+            @if (limits.consumo_sucursales.limite_alcanzado) {
+              <span class="text-danger">⚠️ Límite máximo de sucursales alcanzado</span>
+            } @else if (limits.consumo_sucursales.disponibles_para_crear !== null) {
+              <span
+                >{{ limits.consumo_sucursales.disponibles_para_crear }} cupos disponibles para
+                crear</span
+              >
+            } @else {
+              <span>Capacidad sin restricción</span>
+            }
+          </span>
+        </div>
+
+        <!-- Funcionalidades y Acceso IA -->
+        <div class="saas-metric-box saas-metric-box--features">
+          <span class="saas-metric-box__label">Funcionalidades incluidas</span>
+          <div class="saas-features-tags">
+            @for (feat of limits.funcionalidades; track feat.codigo) {
+              @if (feat.habilitada) {
+                <span class="saas-feature-pill">
+                  <app-icon name="circle-check" [size]="14" />
+                  {{ feat.nombre }}
+                </span>
+              }
+            }
+            @if (limits.tiene_ia) {
+              <span class="saas-feature-pill saas-feature-pill--ai">
+                <app-icon name="sparkles" [size]="14" />
+                Reportes con IA Generativa
+              </span>
+            } @else {
+              <span
+                class="saas-feature-pill saas-feature-pill--disabled"
+                title="Disponible en Plan Profesional"
+              >
+                <app-icon name="lock" [size]="14" />
+                IA Generativa (Plan Profesional)
+              </span>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- MÉTRICAS DE USUARIOS Y ROLES -->
   <div class="summary-grid" [attr.aria-busy]="loading()">
     @if (loading()) {
       @for (placeholder of [1, 2, 3, 4]; track placeholder) {
@@ -47,13 +164,13 @@
   <section class="scope-card" aria-labelledby="scope-title">
     <div class="scope-card__icon"><app-icon name="shield" [size]="24" /></div>
     <div>
-      <p>ALCANCE ACTUAL</p>
+      <p>OPERACIÓN EMPRESARIAL</p>
       <h3 id="scope-title">Gestión segura y enfocada</h3>
       <span>
-        Desde este panel puedes consultar usuarios, administrar su estado y rol, revisar los
-        roles disponibles y gestionar la seguridad de tu cuenta.
+        Administra sucursales, productos, ventas y reportes según las capacidades contratadas en tu
+        plan comercial.
       </span>
     </div>
-    <a routerLink="/admin/roles">Consultar roles</a>
+    <a routerLink="/admin/suscripcion">Ver mi suscripción</a>
   </section>
 </main>

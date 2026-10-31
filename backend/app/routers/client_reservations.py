@@ -111,6 +111,23 @@ def create_reservation(
 ):
     if isinstance(client, JSONResponse):
         return client
+
+    company_id = getattr(client, "id_empresa", None) or getattr(db, "info", {}).get("empresa_id")
+    if company_id:
+        from app.PK07.CU07_ConsultarPlanLimites.service import (
+            FeatureNotEnabledError,
+            NoActiveSubscriptionError,
+            SaasPlanLimitsService,
+        )
+
+        try:
+            SaasPlanLimitsService(db).validate_feature_enabled(company_id, "RESERVAS")
+        except (NoActiveSubscriptionError, FeatureNotEnabledError) as exc:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": str(exc)},
+            )
+
     try:
         data = ClientReservationService(db).create_reservation(
             client.id_usuario, payload

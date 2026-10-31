@@ -1,0 +1,51 @@
+.company-modal-layer {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+
+  .modal-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgb(24 19 18 / 57%); backdrop-filter: blur(3px); }
+  .modal { position: relative; width: min(100%, 620px); max-height: min(86vh, 760px); overflow-y: auto; padding: 25px; border-radius: 15px; background: white; box-shadow: 0 25px 70px rgb(20 15 14 / 24%); }
+  .modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; padding-bottom: 17px; border-bottom: 1px solid var(--color-line); }
+  .modal__header > button:disabled { opacity: .5; }
+  .modal-loading { padding: 55px 10px; color: var(--color-muted); font-size: .75rem; text-align: center; }
+  .detail-identity { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; padding: 15px; border-radius: 11px; background: var(--color-linen); }
+  .detail-identity > span:first-child { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: var(--color-espresso); color: white; }
+  .detail-identity h4 { margin: 0 0 4px; font: 650 .93rem var(--font-display); }
+  .detail-identity code { color: var(--color-muted); font-size: .67rem; }
+  .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); margin: 20px 0 0; border: 1px solid var(--color-line); border-radius: 10px; overflow: hidden; }
+  .detail-grid div { padding: 14px; border-right: 1px solid var(--color-line); border-bottom: 1px solid var(--color-line); }
+  .detail-grid div:nth-child(2n) { border-right: 0; }
+  .detail-grid div:last-child { border-bottom: 0; }
+  .detail-grid dt { margin-bottom: 5px; color: var(--color-muted); font-size: .61rem; font-weight: 750; text-transform: uppercase; }
+  .detail-grid dd { margin: 0; overflow-wrap: anywhere; font-size: .75rem; font-weight: 600; }
+  .edit-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 17px; }
+  .edit-form label { display: grid; gap: 7px; }
+  .edit-form label > span { font-size: .7rem; font-weight: 750; }
+  .edit-form label b { color: var(--color-muted); font-size: .6rem; }
+  .edit-form input, .edit-form select { width: 100%; min-width: 0; height: 43px; padding: 0 11px; border: 1px solid rgb(43 38 37 / 15%); border-radius: 8px; outline: 0; background: white; color: var(--color-espresso); font: .76rem var(--font-body); }
+  .edit-form input:focus, .edit-form select:focus { border-color: var(--color-terracotta); box-shadow: 0 0 0 3px rgb(200 125 85 / 9%); }
+  .edit-form em { color: #934c3d; font-size: .63rem; font-style: normal; }
+  .modal-error { grid-column: 1 / -1; margin: 0; padding: 11px 12px; border-radius: 8px; background: rgb(166 88 72 / 8%); color: #814438; font-size: .7rem; }
+  .modal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 9px; margin-top: 5px; padding-top: 17px; border-top: 1px solid var(--color-line); }
+  .modal-actions button { min-height: 41px; padding: 0 15px; border-radius: 8px; font: 720 .71rem var(--font-body); cursor: pointer; }
+  .button-secondary { border: 1px solid rgb(43 38 37 / 15%); background: white; color: var(--color-espresso); }
+  .button-primary { border: 1px solid var(--color-espresso); background: var(--color-espresso); color: white; }
+  .button-danger { border-color: #934c3d; background: #934c3d; }
+  .modal-actions button:disabled { opacity: .55; cursor: wait; }
+  .modal--confirm { width: min(100%, 460px); text-align: center; }
+  .confirm-icon { display: inline-flex; align-items: center; justify-content: center; width: 55px; height: 55px; margin-bottom: 17px; border-radius: 50%; background: rgb(196 139 54 / 12%); color: #8a611f; }
+  .confirm-icon--danger { background: rgb(166 88 72 / 10%); color: #934c3d; }
+  .modal--confirm > span:not(.confirm-icon) { display: block; margin: 11px 0 18px; color: var(--color-muted); font-size: .74rem; line-height: 1.55; }
+  .warning-copy { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #fff7f3; color: #88493c; font-size: .68rem; }
+}
+
+@media (max-width: 650px) {
+  .company-modal-layer {
+    .edit-form, .detail-grid { grid-template-columns: 1fr; }
+    .detail-grid div, .detail-grid div:nth-child(2n) { border-right: 0; }
+    .modal { padding: 20px; }
+  }
+}

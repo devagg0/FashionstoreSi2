@@ -23,6 +23,6 @@ export class App {
   );
 
   protected readonly showPublicChrome = computed(
-    () => !/^\/(login|registro|admin|staff)(?:[/?#]|$)/.test(this.activeUrl()),
+    () => !/^\/(login|registro|superadmin|admin|staff)(?:[/?#]|$)/.test(this.activeUrl()),
   );
 }

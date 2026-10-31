@@ -1,0 +1,239 @@
+<div class="manage-subscriptions-page">
+  <!-- ENCABEZADO -->
+  <header class="page-heading">
+    <div>
+      <p>CONTROL GLOBAL SAAS</p>
+      <h2>Gestión de suscripciones</h2>
+      <span>Supervisión multiempresa, auditoría de vigencias y gestión administrativa de estados</span>
+    </div>
+    <div class="page-heading__actions">
+      <button type="button" class="btn-refresh" (click)="loadSubscriptions()" [disabled]="loading()" title="Recargar listado">
+        <app-icon name="refresh" [size]="18" />
+      </button>
+    </div>
+  </header>
+
+  <!-- NOTIFICACIONES -->
+  @if (successMessage()) {
+    <div class="notice notice--success" role="alert">
+      <app-icon name="circle-check" [size]="20" />
+      <div class="notice__content">
+        <span>{{ successMessage() }}</span>
+      </div>
+      <button type="button" class="notice__close" (click)="successMessage.set(null)" aria-label="Cerrar notificación">×</button>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="notice notice--error" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <div class="notice__content">
+        <span>{{ errorMessage() }}</span>
+      </div>
+      <button type="button" class="notice__close" (click)="errorMessage.set(null)" aria-label="Cerrar notificación">×</button>
+    </div>
+  }
+
+  <!-- BARRA DE FILTROS -->
+  <section class="filters-card">
+    <div class="filter-group">
+      <label for="companySelect">Empresa:</label>
+      <select
+        id="companySelect"
+        class="form-select"
+        [ngModel]="selectedCompanyId()"
+        (ngModelChange)="selectedCompanyId.set($event); onFilterChange()"
+      >
+        <option [ngValue]="null">Todas las empresas</option>
+        @for (comp of companies(); track comp.id_empresa) {
+          <option [ngValue]="comp.id_empresa">{{ comp.nombre }} ({{ comp.codigo }})</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="statusSelect">Estado:</label>
+      <select
+        id="statusSelect"
+        class="form-select"
+        [ngModel]="selectedStatus()"
+        (ngModelChange)="selectedStatus.set($event); onFilterChange()"
+      >
+        <option value="TODOS">Todos los estados</option>
+        <option value="ACTIVA">ACTIVA</option>
+        <option value="SUSPENDIDA">SUSPENDIDA</option>
+        <option value="CANCELADA">CANCELADA</option>
+        <option value="EXPIRADA">EXPIRADA</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- LISTADO DE SUSCRIPCIONES -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Consultando suscripciones empresariales...</p>
+    </div>
+  } @else if (subscriptions().length === 0) {
+    <div class="empty-card">
+      <app-icon name="layers" [size]="40" />
+      <h3>No se encontraron suscripciones</h3>
+      <p>No existen registros de suscripción que coincidan con los filtros aplicados.</p>
+    </div>
+  } @else {
+    <section class="table-container">
+      <table class="subscriptions-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Plan contratado</th>
+            <th>Período de vigencia</th>
+            <th>Días restantes</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (sub of subscriptions(); track sub.id_suscripcion) {
+            <tr>
+              <td>
+                <div class="company-cell">
+                  <strong>{{ sub.empresa_nombre || 'Empresa #' + sub.id_empresa }}</strong>
+                  <small>{{ sub.empresa_codigo }}</small>
+                </div>
+              </td>
+              <td>
+                <div class="plan-cell">
+                  <strong>{{ sub.plan_nombre }}</strong>
+                  <small>Bs {{ sub.plan_precio }} / {{ sub.plan_periodo_meses }} meses</small>
+                  @if (sub.cambio_programado; as cambio) {
+                    <span class="scheduled-tag" title="Cambio programado al finalizar el ciclo actual">
+                      <app-icon name="sparkles" [size]="12" />
+                      Próximo: {{ cambio.nombre_plan }}
+                    </span>
+                  }
+                </div>
+              </td>
+              <td>
+                <div class="date-cell">
+                  <span>{{ sub.fecha_inicio | date:'dd/MM/yyyy' }}</span>
+                  <span class="date-cell__arrow">→</span>
+                  <span>{{ sub.fecha_fin_periodo | date:'dd/MM/yyyy' }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="days-pill" [class.days-pill--zero]="sub.dias_restantes === 0">
+                  {{ sub.dias_restantes }} días
+                </span>
+              </td>
+              <td>
+                <span class="status-badge" [attr.data-status]="sub.estado">{{ sub.estado }}</span>
+              </td>
+              <td>
+                <div class="actions-cell">
+                  @if (sub.estado === 'ACTIVA') {
+                    <button
+                      type="button"
+                      class="btn-action btn-action--warning"
+                      (click)="openStatusModal(sub, 'SUSPENDIDA')"
+                      title="Suspender temporalmente"
+                    >
+                      Suspender
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-action btn-action--danger"
+                      (click)="openStatusModal(sub, 'CANCELADA')"
+                      title="Cancelar suscripción"
+                    >
+                      Cancelar
+                    </button>
+                  } @else if (sub.estado === 'SUSPENDIDA') {
+                    <button
+                      type="button"
+                      class="btn-action btn-action--success"
+                      (click)="openStatusModal(sub, 'ACTIVA')"
+                      title="Reactivar suscripción"
+                    >
+                      Reactivar
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-action btn-action--danger"
+                      (click)="openStatusModal(sub, 'CANCELADA')"
+                      title="Cancelar suscripción"
+                    >
+                      Cancelar
+                    </button>
+                  } @else if (sub.estado === 'EXPIRADA' || sub.estado === 'CANCELADA') {
+                    <span class="text-muted">Sin acciones activas</span>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  <!-- MODAL PARA CAMBIO DE ESTADO -->
+  @if (statusModalOpen() && targetSubscription(); as sub) {
+    <div class="modal-backdrop" (click)="closeStatusModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <span class="modal-subtitle">GESTIÓN ADMINISTRATIVA</span>
+            <h3>{{ getStatusActionLabel(targetNewStatus()) }}</h3>
+          </div>
+          <button type="button" class="modal-close-btn" (click)="closeStatusModal()" aria-label="Cerrar modal">×</button>
+        </header>
+
+        <div class="modal-body">
+          <p>
+            ¿Estás seguro de cambiar el estado de la suscripción de
+            <strong>{{ sub.empresa_nombre || 'Empresa #' + sub.id_empresa }}</strong>
+            al estado <strong>{{ targetNewStatus() }}</strong>?
+          </p>
+
+          <div class="form-group">
+            <label for="changeReason">Motivo del cambio (opcional):</label>
+            <input
+              id="changeReason"
+              type="text"
+              class="form-input"
+              [(ngModel)]="statusChangeReason"
+              placeholder="Ej: Solicitud administrativa / regularización"
+              maxlength="255"
+            />
+          </div>
+
+          @if (modalError()) {
+            <div class="notice notice--error modal-notice" role="alert">
+              <span>{{ modalError() }}</span>
+            </div>
+          }
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn-outline" (click)="closeStatusModal()" [disabled]="updatingStatus()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="confirmStatusChange()"
+            [disabled]="updatingStatus()"
+          >
+            @if (updatingStatus()) {
+              <span>Actualizando...</span>
+            } @else {
+              <span>Confirmar cambio</span>
+            }
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>
+

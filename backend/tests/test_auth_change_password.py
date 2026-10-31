@@ -25,6 +25,7 @@ class ChangePasswordServiceTests(TestCase):
         self.service.repository = MagicMock()
         self.user = SimpleNamespace(
             id_usuario=42,
+            id_rol=2,
             estado=True,
             password_hash=(
                 "$argon2id$v=19$m=65536,t=3,p=4$"
@@ -32,10 +33,19 @@ class ChangePasswordServiceTests(TestCase):
                 "DFbVaBMSHU+aLSPlQvPssAzz1gL2F0eF5JtB08pW62I"
             ),
         )
+        self.role = SimpleNamespace(nombre="CLIENTE", estado=True)
+        self.service.repository.get_role_by_id.return_value = self.role
+        self.service.repository.get_active_membership.return_value = (
+            SimpleNamespace(estado="ACTIVO"),
+            self.role,
+        )
 
     @patch("app.services.auth_service.hash_password", return_value="new-argon2-hash")
     @patch("app.services.auth_service.verify_password")
-    @patch("app.services.auth_service.decode_access_token", return_value={"sub": "42"})
+    @patch(
+        "app.services.auth_service.decode_access_token",
+        return_value={"sub": "42", "empresa_id": 1, "role": "CLIENTE"},
+    )
     def test_changes_password_for_user_from_token_and_commits_once(
         self,
         _decode_access_token: MagicMock,
@@ -61,7 +71,10 @@ class ChangePasswordServiceTests(TestCase):
         self.db.rollback.assert_not_called()
 
     @patch("app.services.auth_service.verify_password", return_value=False)
-    @patch("app.services.auth_service.decode_access_token", return_value={"sub": "42"})
+    @patch(
+        "app.services.auth_service.decode_access_token",
+        return_value={"sub": "42", "empresa_id": 1, "role": "CLIENTE"},
+    )
     def test_wrong_current_password_rolls_back(
         self,
         _decode_access_token: MagicMock,
@@ -82,7 +95,10 @@ class ChangePasswordServiceTests(TestCase):
         self.db.rollback.assert_called_once_with()
 
     @patch("app.services.auth_service.verify_password")
-    @patch("app.services.auth_service.decode_access_token", return_value={"sub": "42"})
+    @patch(
+        "app.services.auth_service.decode_access_token",
+        return_value={"sub": "42", "empresa_id": 1, "role": "CLIENTE"},
+    )
     def test_reusing_current_password_rolls_back(
         self,
         _decode_access_token: MagicMock,

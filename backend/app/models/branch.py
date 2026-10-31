@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Time, fun
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Branch(Base):
+class Branch(TenantMixin, Base):
     __tablename__ = "t_sucursal"
 
     id_sucursal: Mapped[int] = mapped_column(

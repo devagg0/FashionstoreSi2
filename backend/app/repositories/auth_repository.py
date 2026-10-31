@@ -6,9 +6,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
+from app.models.company import Company
 from app.models.password_recovery import PasswordRecovery
 from app.models.role import Role
 from app.models.user import User
+from app.models.user_company import UserCompany
 
 
 class AuthRepository:
@@ -35,6 +37,51 @@ class AuthRepository:
         statement = select(Role).where(Role.nombre == name)
         return self.db.scalar(statement)
 
+    def get_active_membership(
+        self,
+        *,
+        user_id: int,
+        company_id: int | None = None,
+    ) -> tuple[UserCompany, Role] | None:
+        statement = (
+            select(UserCompany, Role)
+            .join(Role, Role.id_rol == UserCompany.id_rol)
+            .join(Company, Company.id_empresa == UserCompany.id_empresa)
+            .where(
+                UserCompany.id_usuario == user_id,
+                UserCompany.estado == "ACTIVO",
+                Role.estado.is_(True),
+                Company.estado == "ACTIVA",
+            )
+        )
+        if company_id is not None:
+            statement = statement.where(UserCompany.id_empresa == company_id)
+            return self.db.execute(statement).one_or_none()
+
+        statement = statement.order_by(
+            UserCompany.es_propietario.desc(),
+            UserCompany.created_at.asc(),
+        )
+        return self.db.execute(statement).first()
+
+    def create_membership(
+        self,
+        *,
+        company_id: int,
+        user_id: int,
+        role_id: int,
+    ) -> UserCompany:
+        membership = UserCompany(
+            id_empresa=company_id,
+            id_usuario=user_id,
+            id_rol=role_id,
+            estado="ACTIVO",
+            es_propietario=False,
+        )
+        self.db.add(membership)
+        self.db.flush()
+        return membership
+
     def create_user(
         self,
         *,
@@ -59,13 +106,15 @@ class AuthRepository:
         self.db.flush()
         return user
 
-    def create_client(self, *, user_id: int) -> Client:
+    def create_client(self, *, user_id: int, company_id: int | None = None) -> Client:
         """Prepara el perfil de cliente sin completar la transacción."""
         client = Client(
             id_usuario=user_id,
             fecha_nacimiento=None,
             genero=None,
         )
+        if company_id is not None:
+            client.empresa_id = company_id
         self.db.add(client)
         return client
 

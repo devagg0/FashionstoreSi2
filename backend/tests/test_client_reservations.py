@@ -75,6 +75,7 @@ class ClientReservationServiceTests(TestCase):
         self.repo.get_branch.return_value = self.branch
         self.repo.get_variant.return_value = (self.variant, self.product)
         self.repo.lock_inventories.return_value = [self.inventory]
+        self.repo.has_active_slot_conflict.return_value = False
         self.repo.code_exists.return_value = False
         self.repo.create_reservation.return_value = self.reservation
         self.repo.get_owned_reservation.return_value = self.reservation

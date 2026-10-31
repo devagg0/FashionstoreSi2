@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, Date, ForeignKey, Integer, UniqueConstraint, fun
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class EmployeeBranch(Base):
+class EmployeeBranch(TenantMixin, Base):
     __tablename__ = "t_empleado_sucursal"
     __table_args__ = (UniqueConstraint("id_empleado", "id_sucursal"),)
 

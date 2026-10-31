@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Supplier(Base):
+class Supplier(TenantMixin, Base):
     __tablename__ = "t_proveedor"
 
     id_proveedor: Mapped[int] = mapped_column(
@@ -16,7 +17,6 @@ class Supplier(Base):
         Integer,
         ForeignKey("t_usuario.id_usuario", ondelete="SET NULL"),
         nullable=True,
-        unique=True,
     )
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     nit: Mapped[str | None] = mapped_column(String(30), nullable=True)

@@ -43,6 +43,7 @@ def create_access_token(
     *,
     subject: str,
     role: str,
+    company_id: int | None = None,
     expires_delta: timedelta | None = None,
 ) -> str:
     """Genera un JWT individual, firmado y con fechas expresadas en UTC."""
@@ -56,6 +57,7 @@ def create_access_token(
     payload = {
         "sub": subject,
         "role": role,
+        "empresa_id": company_id,
         "iat": issued_at,
         "exp": expires_at,
         "jti": str(uuid4()),

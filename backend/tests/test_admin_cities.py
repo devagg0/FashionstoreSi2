@@ -145,3 +145,59 @@ class AdminCityRouteTests(TestCase):
         }
 
         self.assertTrue(expected.issubset(registered))
+
+
+class AdminCityAuthTests(TestCase):
+    """Valida autorización de ciudades para ADMINISTRADOR y SUPERADMIN."""
+
+    def setUp(self) -> None:
+        self.db = MagicMock()
+
+    def test_allows_administrator_role(self) -> None:
+        from unittest.mock import patch
+        from fastapi.security import HTTPAuthorizationCredentials
+        from app.routers.admin_cities import require_admin_or_superadmin
+
+        with patch("app.routers.admin_cities.AuthService") as mock_auth:
+            admin_user = SimpleNamespace(id_usuario=10, rol="ADMINISTRADOR", estado=True)
+            mock_auth.return_value.get_current_user.return_value = admin_user
+
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="admin-token")
+            result = require_admin_or_superadmin(creds, self.db)
+
+            self.assertIs(result, admin_user)
+
+    def test_allows_superadmin_role(self) -> None:
+        from unittest.mock import patch
+        from fastapi.security import HTTPAuthorizationCredentials
+        from app.routers.admin_cities import require_admin_or_superadmin
+
+        with patch("app.routers.admin_cities.AuthService") as mock_auth:
+            superadmin_user = SimpleNamespace(id_usuario=1, rol="SUPERADMIN", estado=True)
+            mock_auth.return_value.get_current_user.return_value = superadmin_user
+
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="superadmin-token")
+            result = require_admin_or_superadmin(creds, self.db)
+
+            self.assertIs(result, superadmin_user)
+
+    def test_rejects_non_admin_roles(self) -> None:
+        from unittest.mock import patch
+        from fastapi.security import HTTPAuthorizationCredentials
+        from app.routers.admin_cities import require_admin_or_superadmin
+
+        with patch("app.routers.admin_cities.AuthService") as mock_auth:
+            client_user = SimpleNamespace(id_usuario=20, rol="CLIENTE", estado=True)
+            mock_auth.return_value.get_current_user.return_value = client_user
+
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="client-token")
+            response = require_admin_or_superadmin(creds, self.db)
+
+            self.assertEqual(response.status_code, 403)
+
+    def test_rejects_missing_credentials(self) -> None:
+        from app.routers.admin_cities import require_admin_or_superadmin
+
+        response = require_admin_or_superadmin(None, self.db)
+
+        self.assertEqual(response.status_code, 401)

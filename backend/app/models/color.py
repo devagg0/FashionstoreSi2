@@ -4,15 +4,16 @@ from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Color(Base):
+class Color(TenantMixin, Base):
     __tablename__ = "t_color"
 
     id_color: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True
     )
-    nombre: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    nombre: Mapped[str] = mapped_column(String(50), nullable=False)
     codigo_hex: Mapped[str | None] = mapped_column(String(7), nullable=True)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(

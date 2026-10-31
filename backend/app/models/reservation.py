@@ -14,9 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Reservation(Base):
+class Reservation(TenantMixin, Base):
     __tablename__ = "t_reserva"
     __table_args__ = (
         ForeignKeyConstraint(
@@ -58,7 +59,7 @@ class Reservation(Base):
     id_empleado_atencion: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
-    codigo: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    codigo: Mapped[str] = mapped_column(String(50), nullable=False)
     estado: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

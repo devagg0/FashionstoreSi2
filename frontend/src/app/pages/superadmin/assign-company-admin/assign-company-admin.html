@@ -1,0 +1,652 @@
+<main class="admin-page assign-admin-page">
+  <header class="admin-hero">
+    <div class="admin-hero__icon" aria-hidden="true">
+      <app-icon name="user-plus" [size]="28" />
+    </div>
+    <div class="admin-hero__content">
+      <p>CONTROL SAAS · PK07</p>
+      <h2>Asignar administrador de empresa</h2>
+      <span>
+        Gestiona el administrador principal y titular de cada empresa contratante en la plataforma multitenant.
+      </span>
+    </div>
+    <div class="admin-hero__actions">
+      <a class="button-secondary" routerLink="/superadmin/empresas">
+        <app-icon name="dashboard" [size]="16" />
+        <span>Gestionar empresas</span>
+      </a>
+      <a class="button-secondary" routerLink="/superadmin/empresas/nueva">
+        <app-icon name="store" [size]="16" />
+        <span>Nueva empresa</span>
+      </a>
+    </div>
+  </header>
+
+  @if (feedbackSuccess(); as success) {
+    <div class="alert alert--success" role="status">
+      <app-icon name="circle-check" [size]="20" />
+      <span>{{ success }}</span>
+      <button type="button" aria-label="Cerrar notificación" (click)="feedbackSuccess.set(null)">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </div>
+  }
+
+  @if (feedbackError(); as error) {
+    <div class="alert alert--danger" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <span>{{ error }}</span>
+      <button type="button" aria-label="Cerrar alerta" (click)="feedbackError.set(null)">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </div>
+  }
+
+  <div class="assign-layout">
+    <!-- Panel Izquierdo: Selección de empresa y Administrador actual -->
+    <div class="assign-sidebar">
+      <section class="card company-selector-card">
+        <div class="card__header">
+          <p>PASO 1</p>
+          <h3>Empresa contratante</h3>
+        </div>
+        <div class="card__body">
+          <label class="field-label" for="company-select">
+            <span>Seleccionar empresa activa</span>
+            <div class="select-wrapper">
+              <select
+                id="company-select"
+                class="form-select"
+                [value]="selectedCompanyId() ?? ''"
+                (change)="onCompanySelectChange($event)"
+                [disabled]="companiesLoading()"
+              >
+                <option value="">-- Elige una empresa --</option>
+                @for (company of companies(); track company.id_empresa) {
+                  <option [value]="company.id_empresa">
+                    {{ company.nombre }} ({{ company.codigo }})
+                  </option>
+                }
+              </select>
+            </div>
+          </label>
+
+          @if (companiesLoading()) {
+            <div class="loading-state">
+              <span class="spinner"></span>
+              <small>Cargando empresas activas…</small>
+            </div>
+          } @else if (selectedCompany(); as company) {
+            <div class="company-badge-panel">
+              <div class="company-badge-panel__header">
+                <strong>{{ company.nombre }}</strong>
+                <code>{{ company.codigo }}</code>
+              </div>
+              <dl class="company-metadata">
+                <div>
+                  <dt>ID Empresa:</dt>
+                  <dd>#{{ company.id_empresa }}</dd>
+                </div>
+                <div>
+                  <dt>NIT:</dt>
+                  <dd>{{ company.nit || 'No registrado' }}</dd>
+                </div>
+                <div>
+                  <dt>Zona horaria:</dt>
+                  <dd>{{ company.zona_horaria }}</dd>
+                </div>
+                <div>
+                  <dt>Estado:</dt>
+                  <dd>
+                    <span class="status status--activa">{{ company.estado }}</span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          } @else {
+            <p class="help-text">
+              Selecciona una empresa para consultar su administrador actual y asignarle un nuevo titular.
+            </p>
+          }
+        </div>
+      </section>
+
+      <section class="card admin-status-card">
+        <div class="card__header">
+          <p>PASO 2</p>
+          <h3>Administrador actual</h3>
+        </div>
+        <div class="card__body">
+          @if (!selectedCompanyId()) {
+            <div class="empty-placeholder">
+              <app-icon name="shield" [size]="32" />
+              <strong>Ninguna empresa seleccionada</strong>
+              <span>Elige una empresa arriba para ver su administrador asignado.</span>
+            </div>
+          } @else if (adminLoading()) {
+            <div class="loading-state">
+              <span class="spinner"></span>
+              <small>Consultando administrador asignado…</small>
+            </div>
+          } @else if (currentAdmin(); as admin) {
+            <div class="current-admin-card">
+              <div class="admin-identity-row">
+                <div class="avatar-circle">
+                  {{ admin.nombre.charAt(0) }}{{ admin.apellido.charAt(0) }}
+                </div>
+                <div class="admin-identity-meta">
+                  <h4>{{ admin.nombre }} {{ admin.apellido }}</h4>
+                  <span class="admin-email">{{ admin.correo }}</span>
+                  @if (admin.telefono) {
+                    <small class="admin-phone">Tel: {{ admin.telefono }}</small>
+                  }
+                </div>
+              </div>
+
+              <div class="admin-badges">
+                <span class="role-badge">
+                  <app-icon name="shield" [size]="14" />
+                  {{ admin.rol }}
+                </span>
+                @if (admin.es_propietario) {
+                  <span class="owner-badge">
+                    <app-icon name="circle-check" [size]="14" />
+                    Propietario principal
+                  </span>
+                }
+                <span class="status-badge" [class.status-badge--active]="admin.estado === 'ACTIVO'">
+                  {{ admin.estado }}
+                </span>
+              </div>
+
+              <div class="admin-timeline">
+                <small>Asignado en: {{ admin.created_at | date: 'dd/MM/yyyy, HH:mm' }}</small>
+              </div>
+
+              <div class="admin-reassign-notice">
+                <app-icon name="user" [size]="16" />
+                <span>Para cambiar el administrador, selecciona otro usuario o crea uno nuevo.</span>
+              </div>
+            </div>
+          } @else if (currentAdminNotFound()) {
+            <div class="empty-placeholder empty-placeholder--warning">
+              <app-icon name="user" [size]="32" />
+              <strong>Sin administrador asignado</strong>
+              <span>Esta empresa no tiene un administrador principal activo en este momento. Selecciona un usuario existente o crea uno nuevo a la derecha.</span>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- Panel Derecho: Buscador, Botón Nuevo y Listado de administradores disponibles -->
+    <div class="assign-main">
+      <section class="card users-card">
+        <div class="card__header card__header--split">
+          <div class="users-card__header-info">
+            <p>PASO 3</p>
+            <h3>Administradores elegibles para asignación</h3>
+            <span>Muestra exclusivamente administradores activos no asignados como titular a otra empresa.</span>
+          </div>
+
+          <div class="users-card__header-actions">
+            <button
+              type="button"
+              class="button-primary button--create-admin"
+              [disabled]="!selectedCompanyId()"
+              (click)="openCreateModal()"
+              [title]="selectedCompanyId() ? 'Crear un nuevo administrador y asociarlo directamente a esta empresa' : 'Selecciona una empresa primero'"
+            >
+              <app-icon name="user-plus" [size]="16" />
+              <span>Crear nuevo administrador</span>
+            </button>
+
+            <form class="search-form" [formGroup]="searchForm" (ngSubmit)="submitSearch()">
+              <div class="search-input-group">
+                <app-icon name="search" [size]="18" />
+                <input
+                  type="text"
+                  formControlName="search"
+                  placeholder="Buscar por nombre o correo…"
+                  aria-label="Buscar administradores por nombre o correo"
+                  maxlength="150"
+                />
+                @if (searchForm.controls.search.value) {
+                  <button
+                    type="button"
+                    class="clear-button"
+                    aria-label="Limpiar búsqueda"
+                    (click)="resetSearch()"
+                  >
+                    <app-icon name="close" [size]="16" />
+                  </button>
+                }
+              </div>
+              <button class="button-secondary" type="submit" [disabled]="usersLoading()">
+                <span>Buscar</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card__body card__body--table">
+          @if (usersLoading()) {
+            <div class="table-loading">
+              <span class="spinner"></span>
+              <span>Cargando administradores disponibles…</span>
+            </div>
+          } @else {
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Contacto</th>
+                    <th>Rol global</th>
+                    <th>Estado</th>
+                    <th class="text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (user of availableUsers(); track user.id_usuario) {
+                    <tr [class.is-current-admin]="isUserCurrentlyAssigned(user.id_usuario)">
+                      <td>
+                        <div class="user-row-cell">
+                          <strong>{{ user.nombre }} {{ user.apellido }}</strong>
+                          <small>ID #{{ user.id_usuario }}</small>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="user-contact-cell">
+                          <span>{{ user.correo }}</span>
+                          @if (user.telefono) {
+                            <small>{{ user.telefono }}</small>
+                          }
+                        </div>
+                      </td>
+                      <td>
+                        <span class="role-pill">{{ user.rol_global }}</span>
+                      </td>
+                      <td>
+                        <span class="status status--activa">Activo</span>
+                      </td>
+                      <td class="text-right">
+                        @if (isUserCurrentlyAssigned(user.id_usuario)) {
+                          <span class="current-tag" title="Este usuario ya es el administrador asignado">
+                            <app-icon name="circle-check" [size]="14" />
+                            <span>Actual</span>
+                          </span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="button-action"
+                            [disabled]="!selectedCompanyId()"
+                            (click)="openAssignModal(user)"
+                            [title]="selectedCompanyId() ? 'Asignar como administrador' : 'Selecciona una empresa primero'"
+                          >
+                            <app-icon name="user-plus" [size]="16" />
+                            <span>{{ currentAdmin() ? 'Reasignar' : 'Asignar' }}</span>
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="table-empty">
+                        <app-icon name="search" [size]="28" />
+                        <strong>No se encontraron administradores disponibles</strong>
+                        <span>Intenta con otro término de búsqueda o crea un nuevo administrador usando el botón superior.</span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pagination">
+              <button
+                type="button"
+                class="pagination-btn"
+                (click)="previousUsersPage()"
+                [disabled]="usersLoading() || usersPagination().page <= 1"
+              >
+                <app-icon name="chevron-left" [size]="16" />
+                <span>Anterior</span>
+              </button>
+              <span class="pagination-info">
+                Página {{ usersPagination().page }} de {{ usersPagination().total_pages || 1 }} (Total: {{ usersPagination().total }})
+              </span>
+              <button
+                type="button"
+                class="pagination-btn"
+                (click)="nextUsersPage()"
+                [disabled]="usersLoading() || usersPagination().page >= usersPagination().total_pages"
+              >
+                <span>Siguiente</span>
+                <app-icon name="chevron-right" [size]="16" />
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Diálogo modal de confirmación de asignación / reasignación existente -->
+  @if (modalOpen(); as isOpened) {
+    <div class="modal-layer">
+      <button
+        class="modal-backdrop"
+        type="button"
+        aria-label="Cerrar diálogo de confirmación"
+        (click)="closeModal()"
+      ></button>
+
+      <section
+        class="modal modal--confirm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+      >
+        <div class="modal__header">
+          <div class="modal-title-group">
+            <p>CONFIRMACIÓN DE ASIGNACIÓN</p>
+            <h3 id="confirm-modal-title">
+              {{ currentAdmin() ? 'Reasignar administrador principal' : 'Asignar administrador existente' }}
+            </h3>
+          </div>
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Cerrar"
+            (click)="closeModal()"
+            [disabled]="isSubmitting()"
+          >
+            <app-icon name="close" [size]="18" />
+          </button>
+        </div>
+
+        <div class="modal__body">
+          @if (modalError(); as err) {
+            <div class="alert alert--danger" role="alert">
+              <app-icon name="ban" [size]="18" />
+              <span>{{ err }}</span>
+            </div>
+          }
+
+          <div class="confirm-summary">
+            <div class="summary-item">
+              <span class="summary-label">Empresa contratante:</span>
+              <strong class="summary-value">
+                {{ selectedCompany()?.nombre }} ({{ selectedCompany()?.codigo }})
+              </strong>
+            </div>
+
+            @if (currentAdmin(); as previousAdmin) {
+              <div class="reassign-alert">
+                <div class="reassign-alert__icon">
+                  <app-icon name="shield" [size]="22" />
+                </div>
+                <div class="reassign-alert__text">
+                  <strong>Transferencia de titularidad</strong>
+                  <p>
+                    El administrador actual <strong>{{ previousAdmin.nombre }} {{ previousAdmin.apellido }}</strong>
+                    (<code>{{ previousAdmin.correo }}</code>) dejará de ser el propietario principal de la empresa.
+                  </p>
+                </div>
+              </div>
+            }
+
+            <div class="summary-target-user">
+              <span class="summary-label">Nuevo administrador titular:</span>
+              @if (userToAssign(); as target) {
+                <div class="target-user-card">
+                  <div class="avatar-circle">
+                    {{ target.nombre.charAt(0) }}{{ target.apellido.charAt(0) }}
+                  </div>
+                  <div>
+                    <strong>{{ target.nombre }} {{ target.apellido }}</strong>
+                    <small>{{ target.correo }}</small>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="membership-state-select">
+              <label class="field-label" for="membership-state">
+                <span>Estado inicial de membresía</span>
+                <select id="membership-state" class="form-select" [formControl]="membershipStateControl">
+                  <option value="ACTIVO">ACTIVO (Recomendado)</option>
+                  <option value="INVITADO">INVITADO</option>
+                </select>
+              </label>
+              <small class="field-help">
+                El usuario podrá acceder de inmediato si su membresía está en estado ACTIVO.
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal__footer">
+          <button
+            class="button-secondary"
+            type="button"
+            (click)="closeModal()"
+            [disabled]="isSubmitting()"
+          >
+            Cancelar
+          </button>
+          <button
+            class="button-primary"
+            type="button"
+            (click)="confirmAssignment()"
+            [disabled]="isSubmitting()"
+          >
+            @if (isSubmitting()) {
+              <span class="spinner spinner--inline"></span>
+              <span>Asignando…</span>
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>Confirmar {{ currentAdmin() ? 'reasignación' : 'asignación' }}</span>
+            }
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+
+  <!-- Diálogo modal para «Crear nuevo administrador» -->
+  @if (createModalOpen(); as isOpened) {
+    <div class="modal-layer">
+      <button
+        class="modal-backdrop"
+        type="button"
+        aria-label="Cerrar modal de creación"
+        (click)="closeCreateModal()"
+      ></button>
+
+      <section
+        class="modal modal--create-admin"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-modal-title"
+      >
+        <div class="modal__header">
+          <div class="modal-title-group">
+            <p>NUEVO ADMINISTRADOR · SAAS</p>
+            <h3 id="create-modal-title">Crear y asociar nuevo administrador</h3>
+          </div>
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Cerrar"
+            (click)="closeCreateModal()"
+            [disabled]="isSubmitting()"
+          >
+            <app-icon name="close" [size]="18" />
+          </button>
+        </div>
+
+        <form [formGroup]="createAdminForm" (ngSubmit)="submitCreateAdmin()">
+          <div class="modal__body">
+            @if (createModalError(); as err) {
+              <div class="alert alert--danger" role="alert">
+                <app-icon name="ban" [size]="18" />
+                <span>{{ err }}</span>
+              </div>
+            }
+
+            <div class="target-company-banner">
+              <span class="target-company-banner__label">Empresa destinataria:</span>
+              <strong>{{ selectedCompany()?.nombre }} ({{ selectedCompany()?.codigo }})</strong>
+            </div>
+
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label class="field-label" for="new-admin-nombre">
+                  <span>Nombre *</span>
+                  <input
+                    id="new-admin-nombre"
+                    type="text"
+                    class="form-control"
+                    formControlName="nombre"
+                    placeholder="Ej. Roberto"
+                    maxlength="100"
+                    required
+                  />
+                </label>
+                @if (createAdminForm.controls.nombre.invalid && createAdminForm.controls.nombre.touched) {
+                  <small class="field-error">El nombre es obligatorio (mínimo 2 caracteres).</small>
+                }
+              </div>
+
+              <div class="form-group">
+                <label class="field-label" for="new-admin-apellido">
+                  <span>Apellido *</span>
+                  <input
+                    id="new-admin-apellido"
+                    type="text"
+                    class="form-control"
+                    formControlName="apellido"
+                    placeholder="Ej. Morales"
+                    maxlength="100"
+                    required
+                  />
+                </label>
+                @if (createAdminForm.controls.apellido.invalid && createAdminForm.controls.apellido.touched) {
+                  <small class="field-error">El apellido es obligatorio (mínimo 2 caracteres).</small>
+                }
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="new-admin-correo">
+                <span>Correo electrónico *</span>
+                <input
+                  id="new-admin-correo"
+                  type="email"
+                  class="form-control"
+                  formControlName="correo"
+                  placeholder="ejemplo@fashionstore.com"
+                  maxlength="150"
+                  required
+                />
+              </label>
+              @if (createAdminForm.controls.correo.invalid && createAdminForm.controls.correo.touched) {
+                <small class="field-error">Ingresa un correo electrónico válido.</small>
+              }
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="new-admin-password">
+                <span>Contraseña segura *</span>
+                <div class="password-input-wrapper">
+                  <input
+                    id="new-admin-password"
+                    [type]="showPassword() ? 'text' : 'password'"
+                    class="form-control"
+                    formControlName="password"
+                    placeholder="Mínimo 8 caracteres, mayúscula, número y símbolo"
+                    autocomplete="new-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="toggle-password-btn"
+                    (click)="toggleShowPassword()"
+                    [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                    tabindex="-1"
+                  >
+                    <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="16" />
+                  </button>
+                </div>
+              </label>
+              @if (createAdminForm.controls.password.invalid && createAdminForm.controls.password.touched) {
+                <small class="field-error">
+                  La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo especial.
+                </small>
+              } @else {
+                <small class="field-help">
+                  Mínimo 8 caracteres, incluyendo mayúsculas, minúsculas, números y símbolos especiales.
+                </small>
+              }
+            </div>
+
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label class="field-label" for="new-admin-telefono">
+                  <span>Teléfono (opcional)</span>
+                  <input
+                    id="new-admin-telefono"
+                    type="tel"
+                    class="form-control"
+                    formControlName="telefono"
+                    placeholder="Ej. +591 70012345"
+                    maxlength="20"
+                  />
+                </label>
+                @if (createAdminForm.controls.telefono.invalid && createAdminForm.controls.telefono.touched) {
+                  <small class="field-error">Formato de teléfono no válido.</small>
+                }
+              </div>
+
+              <div class="form-group">
+                <label class="field-label" for="new-admin-estado">
+                  <span>Estado de membresía *</span>
+                  <select id="new-admin-estado" class="form-select" formControlName="estado">
+                    <option value="ACTIVO">ACTIVO (Recomendado)</option>
+                    <option value="INVITADO">INVITADO</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button
+              class="button-secondary"
+              type="button"
+              (click)="closeCreateModal()"
+              [disabled]="isSubmitting()"
+            >
+              Cancelar
+            </button>
+            <button
+              class="button-primary"
+              type="submit"
+              [disabled]="isSubmitting() || createAdminForm.invalid"
+            >
+              @if (isSubmitting()) {
+                <span class="spinner spinner--inline"></span>
+                <span>Creando y asignando…</span>
+              } @else {
+                <app-icon name="check" [size]="16" />
+                <span>Crear y asignar administrador</span>
+              }
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  }
+</main>

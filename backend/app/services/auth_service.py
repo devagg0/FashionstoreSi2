@@ -8,6 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.tenant_context import (
+    SUPERADMIN_ROLE,
+    current_company_id,
+    set_tenant_context,
+)
 from app.core.security import (
     create_access_token,
     create_password_reset_token,
@@ -128,7 +133,16 @@ class AuthService:
                 phone=payload.telefono,
                 password_hash=password_hash,
             )
-            self.repository.create_client(user_id=user.id_usuario)
+            company_id = current_company_id(self.db)
+            self.repository.create_membership(
+                company_id=company_id,
+                user_id=user.id_usuario,
+                role_id=client_role.id_rol,
+            )
+            self.repository.create_client(
+                user_id=user.id_usuario,
+                company_id=company_id,
+            )
             registered_client = RegisteredClientData(
                 id_usuario=user.id_usuario,
                 nombre=user.nombre,
@@ -176,14 +190,32 @@ class AuthService:
         if not user.estado:
             raise InactiveAccountError
 
-        role = self.repository.get_role_by_id(user.id_rol)
-        if role is None:
+        global_role = self.repository.get_role_by_id(user.id_rol)
+        if global_role is None:
             raise AuthenticationConfigurationError
 
-        authenticated_user = self._to_authenticated_user(user, role.nombre)
+        if global_role.nombre.upper() == SUPERADMIN_ROLE:
+            company_id = None
+            role_name = global_role.nombre
+            set_tenant_context(self.db, None, is_superadmin=True)
+        else:
+            membership = self.repository.get_active_membership(
+                user_id=user.id_usuario,
+            )
+            if membership is None:
+                raise InactiveAccountError
+            membership_record, role = membership
+            company_id = getattr(membership_record, "id_empresa", None)
+            if company_id is None:
+                company_id = current_company_id(self.db)
+            role_name = role.nombre
+            set_tenant_context(self.db, company_id)
+
+        authenticated_user = self._to_authenticated_user(user, role_name, company_id)
         access_token = create_access_token(
             subject=str(user.id_usuario),
-            role=role.nombre,
+            role=role_name,
+            company_id=company_id,
         )
         return LoginResponse(
             access_token=access_token,
@@ -195,11 +227,15 @@ class AuthService:
         """Valida el JWT y recupera el estado y rol actuales desde la BD."""
         user = self._get_user_from_token(token)
 
-        role = self.repository.get_role_by_id(user.id_rol)
-        if role is None:
+        role_name = self.db.info.get("effective_role")
+        if not isinstance(role_name, str):
             raise AuthenticationConfigurationError
 
-        return self._to_authenticated_user(user, role.nombre)
+        return self._to_authenticated_user(
+            user,
+            role_name,
+            self.db.info.get("empresa_id"),
+        )
 
     def change_password(self, token: str, payload: ChangePasswordRequest) -> None:
         """Cambia la contraseña del usuario identificado exclusivamente por el JWT."""
@@ -381,10 +417,43 @@ class AuthService:
         if not user.estado:
             raise InactiveAccountError
 
+        global_role = self.repository.get_role_by_id(user.id_rol)
+        if global_role is None:
+            raise InvalidAccessTokenError
+
+        if global_role.nombre.upper() == SUPERADMIN_ROLE:
+            if payload.get("role") != global_role.nombre:
+                raise InvalidAccessTokenError
+            set_tenant_context(self.db, None, is_superadmin=True)
+            self.db.info["effective_role"] = global_role.nombre
+            return user
+
+        try:
+            company_id = int(
+                payload.get("empresa_id") or current_company_id(self.db)
+            )
+        except (TypeError, ValueError) as error:
+            raise InvalidAccessTokenError from error
+        membership = self.repository.get_active_membership(
+            user_id=user.id_usuario,
+            company_id=company_id,
+        )
+        if membership is None:
+            raise InactiveAccountError
+        _membership, role = membership
+        if payload.get("role") != role.nombre:
+            raise InvalidAccessTokenError
+        set_tenant_context(self.db, company_id)
+        self.db.info["effective_role"] = role.nombre
+
         return user
 
     @staticmethod
-    def _to_authenticated_user(user: User, role_name: str) -> AuthenticatedUserData:
+    def _to_authenticated_user(
+        user: User,
+        role_name: str,
+        company_id: int | None = None,
+    ) -> AuthenticatedUserData:
         """Expone únicamente los campos seguros requeridos por autenticación."""
         return AuthenticatedUserData(
             id_usuario=user.id_usuario,
@@ -392,4 +461,5 @@ class AuthService:
             apellido=user.apellido,
             correo=user.correo,
             rol=role_name,
+            id_empresa=company_id,
         )

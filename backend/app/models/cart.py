@@ -13,9 +13,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Cart(Base):
+class Cart(TenantMixin, Base):
     __tablename__ = "t_carrito"
     __table_args__ = (
         CheckConstraint(
@@ -24,6 +25,7 @@ class Cart(Base):
         ),
         Index(
             "uq_carrito_cliente_activo",
+            "empresa_id",
             "id_cliente",
             unique=True,
             postgresql_where=text("estado = 'ACTIVO'"),

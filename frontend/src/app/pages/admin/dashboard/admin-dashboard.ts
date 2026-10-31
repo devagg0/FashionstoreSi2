@@ -1,9 +1,12 @@
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import { AdminApiErrorService } from '../../../core/services/admin-api-error.service';
 import { AdminUsersService } from '../../../core/services/admin-users.service';
+import { SaasPlanLimitsService } from '../../../core/services/saas-plan-limits.service';
 import { Icon, IconName } from '../../../shared/components/icon/icon';
 
 interface SummaryCard {
@@ -15,20 +18,44 @@ interface SummaryCard {
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [Icon, RouterLink],
+  imports: [DatePipe, Icon, RouterLink],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
 })
 export class AdminDashboard implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly adminUsersService = inject(AdminUsersService);
   private readonly errorService = inject(AdminApiErrorService);
+  private readonly planLimitsService = inject(SaasPlanLimitsService);
 
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly cards = signal<SummaryCard[]>([]);
 
+  // Estado del plan SaaS
+  protected readonly planLimits = this.planLimitsService.currentPlanLimits;
+  protected readonly planLoading = this.planLimitsService.loading;
+
+  protected readonly branchUsagePercent = computed(() => {
+    const limits = this.planLimits();
+    const limit = limits?.consumo_sucursales?.limite_sucursales;
+    const active = limits?.consumo_sucursales?.sucursales_activas ?? 0;
+    if (!limit || limit <= 0) return 0;
+    return Math.min(100, Math.round((active / limit) * 100));
+  });
+
   ngOnInit(): void {
     this.loadSummary();
+    this.loadPlanLimits();
+  }
+
+  protected loadPlanLimits(): void {
+    this.planLimitsService
+      .getCurrentPlanLimits()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        error: () => {},
+      });
   }
 
   protected loadSummary(): void {

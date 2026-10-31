@@ -2,12 +2,14 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Security, status
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.routers.admin_users import AdminDependency, COMMON_ERROR_RESPONSES
+from app.routers.admin_users import COMMON_ERROR_RESPONSES
+from app.routers.auth import bearer_scheme
 from app.schemas.admin_city import (
     AdminCityCreateResponse,
     AdminCityListResponse,
@@ -17,12 +19,18 @@ from app.schemas.admin_city import (
     CityStatusUpdateRequest,
     CityUpdateRequest,
 )
-from app.schemas.auth import ErrorResponse
+from app.schemas.auth import AuthenticatedUserData, ErrorResponse
 from app.services.admin_city_service import (
     AdminCityPersistenceError,
     AdminCityService,
     CityNameDuplicateError,
     CityNotFoundError,
+)
+from app.services.auth_service import (
+    AuthenticationConfigurationError,
+    AuthService,
+    InactiveAccountError,
+    InvalidAccessTokenError,
 )
 
 
@@ -32,12 +40,72 @@ router = APIRouter(
 )
 
 
-def _error_response(status_code: int, message: str) -> JSONResponse:
+def _error_response(
+    status_code: int,
+    message: str,
+    *,
+    bearer_challenge: bool = False,
+) -> JSONResponse:
     """Devuelve el formato de error compartido por el backend."""
+    headers = {"WWW-Authenticate": "Bearer"} if bearer_challenge else None
     return JSONResponse(
         status_code=status_code,
         content={"success": False, "message": message},
+        headers=headers,
     )
+
+
+def require_admin_or_superadmin(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Security(bearer_scheme),
+    ],
+    db: Session = Depends(get_db),
+) -> AuthenticatedUserData | JSONResponse:
+    """Valida el Bearer JWT y requiere el rol ADMINISTRADOR o SUPERADMIN."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return _error_response(
+            status.HTTP_401_UNAUTHORIZED,
+            "Token inválido o expirado",
+            bearer_challenge=True,
+        )
+
+    try:
+        current_user = AuthService(db).get_current_user(credentials.credentials)
+    except InvalidAccessTokenError:
+        return _error_response(
+            status.HTTP_401_UNAUTHORIZED,
+            "Token inválido o expirado",
+            bearer_challenge=True,
+        )
+    except InactiveAccountError:
+        return _error_response(
+            status.HTTP_403_FORBIDDEN,
+            "La cuenta se encuentra inactiva",
+        )
+    except AuthenticationConfigurationError:
+        return _error_response(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Error de configuración del sistema",
+        )
+    except Exception:
+        return _error_response(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "No fue posible validar la autenticación",
+        )
+
+    if current_user.rol.upper() not in {"ADMINISTRADOR", "SUPERADMIN"}:
+        return _error_response(
+            status.HTTP_403_FORBIDDEN,
+            "Se requiere el rol ADMINISTRADOR",
+        )
+    return current_user
+
+
+AdminDependency = Annotated[
+    AuthenticatedUserData | JSONResponse,
+    Depends(require_admin_or_superadmin),
+]
 
 
 CITY_ERROR_RESPONSES = {

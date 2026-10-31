@@ -12,9 +12,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class ProductVariant(Base):
+class ProductVariant(TenantMixin, Base):
     __tablename__ = "t_variante_producto"
     __table_args__ = (
         UniqueConstraint("id_producto", "id_talla", "id_color"),
@@ -32,7 +33,7 @@ class ProductVariant(Base):
     id_color: Mapped[int] = mapped_column(
         Integer, ForeignKey("t_color.id_color"), nullable=False
     )
-    sku: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    sku: Mapped[str] = mapped_column(String(100), nullable=False)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()

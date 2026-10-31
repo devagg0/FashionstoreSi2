@@ -2,9 +2,10 @@ from sqlalchemy import CheckConstraint, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class CartDetail(Base):
+class CartDetail(TenantMixin, Base):
     __tablename__ = "t_detalle_carrito"
     __table_args__ = (
         UniqueConstraint(

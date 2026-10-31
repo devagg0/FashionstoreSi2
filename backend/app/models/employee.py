@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Employee(Base):
+class Employee(TenantMixin, Base):
     __tablename__ = "t_empleado"
 
     id_empleado: Mapped[int] = mapped_column(
@@ -16,7 +17,6 @@ class Employee(Base):
         Integer,
         ForeignKey("t_usuario.id_usuario"),
         nullable=False,
-        unique=True,
     )
     ci: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cargo: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -54,6 +54,7 @@ def inventory_report_ai_analysis(
     administrator: AdminDependency,
     data: InventoryReportData,
     pregunta: Annotated[str | None, Query(max_length=500)] = None,
+    db: Session = Depends(get_db),
 ) -> ReportAIAnalysisResponse | JSONResponse:
     """Analiza con IA los datos de inventario ya calculados por el dashboard; no vuelve a consultarlos.
 
@@ -62,6 +63,23 @@ def inventory_report_ai_analysis(
     """
     if isinstance(administrator, JSONResponse):
         return administrator
+
+    company_id = getattr(administrator, "id_empresa", None) or getattr(db, "info", {}).get("empresa_id")
+    if company_id:
+        from app.PK07.CU07_ConsultarPlanLimites.service import (
+            FeatureNotEnabledError,
+            NoActiveSubscriptionError,
+            SaasPlanLimitsService,
+        )
+
+        try:
+            SaasPlanLimitsService(db).validate_feature_enabled(company_id, "REPORTES_IA")
+        except (NoActiveSubscriptionError, FeatureNotEnabledError) as exc:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": str(exc)},
+            )
+
     try:
         analysis = ReportAIService().analyze_inventory(data, pregunta)
     except ReportAIUnavailableError as exc:

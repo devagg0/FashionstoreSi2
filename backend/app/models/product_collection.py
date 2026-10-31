@@ -2,9 +2,10 @@ from sqlalchemy import ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class ProductCollection(Base):
+class ProductCollection(TenantMixin, Base):
     __tablename__ = "t_producto_coleccion"
     __table_args__ = (UniqueConstraint("id_producto", "id_coleccion"),)
 

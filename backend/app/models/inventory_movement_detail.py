@@ -11,9 +11,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class InventoryMovementDetail(Base):
+class InventoryMovementDetail(TenantMixin, Base):
     __tablename__ = "t_detalle_movimiento_inventario"
     __table_args__ = (
         UniqueConstraint(

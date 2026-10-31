@@ -81,6 +81,11 @@ class AdminBranchService:
     def create_branch(self, payload: BranchCreateRequest) -> AdminBranchData:
         """Crea una sucursal activa asociada a una ciudad activa."""
         try:
+            company_id = getattr(self.db, "info", {}).get("empresa_id") if hasattr(self.db, "info") else None
+            if company_id:
+                from app.PK07.CU07_ConsultarPlanLimites.service import SaasPlanLimitsService
+                SaasPlanLimitsService(self.db).validate_branch_creation_limit(company_id, is_reactivation=False)
+
             self._validate_city(payload.id_ciudad)
             branch = self.repository.create(**payload.model_dump())
             result = self._to_branch_data(branch)
@@ -126,6 +131,14 @@ class AdminBranchService:
             branch = self.repository.get_by_id(branch_id, for_update=True)
             if branch is None:
                 raise BranchNotFoundError
+
+            if payload.estado is True:
+                company_id = getattr(branch, "empresa_id", None) or (
+                    getattr(self.db, "info", {}).get("empresa_id") if hasattr(self.db, "info") else None
+                )
+                if company_id and not branch.estado:
+                    from app.PK07.CU07_ConsultarPlanLimites.service import SaasPlanLimitsService
+                    SaasPlanLimitsService(self.db).validate_branch_creation_limit(company_id, is_reactivation=True)
 
             self.repository.update_status(branch, state=payload.estado)
             result = self._to_branch_data(branch)

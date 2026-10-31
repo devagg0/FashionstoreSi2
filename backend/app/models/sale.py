@@ -18,9 +18,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Sale(Base):
+class Sale(TenantMixin, Base):
     __tablename__ = "t_venta"
     __table_args__ = (
         ForeignKeyConstraint(
@@ -103,7 +104,7 @@ class Sale(Base):
         server_default=text("false"),
     )
     numero_venta: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True
+        String(50), nullable=False
     )
     estado: Mapped[str] = mapped_column(
         String(20),

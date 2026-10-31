@@ -15,12 +15,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Product(Base):
+class Product(TenantMixin, Base):
     __tablename__ = "t_producto"
     __table_args__ = (
-        CheckConstraint("precio >= 0"),
+        CheckConstraint("precio >= 0", name="t_producto_precio_check"),
         CheckConstraint(
             "seccion IN ('HOMBRE', 'MUJER', 'UNISEX')",
             name="ck_producto_seccion",

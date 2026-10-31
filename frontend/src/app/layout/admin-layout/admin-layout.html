@@ -26,73 +26,204 @@
       <a
         routerLink="/admin/usuarios"
         [class.is-active]="usersSectionActive()"
+        [class.is-locked]="hasNoActiveSubscription()"
         [attr.aria-current]="usersSectionActive() ? 'page' : null"
         (click)="closeSidebar()"
       >
         <app-icon name="users" [size]="20" />
         <span>Usuarios y roles</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/ciudades" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/ciudades"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="map-pin" [size]="20" />
         <span>Ciudades</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/sucursales" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/sucursales"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="map-pin" [size]="20" />
         <span>Sucursales</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/productos" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/productos"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="bag" [size]="20" />
         <span>Productos</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/promociones" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/promociones"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="filter" [size]="20" />
         <span>Promociones</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/reporte-ventas" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/reporte-ventas"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="dashboard" [size]="20" />
         <span>Reporte de ventas</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/reporte-reservas" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/reporte-reservas"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="dashboard" [size]="20" />
         <span>Reporte de reservas</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/configuracion-catalogo" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/configuracion-catalogo"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="dashboard" [size]="20" />
         <span>Configuración de catálogo</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/temporadas-colecciones" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/temporadas-colecciones"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="dashboard" [size]="20" />
         <span>Temporadas y colecciones</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/proveedores" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/proveedores"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="users" [size]="20" />
         <span>Proveedores</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a routerLink="/admin/suscripcion" routerLinkActive="is-active" (click)="closeSidebar()">
+        <app-icon name="circle-check" [size]="20" />
+        <span>Mi suscripción</span>
       </a>
       <a routerLink="/admin/perfil" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="user" [size]="20" />
         <span>Mi perfil</span>
       </a>
-      <a routerLink="/admin/asignaciones-sucursal" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/asignaciones-sucursal"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="users" [size]="20" />
         <span>Asignación de empleados</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/devoluciones" routerLinkActive="is-active" (click)="closeSidebar()"><app-icon name="bag" [size]="20" /><span>Devoluciones</span></a>
+      <a
+        routerLink="/admin/devoluciones"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="bag" [size]="20" />
+        <span>Devoluciones</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
       <p>INVENTARIO</p>
-      <a routerLink="/admin/reporte-inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/reporte-inventario"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="dashboard" [size]="20" />
         <span>Reporte de inventario</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/inventario"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="bag" [size]="20" />
         <span>Inventario por sucursal</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/movimientos-inventario" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/movimientos-inventario"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="bag" [size]="20" />
         <span>Movimientos de inventario</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
-      <a routerLink="/admin/inventario-global" routerLinkActive="is-active" (click)="closeSidebar()">
+      <a
+        routerLink="/admin/inventario-global"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
         <app-icon name="bag" [size]="20" />
         <span>Inventario global</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
       </a>
     </nav>
 
@@ -116,26 +247,53 @@
           [attr.aria-expanded]="sidebarOpen()"
           (click)="toggleSidebar()"
         >
-          <app-icon name="menu" [size]="22" />
+          <app-icon name="menu" [size]="20" />
         </button>
-        <div>
-          <span>Panel administrativo</span>
+        <div class="admin-topbar__title">
+          <p>ADMINISTRACIÓN</p>
           <h1>{{ sectionTitle() }}</h1>
         </div>
       </div>
 
-      @if (user(); as currentUser) {
-        <a class="admin-identity" routerLink="/admin/perfil" aria-label="Abrir mi perfil">
-          <span class="admin-identity__copy">
-            <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
-            <small>{{ currentUser.rol }}</small>
-          </span>
-          <span class="admin-identity__avatar" aria-hidden="true">{{ initials() }}</span>
+      <div class="admin-topbar__actions">
+        <a class="admin-topbar__action" routerLink="/admin/suscripcion" title="Mi suscripción">
+          <app-icon name="circle-check" [size]="20" />
         </a>
-      }
+        <a class="admin-topbar__action" routerLink="/admin/perfil" title="Mi perfil">
+          <app-icon name="user" [size]="20" />
+        </a>
+        @if (user(); as currentUser) {
+          <div class="admin-topbar__user" aria-label="Usuario actual">
+            <span>{{ initials() }}</span>
+            <div>
+              <strong>{{ currentUser.nombre }} {{ currentUser.apellido }}</strong>
+              <small>{{ currentUser.correo }}</small>
+            </div>
+          </div>
+        }
+      </div>
     </header>
 
-    <div id="main-content" class="admin-main">
+    @if (hasNoActiveSubscription()) {
+      <div class="saas-subscription-alert" role="alert">
+        <div class="saas-subscription-alert__icon">
+          <app-icon name="ban" [size]="20" />
+        </div>
+        <div class="saas-subscription-alert__body">
+          <strong>Suscripción requerida</strong>
+          <span
+            >Tu empresa no cuenta con una suscripción comercial activa. Las operaciones comerciales
+            están suspendidas hasta contratar o renovar un plan comercial.</span
+          >
+        </div>
+        <a routerLink="/admin/suscripcion" class="saas-subscription-alert__btn">
+          <app-icon name="circle-check" [size]="16" />
+          Contratar suscripción
+        </a>
+      </div>
+    }
+
+    <div class="admin-content">
       <router-outlet />
     </div>
   </div>

@@ -89,6 +89,58 @@ class StripeService:
         except StripeError:
             raise StripeConnectionError("No se pudo crear Checkout TEST; reintente el mismo pago") from None
 
+    def create_saas_checkout_session(
+        self,
+        *,
+        amount: int,
+        currency: str,
+        company_id: int,
+        company_name: str,
+        plan_id: int,
+        plan_name: str,
+        plan_code: str,
+        operation: str,
+        tracking_id: str,
+        success_url: str,
+        cancel_url: str,
+        payment_method_types: list[str] | None = None,
+    ):
+        metadata = {
+            "empresa_id": str(company_id),
+            "plan_id": str(plan_id),
+            "plan_codigo": str(plan_code),
+            "operacion": str(operation),
+            "tracking_id": str(tracking_id),
+        }
+        try:
+            return self._client.v1.checkout.sessions.create(
+                params={
+                    "mode": "payment",
+                    "payment_method_types": payment_method_types or ["card"],
+                    "client_reference_id": f"saas-sub-{company_id}-{plan_code}",
+                    "line_items": [
+                        {
+                            "quantity": 1,
+                            "price_data": {
+                                "currency": currency.lower(),
+                                "unit_amount": amount,
+                                "product_data": {
+                                    "name": f"FashionStore SaaS - {plan_name} ({operation})",
+                                    "description": f"Suscripción SaaS para la empresa {company_name}",
+                                },
+                            },
+                        }
+                    ],
+                    "metadata": metadata,
+                    "payment_intent_data": {"metadata": metadata},
+                    "success_url": success_url,
+                    "cancel_url": cancel_url,
+                },
+                options={"idempotency_key": f"fashionstore-saas-checkout-{tracking_id}"},
+            )
+        except StripeError:
+            raise StripeConnectionError("No se pudo crear Checkout TEST para SaaS; reintente la operación") from None
+
     def retrieve_checkout_session(self, reference):
         try:
             return self._client.v1.checkout.sessions.retrieve(

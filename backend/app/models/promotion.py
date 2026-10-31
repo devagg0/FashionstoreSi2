@@ -15,9 +15,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Promotion(Base):
+class Promotion(TenantMixin, Base):
     __tablename__ = "t_promocion"
     __table_args__ = (
         CheckConstraint(
@@ -46,7 +47,7 @@ class Promotion(Base):
     )
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     codigo: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, unique=True
+        String(50), nullable=True
     )
     descripcion: Mapped[str | None] = mapped_column(String(200), nullable=True)
     tipo_descuento: Mapped[str] = mapped_column(String(20), nullable=False)

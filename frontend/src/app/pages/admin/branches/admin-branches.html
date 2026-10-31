@@ -5,11 +5,29 @@
       <h2 id="branches-title">Gestión de sucursales</h2>
       <span>Administra las sucursales donde FashionStore tiene presencia.</span>
     </div>
-    <button class="page-heading__action" type="button" (click)="openBranchModal()">
+    <button
+      class="page-heading__action"
+      type="button"
+      [disabled]="!canCreateBranch()"
+      [class.is-disabled]="!canCreateBranch()"
+      [attr.title]="!canCreateBranch() ? 'Límite de sucursales alcanzado según su plan SaaS' : null"
+      (click)="openBranchModal()"
+    >
       <app-icon name="plus" [size]="18" />
       Nueva sucursal
     </button>
   </div>
+
+  @if (isBranchLimitReached()) {
+    <div class="notice notice--warning saas-quota-banner" role="alert">
+      <app-icon name="ban" [size]="19" />
+      <span>
+        Has alcanzado el límite máximo de <strong>{{ branchLimit() }} sucursales activas</strong> permitido por tu plan SaaS.
+        Para crear o reactivar sucursales adicionales, actualiza tu plan en
+        <a routerLink="/admin/suscripcion">Mi suscripción</a>.
+      </span>
+    </div>
+  }
 
   <section
     class="summary-grid"
@@ -40,6 +58,28 @@
           <strong>{{ activeBranches() }}</strong>
         }
         <small>Disponibles actualmente</small>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon summary-card__icon--quota">
+        <app-icon name="layers" [size]="22" />
+      </span>
+      <div>
+        <p>Límite del plan SaaS</p>
+        @if (statsLoading()) {
+          <span class="summary-card__skeleton"></span>
+        } @else {
+          <strong>{{ branchLimit() !== null ? branchLimit() : 'Ilimitado' }}</strong>
+        }
+        <small>
+          @if (isBranchLimitReached()) {
+            <span class="quota-warning">Cupo agotado</span>
+          } @else if (availableQuota() !== null) {
+            {{ availableQuota() }} disponible(s)
+          } @else {
+            Capacidad disponible
+          }
+        </small>
       </div>
     </article>
   </section>
@@ -172,7 +212,8 @@
                     </button>
                     <button
                       type="button"
-                      [title]="branch.estado ? 'Desactivar sucursal' : 'Activar sucursal'"
+                      [disabled]="!branch.estado && !canCreateBranch()"
+                      [title]="branch.estado ? 'Desactivar sucursal' : (!canCreateBranch() ? 'Límite de sucursales alcanzado según su plan' : 'Activar sucursal')"
                       [attr.aria-label]="
                         (branch.estado ? 'Desactivar ' : 'Activar ') + branch.nombre
                       "
@@ -445,6 +486,11 @@
         }}
         <strong>{{ branch.nombre }}</strong>
       </p>
+      @if (!branch.estado && !canCreateBranch()) {
+        <div class="notice notice--warning" role="alert">
+          <span>No es posible reactivar: has alcanzado el límite de {{ branchLimit() }} sucursales activas de tu plan.</span>
+        </div>
+      }
       <div class="modal__actions">
         <button
           class="modal-button modal-button--secondary"
@@ -457,7 +503,7 @@
         <button
           class="modal-button modal-button--primary"
           type="button"
-          [disabled]="saving()"
+          [disabled]="saving() || (!branch.estado && !canCreateBranch())"
           (click)="confirmStatusChange()"
         >
           {{ saving() ? 'Guardando...' : 'Confirmar' }}

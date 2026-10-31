@@ -4,15 +4,16 @@ from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.tenant import TenantMixin
 
 
-class Size(Base):
+class Size(TenantMixin, Base):
     __tablename__ = "t_talla"
 
     id_talla: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True
     )
-    nombre: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    nombre: Mapped[str] = mapped_column(String(20), nullable=False)
     descripcion: Mapped[str | None] = mapped_column(String(100), nullable=True)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
