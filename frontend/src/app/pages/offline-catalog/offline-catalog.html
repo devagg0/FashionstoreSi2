@@ -1,0 +1,455 @@
+<div class="catalog-page">
+  <!-- Cabecera de página -->
+  <header class="catalog-header">
+    <div class="catalog-header__title">
+      <p class="catalog-kicker">PK08 — CU09 · WEB ANGULAR PWA</p>
+      <h2>Catálogo y Disponibilidad Offline</h2>
+      <span>
+        Consulta de catálogo comercial, variantes físicas y disponibilidad por sucursal autorizada directamente desde IndexedDB sin llamadas al servidor.
+      </span>
+    </div>
+
+    <!-- Indicadores de estado -->
+    <div class="catalog-badges">
+      <a [routerLink]="offlineOperationUrl()" class="catalog-btn-link" title="Gestionar paquete offline">
+        <app-icon name="monitor-smartphone" [size]="16" />
+        <span>Operación Offline</span>
+      </a>
+
+      @if (summary(); as sum) {
+        @if (sum.isExpired) {
+          <span class="catalog-badge catalog-badge--danger" title="El paquete local superó su tiempo de vigencia">
+            <app-icon name="close" [size]="14" /> Paquete expirado
+          </span>
+        } @else {
+          <span class="catalog-badge catalog-badge--success" title="Paquete vigente para operar offline">
+            <app-icon name="circle-check" [size]="14" /> Catálogo vigente ({{ sum.timeRemainingText }})
+          </span>
+        }
+      } @else {
+        <span class="catalog-badge catalog-badge--warning" title="No hay datos preparados en este navegador">
+          <app-icon name="filter" [size]="14" /> Sin catálogo descargado
+        </span>
+      }
+    </div>
+  </header>
+
+  <!-- Advertencia de paquete expirado -->
+  @if (summary(); as sum) {
+    @if (sum.isExpired) {
+      <div class="catalog-banner catalog-banner--warning" role="alert">
+        <div class="catalog-banner__content">
+          <app-icon name="ban" [size]="20" />
+          <div>
+            <strong>Catálogo offline expirado:</strong>
+            Los datos visualizados corresponden a la última descarga del {{ sum.savedAt | date: 'dd/MM/yyyy HH:mm' }}. Puede continuar consultando el inventario local, pero se recomienda actualizar cuando disponga de conexión.
+          </div>
+        </div>
+        <a [routerLink]="offlineOperationUrl()" class="catalog-banner__action">Actualizar ahora</a>
+      </div>
+    }
+  }
+
+  <!-- Estado vacío: cuando no se ha descargado el paquete de CU08 -->
+  @if (!isLoading() && rawProducts().length === 0) {
+    <section class="catalog-empty-state">
+      <div class="catalog-empty-state__icon">
+        <app-icon name="bag" [size]="48" />
+      </div>
+      <h3>No hay catálogo offline preparado en este dispositivo</h3>
+      <p>
+        Para consultar productos, variantes y existencias sin conexión a internet, primero debe preparar y descargar el paquete de datos en su navegador.
+      </p>
+      <div class="catalog-empty-state__actions">
+        <a [routerLink]="offlineOperationUrl()" class="catalog-btn catalog-btn--primary">
+          <app-icon name="refresh" [size]="18" />
+          <span>Ir a Preparar Paquete Offline</span>
+        </a>
+      </div>
+    </section>
+  } @else {
+    <!-- Barra de búsqueda y filtros reactivos en memoria -->
+    <section class="catalog-filters-bar" aria-label="Filtros del catálogo offline">
+      <div class="catalog-search-box">
+        <app-icon name="search" [size]="18" />
+        <input
+          type="text"
+          placeholder="Buscar por nombre de producto o SKU de variante..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          aria-label="Buscar producto o SKU"
+        />
+        @if (searchTerm()) {
+          <button type="button" class="catalog-search-clear" (click)="searchTerm.set('')" aria-label="Limpiar búsqueda">
+            ✕
+          </button>
+        }
+      </div>
+
+      <div class="catalog-filters-grid">
+        <!-- Filtro Categoría -->
+        <div class="catalog-filter-group">
+          <label for="cat-select">Categoría:</label>
+          <select
+            id="cat-select"
+            [ngModel]="selectedCategory()"
+            (ngModelChange)="selectedCategory.set($event)"
+          >
+            <option value="TODAS">Todas las categorías</option>
+            @for (cat of rawCategories(); track cat.id_categoria) {
+              <option [value]="cat.nombre">{{ cat.nombre }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Filtro Talla -->
+        <div class="catalog-filter-group">
+          <label for="size-select">Talla:</label>
+          <select
+            id="size-select"
+            [ngModel]="selectedSize()"
+            (ngModelChange)="selectedSize.set($event)"
+          >
+            <option value="TODAS">Todas las tallas</option>
+            @for (sz of rawSizes(); track sz.id_talla) {
+              <option [value]="sz.nombre">{{ sz.nombre }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Filtro Color -->
+        <div class="catalog-filter-group">
+          <label for="color-select">Color:</label>
+          <select
+            id="color-select"
+            [ngModel]="selectedColor()"
+            (ngModelChange)="selectedColor.set($event)"
+          >
+            <option value="TODAS">Todos los colores</option>
+            @for (col of rawColors(); track col.id_color) {
+              <option [value]="col.nombre">{{ col.nombre }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Filtro Sucursal -->
+        <div class="catalog-filter-group">
+          <label for="branch-select">Sucursal:</label>
+          <select
+            id="branch-select"
+            [ngModel]="selectedBranch()"
+            (ngModelChange)="selectedBranch.set($event)"
+          >
+            <option value="TODAS">Todas las sucursales autorizadas</option>
+            @for (b of rawBranches(); track b.id_sucursal) {
+              <option [value]="b.id_sucursal">{{ b.nombre }} ({{ b.ciudad || 'Central' }})</option>
+            }
+          </select>
+        </div>
+
+        <!-- Toggle con stock -->
+        <label class="catalog-checkbox-label">
+          <input
+            type="checkbox"
+            [ngModel]="onlyInStock()"
+            (ngModelChange)="onlyInStock.set($event)"
+          />
+          <span>Sólo con existencias</span>
+        </label>
+
+        <!-- Botón reiniciar filtros -->
+        <button
+          type="button"
+          class="catalog-btn catalog-btn--ghost"
+          (click)="resetFilters()"
+          title="Limpiar todos los filtros"
+        >
+          Limpiar filtros
+        </button>
+      </div>
+
+      <!-- Resumen de resultados -->
+      <div class="catalog-results-info">
+        <span>
+          Mostrando <strong>{{ filteredItems().length }}</strong> de <strong>{{ rawProducts().length }}</strong> productos en almacenamiento local.
+        </span>
+        @if (summary(); as sum) {
+          <small class="catalog-cache-info">
+            Versión: <code>{{ sum.metadata.version }}</code> · Guardado: {{ sum.savedAt | date: 'dd/MM/yyyy HH:mm' }}
+          </small>
+        }
+      </div>
+    </section>
+
+    <!-- Cuadrícula de productos -->
+    @if (filteredItems().length === 0) {
+      <div class="catalog-no-results">
+        <app-icon name="filter" [size]="32" />
+        <p>No se encontraron productos que coincidan con los criterios de búsqueda y filtros seleccionados.</p>
+        <button type="button" class="catalog-btn catalog-btn--secondary" (click)="resetFilters()">
+          Restablecer filtros
+        </button>
+      </div>
+    } @else {
+      <section class="catalog-grid" aria-label="Catálogo de productos offline">
+        @for (item of filteredItems(); track item.producto.id_producto) {
+          <article class="product-card" (click)="openProductDetail(item.producto.id_producto)">
+            <!-- Imagen con fallback offline -->
+            <div class="product-card__image-container">
+              @if (item.producto.imagen_principal) {
+                <img
+                  [src]="item.producto.imagen_principal"
+                  [alt]="item.producto.nombre"
+                  class="product-card__image"
+                  (error)="handleImageError($event)"
+                  loading="lazy"
+                />
+              }
+              <div
+                class="offline-img-fallback"
+                [style.display]="item.producto.imagen_principal ? 'none' : 'flex'"
+              >
+                <app-icon name="bag" [size]="36" />
+                <span>{{ item.producto.nombre.substring(0, 2).toUpperCase() }}</span>
+              </div>
+
+              <!-- Badge de sección y stock -->
+              <span class="product-card__badge-section">{{ item.producto.seccion }}</span>
+              @if (item.totalStockDisponible > 0) {
+                <span class="product-card__badge-stock product-card__badge-stock--in">
+                  {{ item.totalStockDisponible }} disponibles
+                </span>
+              } @else {
+                <span class="product-card__badge-stock product-card__badge-stock--out">
+                  Sin stock
+                </span>
+              }
+            </div>
+
+            <!-- Contenido de tarjeta -->
+            <div class="product-card__content">
+              <span class="product-card__category">{{ item.categoriaNombre }}</span>
+              <h4 class="product-card__title" [title]="item.producto.nombre">
+                {{ item.producto.nombre }}
+              </h4>
+
+              <div class="product-card__price">
+                <strong>{{ item.producto.precio | currency: 'BOB' : 'symbol' : '1.2-2' }}</strong>
+              </div>
+
+              <!-- Píldoras de variantes -->
+              <div class="product-card__meta">
+                <span class="product-card__meta-tag">
+                  {{ item.totalVariantes }} {{ item.totalVariantes === 1 ? 'variante' : 'variantes' }}
+                </span>
+                @if (item.tallasDisponibles.length > 0) {
+                  <span class="product-card__meta-tag">
+                    Tallas: {{ item.tallasDisponibles.slice(0, 3).join(', ') }}{{ item.tallasDisponibles.length > 3 ? '...' : '' }}
+                  </span>
+                }
+              </div>
+
+              <button
+                type="button"
+                class="product-card__action-btn"
+                (click)="$event.stopPropagation(); openProductDetail(item.producto.id_producto)"
+              >
+                <app-icon name="search" [size]="14" />
+                <span>Consultar disponibilidad</span>
+              </button>
+            </div>
+          </article>
+        }
+      </section>
+    }
+  }
+
+  <!-- Modal / Drawer de Detalle del Producto y Disponibilidad por Sucursal -->
+  @if (isDetailOpen()) {
+    <div class="detail-backdrop" (click)="closeProductDetail()">
+      <div class="detail-drawer" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-product-title">
+        <header class="detail-drawer__header">
+          <div>
+            <span class="detail-drawer__kicker">DETALLE Y DISPONIBILIDAD OFFLINE</span>
+            <h3 id="modal-product-title">
+              {{ selectedProductDetail()?.producto?.nombre || 'Cargando producto...' }}
+            </h3>
+          </div>
+          <button type="button" class="detail-drawer__close" (click)="closeProductDetail()" aria-label="Cerrar modal">
+            ✕
+          </button>
+        </header>
+
+        <div class="detail-drawer__body">
+          @if (isLoadingDetail()) {
+            <div class="detail-loading">
+              <p>Consultando base de datos IndexedDB...</p>
+            </div>
+          } @else if (selectedProductDetail(); as detail) {
+            <!-- Información general del producto -->
+            <section class="detail-overview">
+              <div class="detail-overview__img-col">
+                @if (detail.producto.imagen_principal) {
+                  <img
+                    [src]="detail.producto.imagen_principal"
+                    [alt]="detail.producto.nombre"
+                    class="detail-overview__img"
+                    (error)="handleImageError($event)"
+                  />
+                }
+                <div
+                  class="offline-img-fallback detail-overview__img-fallback"
+                  [style.display]="detail.producto.imagen_principal ? 'none' : 'flex'"
+                >
+                  <app-icon name="bag" [size]="48" />
+                  <span>{{ detail.producto.nombre.substring(0, 2).toUpperCase() }}</span>
+                </div>
+              </div>
+
+              <div class="detail-overview__info-col">
+                <div class="detail-badges-row">
+                  <span class="detail-tag">{{ detail.categoriaNombre }}</span>
+                  <span class="detail-tag detail-tag--section">{{ detail.producto.seccion }}</span>
+                  @if (detail.totalStockDisponible > 0) {
+                    <span class="detail-tag detail-tag--success">
+                      {{ detail.totalStockDisponible }} unidades disponibles en total
+                    </span>
+                  } @else {
+                    <span class="detail-tag detail-tag--danger">Sin existencias totales</span>
+                  }
+                </div>
+
+                <div class="detail-price-box">
+                  <span class="detail-price-label">Precio oficial:</span>
+                  <strong class="detail-price-value">
+                    {{ detail.producto.precio | currency: 'BOB' : 'symbol' : '1.2-2' }}
+                  </strong>
+                </div>
+
+                @if (detail.producto.descripcion) {
+                  <p class="detail-description">{{ detail.producto.descripcion }}</p>
+                }
+
+                <div class="detail-summary-metrics">
+                  <div class="detail-metric">
+                    <small>Variantes</small>
+                    <strong>{{ detail.variantes.length }}</strong>
+                  </div>
+                  <div class="detail-metric">
+                    <small>Sucursales con stock</small>
+                    <strong>{{ detail.sucursalesConStock }}</strong>
+                  </div>
+                  <div class="detail-metric">
+                    <small>ID Producto</small>
+                    <strong>#{{ detail.producto.id_producto }}</strong>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Sección: Variantes físicas y precios -->
+            <section class="detail-section">
+              <div class="detail-section__header">
+                <app-icon name="layers" [size]="20" />
+                <h4>Variantes Físicas Comerciales (SKU, Talla y Color)</h4>
+              </div>
+
+              @if (detail.variantes.length === 0) {
+                <p class="detail-empty-text">No se registraron variantes físicas para este producto.</p>
+              } @else {
+                <div class="detail-table-wrapper">
+                  <table class="detail-table">
+                    <thead>
+                      <tr>
+                        <th>SKU</th>
+                        <th>Talla</th>
+                        <th>Color</th>
+                        <th>Precio</th>
+                        <th>Stock Disp.</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (v of detail.variantes; track v.id_variante_producto) {
+                        <tr>
+                          <td><code>{{ v.sku }}</code></td>
+                          <td><strong>{{ v.talla }}</strong></td>
+                          <td>
+                            <div class="detail-color-cell">
+                              @if (v.color_hex) {
+                                <span class="detail-color-swatch" [style.background-color]="v.color_hex"></span>
+                              }
+                              <span>{{ v.color }}</span>
+                            </div>
+                          </td>
+                          <td>{{ v.precio | currency: 'BOB' : 'symbol' : '1.2-2' }}</td>
+                          <td>
+                            <span
+                              class="detail-stock-pill"
+                              [class.detail-stock-pill--in]="v.stockTotalDisponible > 0"
+                              [class.detail-stock-pill--out]="v.stockTotalDisponible <= 0"
+                            >
+                              {{ v.stockTotalDisponible }}
+                            </span>
+                          </td>
+                          <td>
+                            <span class="detail-status-dot" [class.detail-status-dot--active]="v.estado">
+                              {{ v.estado ? 'Activa' : 'Inactiva' }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </section>
+
+            <!-- Sección: Disponibilidad por sucursal autorizada -->
+            <section class="detail-section">
+              <div class="detail-section__header">
+                <app-icon name="store" [size]="20" />
+                <h4>Disponibilidad por Sucursal Autorizada</h4>
+              </div>
+
+              <div class="detail-branch-grid">
+                @for (b of detail.disponibilidadPorSucursal; track b.id_sucursal) {
+                  <div class="detail-branch-card" [class.detail-branch-card--has-stock]="b.stock_disponible > 0">
+                    <div class="detail-branch-card__header">
+                      <h5>{{ b.nombre_sucursal }}</h5>
+                      <small>{{ b.ciudad || 'Central' }}</small>
+                    </div>
+
+                    <div class="detail-branch-card__stats">
+                      <div class="detail-branch-stat">
+                        <small>Actual</small>
+                        <span>{{ b.stock_actual }}</span>
+                      </div>
+                      <div class="detail-branch-stat">
+                        <small>Reservado</small>
+                        <span>{{ b.stock_reservado }}</span>
+                      </div>
+                      <div class="detail-branch-stat detail-branch-stat--highlight">
+                        <small>Disponible</small>
+                        <strong>{{ b.stock_disponible }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <!-- Nota de integridad offline -->
+            <div class="detail-footer-note">
+              <app-icon name="shield" [size]="16" />
+              <span>
+                Datos obtenidos de forma instantánea desde la memoria local IndexedDB de este navegador. Ninguna consulta requirió conexión de red ni solicitud HTTP.
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>
+

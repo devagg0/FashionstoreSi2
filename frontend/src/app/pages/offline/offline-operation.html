@@ -1,0 +1,337 @@
+<div class="offline-page">
+  <!-- Cabecera de página -->
+  <header class="offline-header">
+    <div class="offline-header__title">
+      <p class="offline-kicker">PK08 — CU08 · WEB ANGULAR PWA</p>
+      <h2>Operación Offline</h2>
+      <span>
+        Preparación y almacenamiento seguro de catálogo, existencias y recursos locales en IndexedDB para atención ininterrumpida sin conexión.
+      </span>
+    </div>
+
+    <!-- Indicadores de estado -->
+    <div class="offline-badges">
+      @if (isOnline()) {
+        <span class="offline-badge offline-badge--online" title="Conexión con el servidor activa">
+          <span class="offline-dot"></span> En línea
+        </span>
+      } @else {
+        <span class="offline-badge offline-badge--offline" title="Operando en modo sin conexión (PWA)">
+          <span class="offline-dot"></span> Sin conexión
+        </span>
+      }
+
+      @if (localSummary(); as summary) {
+        @if (summary.isExpired) {
+          <span class="offline-badge offline-badge--danger" title="El paquete superó su tiempo de vigencia">
+            <app-icon name="close" [size]="14" /> Paquete expirado
+          </span>
+        } @else {
+          <span class="offline-badge offline-badge--success" title="Paquete vigente y listo para operar">
+            <app-icon name="circle-check" [size]="14" /> Vigente ({{ summary.timeRemainingText }})
+          </span>
+        }
+      } @else {
+        <span class="offline-badge offline-badge--warning" title="No hay datos locales guardados">
+          <app-icon name="filter" [size]="14" /> Sin datos locales
+        </span>
+      }
+    </div>
+  </header>
+
+  <!-- Mensajes de feedback -->
+  @if (actionMessage(); as msg) {
+    <div class="offline-banner offline-banner--success" role="status">
+      <div class="offline-banner__content">
+        <app-icon name="circle-check" [size]="18" />
+        <span>{{ msg }}</span>
+      </div>
+      <button type="button" class="offline-banner__close" (click)="dismissMessage()" aria-label="Cerrar mensaje">
+        ✕
+      </button>
+    </div>
+  }
+
+  @if (errorMessage(); as err) {
+    <div class="offline-banner offline-banner--error" role="alert">
+      <div class="offline-banner__content">
+        <app-icon name="ban" [size]="18" />
+        <div>
+          <span>{{ err }}</span>
+          @if (isSaaSError() && isAdmin()) {
+            <div class="offline-banner__link">
+              <a routerLink="/admin/suscripcion">Gestionar suscripción SaaS comercial</a>
+            </div>
+          }
+        </div>
+      </div>
+      <button type="button" class="offline-banner__close" (click)="dismissError()" aria-label="Cerrar error">
+        ✕
+      </button>
+    </div>
+  }
+
+  <!-- Barra de acciones principales -->
+  <section class="offline-toolbar" aria-label="Acciones de sincronización offline">
+    <div class="offline-toolbar__primary">
+      <button
+        type="button"
+        class="offline-btn offline-btn--primary"
+        [disabled]="isLoading() || !isOnline()"
+        (click)="downloadPackage()"
+      >
+        <app-icon name="refresh" [size]="18" />
+        <span>
+          @if (isLoading()) {
+            Preparando paquete...
+          } @else if (localSummary()) {
+            Actualizar paquete offline
+          } @else {
+            Descargar paquete offline
+          }
+        </span>
+      </button>
+
+      <button
+        type="button"
+        class="offline-btn offline-btn--secondary"
+        [disabled]="isLoading() || !isOnline()"
+        (click)="verifyServerStatus()"
+        title="Consulta liviana de vigencia al servidor sin descargar todo el paquete"
+      >
+        <app-icon name="search" [size]="18" />
+        <span>Verificar vigencia en servidor</span>
+      </button>
+
+      @if (localSummary()) {
+        <a
+          [routerLink]="isAdmin() ? '/admin/offline/catalogo' : '/staff/offline/catalogo'"
+          class="offline-btn offline-btn--success"
+          title="Ver catálogo y consultar existencias en IndexedDB"
+        >
+          <app-icon name="bag" [size]="18" />
+          <span>Ver Catálogo Offline</span>
+        </a>
+
+        <a
+          [routerLink]="isAdmin() ? '/admin/offline/reservar' : '/staff/offline/reservar'"
+          class="offline-btn offline-btn--secondary"
+          title="Registrar reserva de prendas localmente sin conexión"
+        >
+          <app-icon name="bag" [size]="18" />
+          <span>Registrar Reserva Offline</span>
+        </a>
+      }
+    </div>
+
+    <div class="offline-toolbar__secondary">
+      @if (localSummary()) {
+        <button
+          type="button"
+          class="offline-btn offline-btn--danger-ghost"
+          [disabled]="isLoading()"
+          (click)="clearLocalCache()"
+          title="Elimina el almacenamiento local en IndexedDB"
+        >
+          <app-icon name="ban" [size]="16" />
+          <span>Limpiar datos locales</span>
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- Tarjetas resumen de métricas del paquete -->
+  <section class="offline-metrics-grid" aria-label="Métricas del paquete offline almacenado">
+    <!-- Tarjeta 1: Versión y Vigencia -->
+    <div class="offline-metric-card">
+      <div class="offline-metric-card__header">
+        <span class="offline-metric-card__icon"><app-icon name="monitor-smartphone" [size]="22" /></span>
+        <span class="offline-metric-card__tag">VERSIÓN Y VIGENCIA</span>
+      </div>
+      @if (localSummary(); as summary) {
+        <strong class="offline-metric-card__value offline-metric-card__value--code" [title]="summary.metadata.version">
+          {{ summary.metadata.version }}
+        </strong>
+        <p class="offline-metric-card__desc">
+          Generado: {{ summary.metadata.fecha_generacion | date: 'dd/MM/yyyy HH:mm' }}
+        </p>
+        <div class="offline-metric-card__footer">
+          <small>Válido hasta: {{ summary.metadata.valido_hasta | date: 'dd/MM/yyyy HH:mm' }}</small>
+        </div>
+      } @else {
+        <strong class="offline-metric-card__value">—</strong>
+        <p class="offline-metric-card__desc">No hay versión local descargada</p>
+        <div class="offline-metric-card__footer">
+          <small>Descarga un paquete inicial para operar sin conexión</small>
+        </div>
+      }
+    </div>
+
+    <!-- Tarjeta 2: Productos y Precios -->
+    <div class="offline-metric-card">
+      <div class="offline-metric-card__header">
+        <span class="offline-metric-card__icon"><app-icon name="bag" [size]="22" /></span>
+        <span class="offline-metric-card__tag">PRODUCTOS Y PRECIOS</span>
+      </div>
+      @if (localSummary(); as summary) {
+        <strong class="offline-metric-card__value">{{ summary.counts.productos }}</strong>
+        <p class="offline-metric-card__desc">Precios de lista oficiales para venta presencial</p>
+        <div class="offline-metric-card__footer">
+          <small>{{ summary.counts.categorias }} categorías en catálogo local</small>
+        </div>
+      } @else {
+        <strong class="offline-metric-card__value">0</strong>
+        <p class="offline-metric-card__desc">Catálogo sin preparar</p>
+        <div class="offline-metric-card__footer">
+          <small>Precios no disponibles offline</small>
+        </div>
+      }
+    </div>
+
+    <!-- Tarjeta 3: Variantes Físicas -->
+    <div class="offline-metric-card">
+      <div class="offline-metric-card__header">
+        <span class="offline-metric-card__icon"><app-icon name="layers" [size]="22" /></span>
+        <span class="offline-metric-card__tag">VARIANTES Y SKU</span>
+      </div>
+      @if (localSummary(); as summary) {
+        <strong class="offline-metric-card__value">{{ summary.counts.variantes }}</strong>
+        <p class="offline-metric-card__desc">Combinaciones comercializables por talla y color</p>
+        <div class="offline-metric-card__footer">
+          <small>{{ summary.counts.tallas }} tallas · {{ summary.counts.colores }} colores</small>
+        </div>
+      } @else {
+        <strong class="offline-metric-card__value">0</strong>
+        <p class="offline-metric-card__desc">Sin variantes locales</p>
+        <div class="offline-metric-card__footer">
+          <small>SKUs no sincronizados</small>
+        </div>
+      }
+    </div>
+
+    <!-- Tarjeta 4: Existencias Autorizadas -->
+    <div class="offline-metric-card">
+      <div class="offline-metric-card__header">
+        <span class="offline-metric-card__icon"><app-icon name="store" [size]="22" /></span>
+        <span class="offline-metric-card__tag">EXISTENCIAS LOCALES</span>
+      </div>
+      @if (localSummary(); as summary) {
+        <strong class="offline-metric-card__value">{{ summary.counts.existencias }}</strong>
+        <p class="offline-metric-card__desc">Existencias en sucursales autorizadas del usuario</p>
+        <div class="offline-metric-card__footer">
+          <small>{{ summary.counts.sucursales }} sucursales autorizadas</small>
+        </div>
+      } @else {
+        <strong class="offline-metric-card__value">0</strong>
+        <p class="offline-metric-card__desc">Sin existencias en caché</p>
+        <div class="offline-metric-card__footer">
+          <small>Inventario no disponible offline</small>
+        </div>
+      }
+    </div>
+
+    <!-- Tarjeta 5: Clientes Mínimos -->
+    <div class="offline-metric-card">
+      <div class="offline-metric-card__header">
+        <span class="offline-metric-card__icon"><app-icon name="users" [size]="22" /></span>
+        <span class="offline-metric-card__tag">CLIENTES MÍNIMOS</span>
+      </div>
+      @if (localSummary(); as summary) {
+        <strong class="offline-metric-card__value">{{ summary.counts.clientes }}</strong>
+        <p class="offline-metric-card__desc">Clientes indispensables para facturación y venta</p>
+        <div class="offline-metric-card__footer">
+          <small>Datos protegidos (sin credenciales ni contraseñas)</small>
+        </div>
+      } @else {
+        <strong class="offline-metric-card__value">0</strong>
+        <p class="offline-metric-card__desc">Sin directorio de clientes</p>
+        <div class="offline-metric-card__footer">
+          <small>Datos personales no cacheados</small>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Panel informativo y técnico -->
+  <section class="offline-details-grid">
+    <!-- Columna izquierda: Información del paquete y metadatos -->
+    <article class="offline-card">
+      <div class="offline-card__header">
+        <span class="offline-card__pretitle">DETALLES TÉCNICOS</span>
+        <h3>Persistencia y Aislamiento Multi-Tenant</h3>
+      </div>
+      <div class="offline-card__body">
+        <div class="offline-meta-row">
+          <span>Base de datos IndexedDB:</span>
+          <strong>fashionstore_offline_e{{ user()?.id_empresa ?? 0 }}_u{{ user()?.id_usuario ?? 0 }}</strong>
+        </div>
+        <div class="offline-meta-row">
+          <span>Empresa (Tenant):</span>
+          <strong>
+            {{ localSummary()?.metadata?.empresa_nombre ?? 'Empresa en sesión' }} (ID: {{ user()?.id_empresa }})
+          </strong>
+        </div>
+        <div class="offline-meta-row">
+          <span>Usuario autenticado:</span>
+          <strong>{{ user()?.nombre }} {{ user()?.apellido }} · {{ user()?.rol }}</strong>
+        </div>
+        <div class="offline-meta-row">
+          <span>Último guardado local:</span>
+          <strong>{{ localSummary()?.savedAt ? (localSummary()?.savedAt | date: 'dd/MM/yyyy HH:mm:ss') : '—' }}</strong>
+        </div>
+        <div class="offline-meta-row">
+          <span>Vigencia estándar:</span>
+          <strong>24 horas (acotada automáticamente al vencimiento de suscripción SaaS)</strong>
+        </div>
+        <div class="offline-meta-row">
+          <span>Aislamiento de credenciales:</span>
+          <span class="offline-tag-secure">100% libre de contraseñas, hashes y tokens JWT</span>
+        </div>
+        <div class="offline-meta-row">
+          <span>Transacciones atómicas:</span>
+          <span class="offline-tag-secure">Descarga fallida preserva automáticamente los últimos datos válidos</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Columna derecha: Estado de verificación en servidor -->
+    <article class="offline-card">
+      <div class="offline-card__header">
+        <span class="offline-card__pretitle">ESTADO DE SINCRONIZACIÓN</span>
+        <h3>Comprobación con Servidor Central</h3>
+      </div>
+      <div class="offline-card__body">
+        @if (statusCheck(); as status) {
+          <div class="offline-status-box" [class.offline-status-box--fresh]="status.vigente" [class.offline-status-box--outdated]="status.requiere_actualizacion">
+            <div class="offline-status-box__badge">
+              @if (status.vigente) {
+                <app-icon name="circle-check" [size]="18" /> Datos actualizados
+              } @else {
+                <app-icon name="refresh" [size]="18" /> Actualización disponible
+              }
+            </div>
+            <p>{{ status.message }}</p>
+            <div class="offline-status-box__meta">
+              <small>Versión en servidor: <strong>{{ status.version_actual }}</strong></small>
+              <small>Suscripción SaaS: <strong>{{ status.suscripcion_activa ? 'Activa' : 'Inactiva' }}</strong></small>
+              <small>Módulo OFFLINE: <strong>{{ status.funcionalidad_offline ? 'Habilitado' : 'Deshabilitado' }}</strong></small>
+            </div>
+          </div>
+        } @else {
+          <div class="offline-empty-hint">
+            <app-icon name="search" [size]="28" />
+            <p>Presione <strong>«Verificar vigencia en servidor»</strong> para consultar cambios recientes en el catálogo sin transferir datos innecesarios.</p>
+          </div>
+        }
+
+        <div class="offline-security-note">
+          <app-icon name="shield" [size]="18" />
+          <p>
+            <strong>Garantía de integridad:</strong> La preparación offline es de sólo lectura. No reserva prendas, no descuenta inventario ni duplica registros de ventas. La ejecución de ventas y cobros en modo desconectado se sincronizará posteriormente en CU09–CU14.
+          </p>
+        </div>
+      </div>
+    </article>
+  </section>
+</div>
+

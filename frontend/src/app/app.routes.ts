@@ -177,6 +177,30 @@ export const routes: Routes = [
         title: 'Disponibilidad de sucursal | FashionStore',
       },
       {
+        path: 'offline',
+        loadComponent: () =>
+          import('./pages/offline/offline-operation').then(
+            ({ OfflineOperation }) => OfflineOperation,
+          ),
+        title: 'Operación Offline | FashionStore',
+      },
+      {
+        path: 'offline/catalogo',
+        loadComponent: () =>
+          import('./pages/offline-catalog/offline-catalog').then(
+            ({ OfflineCatalog }) => OfflineCatalog,
+          ),
+        title: 'Catálogo Offline | FashionStore',
+      },
+      {
+        path: 'offline/reservar',
+        loadComponent: () =>
+          import('./pages/offline-reservation/offline-reservation-create').then(
+            ({ OfflineReservationCreate }) => OfflineReservationCreate,
+          ),
+        title: 'Registrar Reserva Offline | FashionStore',
+      },
+      {
         path: 'perfil',
         loadComponent: () =>
           import('./pages/staff/profile/staff-profile').then(({ StaffProfile }) => StaffProfile),
@@ -381,6 +405,30 @@ export const routes: Routes = [
             ({ AdminSubscription }) => AdminSubscription,
           ),
         title: 'Mi suscripción | FashionStore',
+      },
+      {
+        path: 'offline',
+        loadComponent: () =>
+          import('./pages/offline/offline-operation').then(
+            ({ OfflineOperation }) => OfflineOperation,
+          ),
+        title: 'Operación Offline | FashionStore',
+      },
+      {
+        path: 'offline/catalogo',
+        loadComponent: () =>
+          import('./pages/offline-catalog/offline-catalog').then(
+            ({ OfflineCatalog }) => OfflineCatalog,
+          ),
+        title: 'Catálogo Offline | FashionStore',
+      },
+      {
+        path: 'offline/reservar',
+        loadComponent: () =>
+          import('./pages/offline-reservation/offline-reservation-create').then(
+            ({ OfflineReservationCreate }) => OfflineReservationCreate,
+          ),
+        title: 'Registrar Reserva Offline | FashionStore',
       },
       {
         path: 'perfil',

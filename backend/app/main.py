@@ -40,6 +40,8 @@ from app.PK07.CU04_AsociarUsuariosYSucursalesEmpresa.router import router as com
 from app.PK07.CU05_GestionarPlanesSaaS.router import router as company_plans_router
 from app.PK07.CU06_GestionarSuscripciones.router import router as company_subscriptions_router
 from app.PK07.CU07_ConsultarPlanLimites.router import router as company_plan_limits_router
+from app.PK08.CU08_PrepararInformacionOffline.router import router as offline_router
+from app.PK08.CU10_RegistrarReservaOffline.router import router as offline_reservation_router
 
 
 app = FastAPI(
@@ -103,6 +105,8 @@ app.include_router(company_resources_router)
 app.include_router(company_plans_router)
 app.include_router(company_subscriptions_router)
 app.include_router(company_plan_limits_router)
+app.include_router(offline_router)
+app.include_router(offline_reservation_router)
 
 
 @app.get("/")

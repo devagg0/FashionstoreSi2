@@ -54,6 +54,7 @@ export class AdminLayout implements OnInit {
     if (url.startsWith('/admin/asignaciones-sucursal')) return 'Asignación de empleados';
     if (url.startsWith('/admin/temporadas-colecciones')) return 'Temporadas y colecciones';
     if (url.startsWith('/admin/suscripcion')) return 'Mi suscripción';
+    if (url.startsWith('/admin/offline')) return 'Operación Offline';
     if (url.startsWith('/admin/perfil')) return 'Mi perfil';
     return 'Resumen';
   });
