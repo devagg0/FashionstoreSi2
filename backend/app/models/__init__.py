@@ -29,6 +29,7 @@ from app.models.promotion_product import PromotionProduct
 from app.models.branch_inventory import BranchInventory
 from app.models.reservation import Reservation
 from app.models.reservation_detail import ReservationDetail
+from app.models.offline_reservation_sync import OfflineReservationSync
 from app.models.cart import Cart
 from app.models.cart_detail import CartDetail
 from app.models.sale import Sale

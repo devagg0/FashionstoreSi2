@@ -148,6 +148,42 @@
         <app-icon name="circle-check" [size]="20" />
         <span>Mi suscripción</span>
       </a>
+      <a
+        routerLink="/admin/offline"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="monitor-smartphone" [size]="20" />
+        <span>Operación Offline</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
+        routerLink="/admin/offline/catalogo"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="bag" [size]="20" />
+        <span>Catálogo Offline</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
+        routerLink="/admin/offline/reservar"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="bag" [size]="20" />
+        <span>Reserva Offline</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
       <a routerLink="/admin/perfil" routerLinkActive="is-active" (click)="closeSidebar()">
         <app-icon name="user" [size]="20" />
         <span>Mi perfil</span>

@@ -1,0 +1,575 @@
+<div class="offline-res-page">
+  <!-- Cabecera de la pantalla -->
+  <header class="offline-res-header">
+    <div class="offline-res-header__content">
+      <nav class="offline-res-breadcrumb" aria-label="Navegación secundaria">
+        <a [routerLink]="offlineHomeUrl()" class="offline-res-breadcrumb__link">
+          <app-icon name="monitor-smartphone" [size]="14" />
+          <span>Operación Offline</span>
+        </a>
+        <span class="offline-res-breadcrumb__separator">/</span>
+        <a [routerLink]="offlineCatalogUrl()" class="offline-res-breadcrumb__link">
+          <app-icon name="bag" [size]="14" />
+          <span>Catálogo</span>
+        </a>
+        <span class="offline-res-breadcrumb__separator">/</span>
+        <span class="offline-res-breadcrumb__current">Nueva Reserva</span>
+      </nav>
+
+      <p class="offline-res-kicker">PK08 — CU10 · WEB ANGULAR PWA</p>
+      <h2>Registrar Reserva Offline</h2>
+      <p class="offline-res-subtitle">
+        Captura de reservas en la base de datos local (IndexedDB) para atención en tienda física sin requerir conexión a internet.
+      </p>
+    </div>
+
+    <!-- Badges de estado local -->
+    <div class="offline-res-badges">
+      <span class="offline-res-badge offline-res-badge--local" title="Operando localmente contra IndexedDB">
+        <span class="offline-res-dot"></span> Modo Offline (PWA)
+      </span>
+
+      @if (summary(); as sum) {
+        @if (sum.isExpired) {
+          <span class="offline-res-badge offline-res-badge--danger" title="El paquete offline ha vencido">
+            <app-icon name="ban" [size]="14" /> Paquete Vencido
+          </span>
+        } @else {
+          <span class="offline-res-badge offline-res-badge--success" title="Paquete vigente">
+            <app-icon name="circle-check" [size]="14" /> Vigente ({{ sum.timeRemainingText }})
+          </span>
+        }
+      } @else {
+        <span class="offline-res-badge offline-res-badge--warning">
+          <app-icon name="filter" [size]="14" /> Sin paquete local
+        </span>
+      }
+    </div>
+  </header>
+
+  <!-- Advertencia de paquete vencido -->
+  @if (summary()?.isExpired) {
+    <div class="offline-res-alert offline-res-alert--warning" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <div>
+        <strong>Paquete de datos vencido:</strong>
+        <span>
+          El paquete offline descargado expiró el {{ summary()?.metadata?.valido_hasta | date: 'dd/MM/yyyy HH:mm' }}.
+          Los precios y el stock mostrado podrían diferir del servidor central. La reserva se guardará como <code>REGISTRADA_LOCAL</code> para su posterior sincronización.
+        </span>
+      </div>
+    </div>
+  }
+
+  <!-- Error general -->
+  @if (errorMessage(); as err) {
+    <div class="offline-res-alert offline-res-alert--danger" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <div class="offline-res-alert__text">
+        <span>{{ err }}</span>
+      </div>
+      <button type="button" class="offline-res-alert__close" (click)="errorMessage.set(null)" aria-label="Cerrar error">
+        ✕
+      </button>
+    </div>
+  }
+
+  <!-- Errores de validación -->
+  @if (validationErrors().length > 0) {
+    <div class="offline-res-alert offline-res-alert--danger" role="alert">
+      <app-icon name="ban" [size]="20" />
+      <div class="offline-res-alert__list">
+        <strong>Corrija los siguientes puntos antes de registrar la reserva:</strong>
+        <ul>
+          @for (item of validationErrors(); track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      </div>
+      <button type="button" class="offline-res-alert__close" (click)="validationErrors.set([])" aria-label="Cerrar">
+        ✕
+      </button>
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="offline-res-loading">
+      <div class="offline-res-spinner"></div>
+      <p>Cargando catálogo, existencias y clientes desde IndexedDB...</p>
+    </div>
+  } @else {
+    <!-- Formulario principal -->
+    <div class="offline-res-grid">
+      <!-- Columna Izquierda: Configuración de la reserva y selección de prendas -->
+      <div class="offline-res-main">
+        <!-- Bloque 1: Sucursal y Cliente -->
+        <section class="offline-res-card">
+          <div class="offline-res-card__header">
+            <span class="offline-res-card__step">1</span>
+            <h3>Sucursal de Retiro y Cliente</h3>
+          </div>
+
+          <div class="offline-res-fields-row">
+            <!-- Sucursal -->
+            <div class="offline-res-field">
+              <label for="sucursalSelect">
+                Sucursal autorizada <span class="required">*</span>
+              </label>
+              <select
+                id="sucursalSelect"
+                [ngModel]="selectedBranchId()"
+                (ngModelChange)="selectedBranchId.set(+$event)"
+                class="offline-res-select"
+                [disabled]="branches().length === 1"
+              >
+                @if (branches().length > 1) {
+                  <option [ngValue]="null">-- Seleccione una sucursal --</option>
+                }
+                @for (b of branches(); track b.id_sucursal) {
+                  <option [ngValue]="b.id_sucursal">
+                    {{ b.nombre }} ({{ b.ciudad || 'Principal' }})
+                  </option>
+                }
+              </select>
+              @if (selectedBranch(); as sb) {
+                <small class="offline-res-hint">{{ sb.direccion }}</small>
+              }
+            </div>
+
+            <!-- Cliente -->
+            <div class="offline-res-field">
+              <label for="clientSearch">
+                Cliente local <span class="required">*</span>
+              </label>
+              <div class="offline-res-client-search">
+                <input
+                  id="clientSearch"
+                  type="text"
+                  [ngModel]="clientSearchTerm()"
+                  (ngModelChange)="clientSearchTerm.set($event)"
+                  placeholder="Buscar por nombre, apellido o teléfono..."
+                  class="offline-res-input"
+                  autocomplete="off"
+                />
+              </div>
+
+              <!-- Lista rápida de selección de cliente -->
+              @if (!selectedClientId() && filteredClients().length > 0) {
+                <div class="offline-res-client-dropdown">
+                  @for (c of filteredClients(); track c.id_cliente) {
+                    <button
+                      type="button"
+                      class="offline-res-client-item"
+                      (click)="onSelectClient(c.id_cliente)"
+                    >
+                      <strong>{{ c.nombre }} {{ c.apellido }}</strong>
+                      <span>ID: {{ c.id_cliente }} · Tel: {{ c.telefono || 'Sin tel.' }}</span>
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (selectedClient(); as sc) {
+                <div class="offline-res-client-pill">
+                  <span>Cliente: <strong>{{ sc.nombre }} {{ sc.apellido }}</strong> (Tel: {{ sc.telefono || 'N/A' }})</span>
+                  <button type="button" class="offline-res-pill-clear" (click)="selectedClientId.set(null); clientSearchTerm.set('')">✕</button>
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Bloque 2: Selección y adición de prendas -->
+        <section class="offline-res-card">
+          <div class="offline-res-card__header">
+            <span class="offline-res-card__step">2</span>
+            <h3>Agregar Prendas al Pedido</h3>
+          </div>
+
+          <div class="offline-res-add-box">
+            <div class="offline-res-fields-row">
+              <!-- Producto -->
+              <div class="offline-res-field">
+                <label for="productSelect">Producto</label>
+                <select
+                  id="productSelect"
+                  [ngModel]="selectedProductId()"
+                  (ngModelChange)="onProductChange($event)"
+                  class="offline-res-select"
+                >
+                  <option [ngValue]="null">-- Seleccionar prenda --</option>
+                  @for (p of products(); track p.id_producto) {
+                    <option [ngValue]="p.id_producto">
+                      {{ p.nombre }} ({{ p.categoria || 'Sin cat.' }}) - {{ p.precio | currency:'BOB':'symbol':'1.2-2' }}
+                    </option>
+                  }
+                </select>
+              </div>
+
+              <!-- Variante: Talla / Color / SKU -->
+              <div class="offline-res-field">
+                <label for="variantSelect">Talla y Color</label>
+                <select
+                  id="variantSelect"
+                  [ngModel]="selectedVariantId()"
+                  (ngModelChange)="onVariantChange($event)"
+                  class="offline-res-select"
+                  [disabled]="!selectedProductId() || variantsForSelectedProduct().length === 0"
+                >
+                  <option [ngValue]="null">-- Seleccionar variante --</option>
+                  @for (v of variantsForSelectedProduct(); track v.id_variante_producto) {
+                    <option [ngValue]="v.id_variante_producto">
+                      {{ v.talla }} · {{ v.color }} (SKU: {{ v.sku }})
+                    </option>
+                  }
+                </select>
+              </div>
+
+              <!-- Cantidad y botón agregar -->
+              <div class="offline-res-field offline-res-field--qty">
+                <label for="qtyInput">Cantidad</label>
+                <div class="offline-res-qty-control">
+                  <input
+                    id="qtyInput"
+                    type="number"
+                    min="1"
+                    [max]="estimatedStockForSelectedVariant()"
+                    [ngModel]="lineQuantity()"
+                    (ngModelChange)="lineQuantity.set(+$event)"
+                    class="offline-res-input offline-res-input--qty"
+                    [disabled]="!selectedVariantId() || estimatedStockForSelectedVariant() <= 0"
+                  />
+                  <button
+                    type="button"
+                    class="offline-res-btn offline-res-btn--add"
+                    [disabled]="!selectedVariantId() || estimatedStockForSelectedVariant() <= 0 || lineQuantity() <= 0 || lineQuantity() > estimatedStockForSelectedVariant()"
+                    (click)="addLineItem()"
+                  >
+                    <app-icon name="plus" [size]="16" />
+                    <span>Agregar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indicador de disponibilidad y precio estimado -->
+            @if (selectedVariant(); as v) {
+              <div class="offline-res-stock-indicator">
+                <div class="offline-res-stock-pill" [class.offline-res-stock-pill--empty]="estimatedStockForSelectedVariant() <= 0">
+                  <app-icon [name]="estimatedStockForSelectedVariant() > 0 ? 'circle-check' : 'ban'" [size]="14" />
+                  <span>
+                    Stock disponible estimado: <strong>{{ estimatedStockForSelectedVariant() }} unidades</strong>
+                  </span>
+                </div>
+                <div class="offline-res-price-pill">
+                  Precio unitario: <strong>{{ (v.precio || selectedProduct()?.precio) | currency:'BOB':'symbol':'1.2-2' }}</strong>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Tabla de prendas agregadas -->
+          <div class="offline-res-table-wrapper">
+            <table class="offline-res-table">
+              <thead>
+                <tr>
+                  <th>Prenda</th>
+                  <th>SKU</th>
+                  <th>Talla / Color</th>
+                  <th>Precio Unit.</th>
+                  <th>Cant.</th>
+                  <th>Subtotal</th>
+                  <th class="text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (lineItems().length === 0) {
+                  <tr>
+                    <td colspan="7" class="offline-res-table__empty">
+                      No hay prendas agregadas a la reserva. Seleccione un producto arriba.
+                    </td>
+                  </tr>
+                } @else {
+                  @for (item of lineItems(); track item.id_variante_producto; let idx = $index) {
+                    <tr>
+                      <td>
+                        <strong>{{ item.producto_nombre }}</strong>
+                      </td>
+                      <td><code>{{ item.sku }}</code></td>
+                      <td>{{ item.talla }} / {{ item.color }}</td>
+                      <td>{{ item.precio_referencial | currency:'BOB':'symbol':'1.2-2' }}</td>
+                      <td>
+                        <span class="offline-res-qty-badge">{{ item.cantidad }}</span>
+                      </td>
+                      <td>
+                        <strong>{{ item.subtotal | currency:'BOB':'symbol':'1.2-2' }}</strong>
+                      </td>
+                      <td class="text-right">
+                        <button
+                          type="button"
+                          class="offline-res-btn-remove"
+                          (click)="removeLineItem(idx)"
+                          title="Eliminar prenda de la reserva"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Bloque 3: Condiciones, Retiro y Observaciones -->
+        <section class="offline-res-card">
+          <div class="offline-res-card__header">
+            <span class="offline-res-card__step">3</span>
+            <h3>Condiciones de Retiro y Anticipo</h3>
+          </div>
+
+          <div class="offline-res-fields-row">
+            <!-- Fecha límite de retiro -->
+            <div class="offline-res-field">
+              <label for="fechaLimite">
+                Fecha límite de retiro programada <span class="required">*</span>
+              </label>
+              <input
+                id="fechaLimite"
+                type="datetime-local"
+                [ngModel]="fechaAtencionProgramada()"
+                (ngModelChange)="fechaAtencionProgramada.set($event)"
+                class="offline-res-input"
+              />
+              <small class="offline-res-hint">Fecha en la que el cliente recogerá las prendas en tienda.</small>
+            </div>
+
+            <!-- Adelanto en efectivo opcional -->
+            <div class="offline-res-field">
+              <label for="adelantoInput">
+                Adelanto en efectivo (opcional)
+              </label>
+              <div class="offline-res-input-addon">
+                <span class="offline-res-addon">Bs</span>
+                <input
+                  id="adelantoInput"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  [max]="totalReferencial()"
+                  [ngModel]="adelantoEfectivo()"
+                  (ngModelChange)="adelantoEfectivo.set(+$event)"
+                  class="offline-res-input"
+                />
+              </div>
+              <small class="offline-res-hint">Monto recibido en caja al momento de la reserva.</small>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <div class="offline-res-field offline-res-field--full">
+            <label for="observacionesText">Observaciones (opcional)</label>
+            <textarea
+              id="observacionesText"
+              rows="2"
+              maxlength="500"
+              [ngModel]="observaciones()"
+              (ngModelChange)="observaciones.set($event)"
+              placeholder="Notas sobre el cliente, prendas especiales o instrucciones..."
+              class="offline-res-textarea"
+            ></textarea>
+            <small class="offline-res-hint text-right">{{ observaciones().length }}/500 caracteres</small>
+          </div>
+        </section>
+      </div>
+
+      <!-- Columna Derecha: Resumen Financiero y Envío -->
+      <aside class="offline-res-sidebar">
+        <div class="offline-res-summary-card">
+          <h3>Resumen de Reserva</h3>
+          <p class="offline-res-summary-subtitle">Estado inicial: <code>REGISTRADA_LOCAL</code></p>
+
+          <div class="offline-res-summary-lines">
+            <div class="offline-res-summary-line">
+              <span>Total prendas:</span>
+              <strong>{{ lineItems().length }} línea(s)</strong>
+            </div>
+            <div class="offline-res-summary-line">
+              <span>Total referencial:</span>
+              <strong class="offline-res-summary-total">{{ totalReferencial() | currency:'BOB':'symbol':'1.2-2' }}</strong>
+            </div>
+            <div class="offline-res-summary-line">
+              <span>Adelanto registrado:</span>
+              <span class="text-success">{{ adelantoEfectivo() | currency:'BOB':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="offline-res-summary-line offline-res-summary-line--balance">
+              <span>Saldo a cancelar:</span>
+              <strong>{{ saldoPendiente() | currency:'BOB':'symbol':'1.2-2' }}</strong>
+            </div>
+          </div>
+
+          <div class="offline-res-summary-meta">
+            <div class="offline-res-meta-item">
+              <small>Sucursal:</small>
+              <span>{{ selectedBranch()?.nombre || 'No seleccionada' }}</span>
+            </div>
+            <div class="offline-res-meta-item">
+              <small>Cliente:</small>
+              <span>{{ selectedClient() ? (selectedClient()?.nombre + ' ' + selectedClient()?.apellido) : 'No seleccionado' }}</span>
+            </div>
+            <div class="offline-res-meta-item">
+              <small>Vencimiento de datos:</small>
+              <span>{{ summary()?.metadata?.valido_hasta | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+
+          <div class="offline-res-actions">
+            <button
+              type="button"
+              class="offline-res-btn offline-res-btn--primary"
+              [disabled]="isSubmitting() || lineItems().length === 0 || !selectedBranchId() || !selectedClientId()"
+              (click)="submitReservation()"
+            >
+              <app-icon name="bag" [size]="18" />
+              <span>
+                @if (isSubmitting()) {
+                  Guardando en IndexedDB...
+                } @else {
+                  Guardar Reserva Offline
+                }
+              </span>
+            </button>
+
+            <a [routerLink]="offlineHomeUrl()" class="offline-res-btn offline-res-btn--ghost">
+              Cancelar
+            </a>
+          </div>
+
+          <p class="offline-res-disclaimer">
+            Esta reserva se almacena atómicamente en IndexedDB y se encola para su sincronización con el servidor central una vez se restablezca la conectividad (CU13).
+          </p>
+        </div>
+      </aside>
+    </div>
+  }
+
+  <!-- Modal / Comprobante de Confirmación Local -->
+  @if (showSuccessModal() && successReservation(); as receipt) {
+    <div class="offline-modal-overlay" role="dialog" aria-modal="true">
+      <div class="offline-modal-card">
+        <!-- Banner Provisorio -->
+        <div class="offline-modal-watermark">
+          COMPROBANTE LOCAL PROVISORIO · PENDIENTE DE SINCRONIZACIÓN
+        </div>
+
+        <div class="offline-modal-header">
+          <div class="offline-modal-brand">
+            <h4>FASHIONSTORE</h4>
+            <span>COMPROBANTE DE RESERVA OFFLINE</span>
+          </div>
+          <span class="offline-modal-state-badge">
+            REGISTRADA_LOCAL
+          </span>
+        </div>
+
+        <div class="offline-modal-meta-grid">
+          <div>
+            <small>Código Local:</small>
+            <strong class="offline-code">{{ receipt.codigo_local }}</strong>
+          </div>
+          <div>
+            <small>Fecha Registro:</small>
+            <span>{{ receipt.fecha_registro | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div>
+            <small>Sucursal:</small>
+            <span>{{ receipt.sucursal_nombre }}</span>
+          </div>
+          <div>
+            <small>Fecha Límite Retiro:</small>
+            <span>{{ receipt.fecha_limite | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div>
+            <small>Cliente:</small>
+            <span>{{ receipt.cliente_nombre }}</span>
+          </div>
+          <div>
+            <small>Atendido por:</small>
+            <span>{{ receipt.atendido_por }}</span>
+          </div>
+        </div>
+
+        <!-- Tabla de prendas del comprobante -->
+        <table class="offline-modal-table">
+          <thead>
+            <tr>
+              <th>Prenda</th>
+              <th>SKU</th>
+              <th>Cant.</th>
+              <th>Precio</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of receipt.detalles; track item.id_variante_producto) {
+              <tr>
+                <td>{{ item.producto_nombre }} ({{ item.talla }}/{{ item.color }})</td>
+                <td><code>{{ item.sku }}</code></td>
+                <td>{{ item.cantidad }}</td>
+                <td>{{ item.precio_referencial | currency:'BOB':'symbol':'1.2-2' }}</td>
+                <td>{{ item.subtotal | currency:'BOB':'symbol':'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <!-- Totales comprobante -->
+        <div class="offline-modal-totals">
+          <div class="offline-modal-totals__row">
+            <span>Total Referencial:</span>
+            <strong>{{ receipt.total_referencial | currency:'BOB':'symbol':'1.2-2' }}</strong>
+          </div>
+          <div class="offline-modal-totals__row">
+            <span>Adelanto en efectivo:</span>
+            <span>{{ receipt.adelanto_efectivo | currency:'BOB':'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="offline-modal-totals__row offline-modal-totals__row--bold">
+            <span>Saldo a Pagar en Tienda:</span>
+            <strong>{{ receipt.saldo_pendiente | currency:'BOB':'symbol':'1.2-2' }}</strong>
+          </div>
+        </div>
+
+        @if (receipt.observaciones) {
+          <div class="offline-modal-notes">
+            <small>Observaciones:</small>
+            <p>{{ receipt.observaciones }}</p>
+          </div>
+        }
+
+        <div class="offline-modal-legend">
+          <small>
+            <strong>Aviso de Operación Fuera de Línea:</strong>
+            Este documento certifica el registro local en caja del pedido y no constituye reserva definitiva en el inventario centralizado hasta que el dispositivo sincronice con el servidor (CU13).
+          </small>
+        </div>
+
+        <div class="offline-modal-actions no-print">
+          <button type="button" class="offline-res-btn offline-res-btn--primary" (click)="printReceipt()">
+            <app-icon name="circle-check" [size]="16" />
+            <span>Imprimir Comprobante</span>
+          </button>
+
+          <button type="button" class="offline-res-btn offline-res-btn--secondary" (click)="startNewReservation()">
+            <app-icon name="plus" [size]="16" />
+            <span>Nueva Reserva</span>
+          </button>
+
+          <button type="button" class="offline-res-btn offline-res-btn--ghost" (click)="closeModal()">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

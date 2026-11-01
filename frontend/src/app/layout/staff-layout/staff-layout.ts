@@ -36,6 +36,7 @@ export class StaffLayout implements OnInit {
     if (url.startsWith('/staff/reservas/')) return 'Detalle de reserva';
     if (url.startsWith('/staff/reservas')) return 'Reservas';
     if (url.startsWith('/staff/disponibilidad')) return 'Disponibilidad';
+    if (url.startsWith('/staff/offline')) return 'Operación Offline';
     if (url.startsWith('/staff/perfil')) return 'Mi perfil';
     return 'Inicio';
   });
