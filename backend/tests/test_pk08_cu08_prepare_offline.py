@@ -238,25 +238,59 @@ class TestCU08PrepareOfflineData(TestCase):
         prod_item = resp.productos[0]
         self.assertEqual(prod_item.precio, Decimal("249.50"))
 
-    def test_2_unauthorized_role_rejected(self):
-        """Verifica que roles no autorizados (CLIENTE, PROVEEDOR) sean rechazados con HTTP 403."""
+    def test_2_client_role_authorized_with_strict_privacy_and_unknown_role_rejected(self):
+        """Verifica que CLIENTE pueda preparar paquete offline solo con su propia ficha, y roles inválidos sean rechazados."""
         client_user = AuthenticatedUserData(
-            id_usuario=99,
-            nombre="Cliente",
-            apellido="Final",
-            correo="cliente@gmail.com",
+            id_usuario=42,
+            nombre="Carlos",
+            apellido="Mendoza",
+            correo="carlos.mendoza@email.com",
             rol="CLIENTE",
             id_empresa=1,
         )
 
+        b1, city1 = dummy_branch(id_sucursal=10, nombre="Sucursal Central", ciudad="Santa Cruz")
+        b2, city2 = dummy_branch(id_sucursal=11, nombre="Sucursal Norte", ciudad="Santa Cruz")
+        self.mock_repo.get_all_active_branches.return_value = [(b1, city1), (b2, city2)]
+        self.mock_repo.get_categories.return_value = []
+        self.mock_repo.get_sizes.return_value = []
+        self.mock_repo.get_colors.return_value = []
+        self.mock_repo.get_products.return_value = [dummy_product()]
+        self.mock_repo.get_variants.return_value = [dummy_variant()]
+        self.mock_repo.get_inventory.return_value = [dummy_stock(id_sucursal=10), dummy_stock(id_inventario_sucursal=2, id_sucursal=11)]
+        # En la empresa existen dos clientes: Carlos (id_usuario=42) y Otro (id_usuario=77)
+        self.mock_repo.get_minimal_clients.return_value = [
+            dummy_client_and_user(id_cliente=1, id_usuario=42, nombre="Carlos"),
+            dummy_client_and_user(id_cliente=2, id_usuario=77, nombre="Otro", correo="otro@email.com"),
+        ]
+        self.mock_repo.get_max_updated_at.return_value = NOW
+
+        resp = self.service.prepare_offline_package(client_user, now=NOW)
+        self.assertTrue(resp.success)
+        self.assertEqual(resp.metadata.usuario_rol, "CLIENTE")
+        self.assertEqual(resp.metadata.sucursales_autorizadas_ids, [10, 11])
+        # El CLIENTE solo recibe su propio registro de cliente, nunca el de terceros
+        self.assertEqual(len(resp.clientes), 1)
+        self.assertEqual(resp.clientes[0].id_usuario, 42)
+        self.assertEqual(resp.metadata.total_clientes, 1)
+
+        status_resp = self.service.check_offline_status(
+            client_user, client_version=resp.metadata.version, now=NOW
+        )
+        self.assertTrue(status_resp.vigente)
+
+        # Roles no autorizados siguen rechazados con HTTP 403
+        invalid_user = AuthenticatedUserData(
+            id_usuario=99,
+            nombre="Proveedor",
+            apellido="Externo",
+            correo="proveedor@gmail.com",
+            rol="PROVEEDOR",
+            id_empresa=1,
+        )
         with self.assertRaises(UnauthorizedOfflineRoleError) as ctx:
-            self.service.prepare_offline_package(client_user)
-
+            self.service.prepare_offline_package(invalid_user)
         self.assertEqual(ctx.exception.status_code, 403)
-        self.assertIn("no cuenta con permisos", ctx.exception.message)
-
-        with self.assertRaises(UnauthorizedOfflineRoleError):
-            self.service.check_offline_status(client_user)
 
     def test_3_strict_multitenant_isolation(self):
         """Verifica que un usuario de la empresa 1 no pueda solicitar datos de la empresa 2."""
@@ -460,4 +494,3 @@ class TestCU08PrepareOfflineData(TestCase):
         self.assertFalse(status_old.vigente)
         self.assertTrue(status_old.requiere_actualizacion)
         self.assertIn("Actualización disponible", status_old.message)
-

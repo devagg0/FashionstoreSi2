@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { exhaustMap, takeWhile, timer } from 'rxjs';
+import { exhaustMap, Observable, of, takeWhile, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
 
@@ -34,6 +34,8 @@ export interface PaymentSale {
   id: number;
   numero: string;
   sucursal: string;
+  id_sucursal?: number;
+  id_reserva?: number | null;
   canal: 'DIGITAL' | 'PRESENCIAL';
   estado: 'PENDIENTE' | 'COMPLETADA' | 'ANULADA' | 'RECHAZADA';
   fecha: string | null;
@@ -58,27 +60,77 @@ export interface PaymentAttempt {
   action?: PaymentAction;
 }
 
+function buildOfflinePaymentResponse(
+  id: number,
+  method: PaymentMethod,
+  key: string,
+  amount: string,
+): PaymentResponse {
+  return {
+    success: true,
+    data: {
+      id_pago: id,
+      id_venta: id,
+      medio: method,
+      proveedor: method === 'TARJETA' ? 'STRIPE' : 'MANUAL',
+      entorno: 'LOCAL',
+      estado: 'PENDIENTE',
+      estado_venta: 'PENDIENTE',
+      monto: amount,
+      moneda: 'BOB',
+      referencia_externa: null,
+      clave_idempotencia: key,
+      fecha_aprobacion: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class PaymentsService {
   private readonly http = inject(HttpClient);
   private readonly session = inject(SessionService);
   private readonly url = `${environment.apiUrl}/api`;
+
   private headers() {
     const token = this.session.getAccessToken();
     return new HttpHeaders(token ? { Authorization: `Bearer ${token}` } : {});
   }
-  start(id: number, method: PaymentMethod, key: string) {
+
+  start(id: number, method: PaymentMethod, key: string): Observable<PaymentResponse> {
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const sale = this.sale(id);
+    const amount = sale?.total ?? '0.00';
+
+    if (isOffline) {
+      return of(buildOfflinePaymentResponse(id, method, key, amount));
+    }
+
     return this.http.post<PaymentResponse>(
       `${this.url}/sales/${id}/payments`,
       { medio: method },
       { headers: this.headers().set('Idempotency-Key', key) },
     );
   }
-  get(id: number) {
+
+  get(id: number): Observable<PaymentResponse> {
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const attempt = this.attempt(id);
+    const sale = this.sale(id);
+    const amount = sale?.total ?? '0.00';
+    const method = attempt?.medio ?? 'TARJETA';
+    const key = attempt?.key ?? '';
+
+    if (isOffline && (attempt || sale)) {
+      return of(buildOfflinePaymentResponse(id, method, key, amount));
+    }
+
     return this.http.get<PaymentResponse>(`${this.url}/payments/${id}`, {
       headers: this.headers(),
     });
   }
+
   manual(id: number, action: PaymentAction) {
     return this.http.post<PaymentResponse>(
       `${this.url}/payments/${id}/manual/confirm`,
@@ -86,6 +138,7 @@ export class PaymentsService {
       { headers: this.headers() },
     );
   }
+
   qr(id: number) {
     return this.http.post<PaymentResponse>(
       `${this.url}/payments/${id}/qr/confirm`,
@@ -93,6 +146,7 @@ export class PaymentsService {
       { headers: this.headers() },
     );
   }
+
   checkout(id: number) {
     return this.http.post<CheckoutResponse>(
       `${this.url}/payments/${id}/stripe/checkout-session`,
@@ -100,6 +154,7 @@ export class PaymentsService {
       { headers: this.headers() },
     );
   }
+
   sync(id: number) {
     return this.http.post<PaymentResponse>(
       `${this.url}/payments/${id}/stripe/sync`,
@@ -107,6 +162,7 @@ export class PaymentsService {
       { headers: this.headers() },
     );
   }
+
   monitorStripe(id: number, checkoutActive: () => boolean) {
     return timer(1000, 2000).pipe(
       exhaustMap(() => this.sync(id)),
@@ -119,12 +175,15 @@ export class PaymentsService {
       ),
     );
   }
+
   private storageKey(id: number, kind: string) {
     return `fashionstore_cu22_${this.session.getUser()?.id_usuario}_${id}_${kind}`;
   }
+
   saveSale(sale: PaymentSale): void {
     sessionStorage.setItem(this.storageKey(sale.id, 'sale'), JSON.stringify(sale));
   }
+
   sale(id: number): PaymentSale | null {
     try {
       const data = JSON.parse(
@@ -140,9 +199,11 @@ export class PaymentsService {
       return null;
     }
   }
+
   saveAttempt(id: number, attempt: PaymentAttempt): void {
     sessionStorage.setItem(this.storageKey(id, 'attempt'), JSON.stringify(attempt));
   }
+
   attempt(id: number): PaymentAttempt | null {
     try {
       const data = JSON.parse(
@@ -159,6 +220,7 @@ export class PaymentsService {
       return null;
     }
   }
+
   clearAttempt(id: number): void {
     sessionStorage.removeItem(this.storageKey(id, 'attempt'));
   }

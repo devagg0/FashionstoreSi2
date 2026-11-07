@@ -72,3 +72,20 @@ class OfflineReservationSync(TenantMixin, Base):
         DateTime, nullable=False, server_default=func.now()
     )
 
+
+_ENSURED_ENGINES: set[int] = set()
+
+
+def ensure_offline_reservation_sync_table(db_session) -> None:
+    """Garantiza que la tabla t_reserva_offline_sync exista en el motor activo antes de operar."""
+    try:
+        bind = db_session.get_bind()
+        engine_key = id(bind)
+        if engine_key in _ENSURED_ENGINES:
+            return
+        OfflineReservationSync.__table__.create(bind=bind, checkfirst=True)
+        _ENSURED_ENGINES.add(engine_key)
+    except Exception:
+        pass
+
+

@@ -1,5 +1,6 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { OfflineService } from '../../core/services/offline.service';
 import { SessionService } from '../../core/services/session.service';
 import { ReservationSelectionService } from '../../core/services/reservation-selection.service';
 import { Icon } from '../../shared/components/icon/icon';
@@ -16,10 +17,11 @@ interface NavigationGroup {
   templateUrl: './public-header.html',
   styleUrl: './public-header.scss',
 })
-export class PublicHeader {
+export class PublicHeader implements OnInit {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly offlineService = inject(OfflineService, { optional: true });
   private readonly reservationSelection = inject(ReservationSelectionService);
 
   protected readonly mobileOpen = signal(false);
@@ -39,6 +41,12 @@ export class PublicHeader {
     },
     { label: 'Unisex', section: 'UNISEX', items: ['Poleras', 'Chaquetas', 'Shorts'] },
   ];
+
+  ngOnInit(): void {
+    if (this.user()?.rol.toUpperCase() === 'CLIENTE') {
+      void this.offlineService?.ensurePreparedAutomatically();
+    }
+  }
 
   protected toggleMobile(): void {
     this.mobileOpen.update((isOpen) => !isOpen);

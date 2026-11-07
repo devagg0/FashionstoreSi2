@@ -16,6 +16,7 @@ import {
 } from '../../core/services/reservation-selection.service';
 import { SessionService } from '../../core/services/session.service';
 import { ClientCartService, cartErrorMessage } from '../../core/services/client-cart.service';
+import { OfflineService } from '../../core/services/offline.service';
 import { Icon } from '../../shared/components/icon/icon';
 import {
   ReservationSchedulePicker,
@@ -37,6 +38,30 @@ export class ProductDetail {
   private readonly reservationSelection = inject(ReservationSelectionService);
   private readonly session = inject(SessionService);
   private readonly cartService = inject(ClientCartService);
+  private readonly offlineService = inject(OfflineService, { optional: true });
+  protected readonly usingOfflineData = signal(false);
+  protected readonly localPreparationDate = signal<string | null>(null);
+  protected readonly localExpiryDate = signal<string | null>(null);
+  protected readonly localIsExpired = signal<boolean>(false);
+
+  protected readonly isOfflineMode = computed(() => {
+    const offlineByService = this.offlineService ? !this.offlineService.isOnline() : false;
+    const offlineByNav = typeof navigator !== 'undefined' && !navigator.onLine;
+    return offlineByService || offlineByNav || this.usingOfflineData();
+  });
+
+  protected readonly offlineLastUpdated = computed(() => {
+    return this.offlineService?.offlinePreparationDate() ?? this.localPreparationDate();
+  });
+
+  protected readonly offlineExpiryDate = computed(() => {
+    return this.offlineService?.offlineExpiryDate() ?? this.localExpiryDate();
+  });
+
+  protected readonly isOfflineExpired = computed(() => {
+    return this.offlineService?.isPackageExpired() ?? this.localIsExpired();
+  });
+
   protected readonly addingToCart = signal(false);
   protected readonly cartError = signal('');
   protected readonly cartSuccess = signal('');
@@ -128,6 +153,7 @@ export class ProductDetail {
           this.errorMessage.set('El producto solicitado no es válido.');
           return;
         }
+        void this.updateOfflineNotice();
         this.loadProduct(productId);
       });
   }
@@ -316,11 +342,57 @@ export class ProductDetail {
     if (id > 0) this.loadProduct(id);
   }
 
+  protected async updateOfflineNotice(): Promise<void> {
+    if (!this.offlineService) return;
+    const summary =
+      this.offlineService.localSummary() ?? (await this.offlineService.loadLocalSummary());
+    if (summary) {
+      const rawDate = summary.metadata?.fecha_generacion || summary.savedAt;
+      if (rawDate) {
+        const savedDate = new Date(rawDate);
+        if (!isNaN(savedDate.getTime())) {
+          this.localPreparationDate.set(
+            savedDate.toLocaleString('es-BO', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          );
+        }
+      }
+      if (summary.metadata?.valido_hasta) {
+        const expiry = new Date(summary.metadata.valido_hasta);
+        if (!isNaN(expiry.getTime())) {
+          this.localExpiryDate.set(
+            expiry.toLocaleString('es-BO', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          );
+          this.localIsExpired.set(summary.isExpired || Date.now() > expiry.getTime());
+        }
+      }
+    }
+  }
+
   private loadProduct(productId: number): void {
     this.cartError.set(''); this.cartSuccess.set('');
     this.loading.set(true);
     this.errorMessage.set('');
     this.product.set(null);
+    const isOfflineNow =
+      (this.offlineService ? !this.offlineService.isOnline() : false) ||
+      (typeof navigator !== 'undefined' && !navigator.onLine);
+
+    if (isOfflineNow) {
+      this.usingOfflineData.set(true);
+      void this.updateOfflineNotice();
+    }
     this.catalogService
       .getProduct(productId, this.branchId())
       .pipe(
@@ -337,6 +409,12 @@ export class ProductDetail {
           this.selectedColorId.set(null);
           this.selectedSizeId.set(null);
           this.resetReservationSelection();
+          if (response.fromOffline || isOfflineNow) {
+            this.usingOfflineData.set(true);
+            void this.updateOfflineNotice();
+          } else {
+            this.usingOfflineData.set(false);
+          }
         },
         error: (error: HttpErrorResponse) => {
           this.errorMessage.set(

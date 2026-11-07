@@ -1,4 +1,4 @@
-"""Contratos Pydantic para PK08 - CU08: Preparar información para operación offline en FashionStore (Web Angular PWA)."""
+"""Contratos Pydantic para PK08 - CU08 y CU09: Preparar y consultar catálogo y disponibilidad offline en FashionStore (Web Angular PWA)."""
 
 from datetime import datetime, time
 from decimal import Decimal
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class OfflineBranchData(BaseModel):
-    """Sucursal autorizada para operar en la PWA."""
+    """Sucursal autorizada para operar y consultar disponibilidad en la PWA."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,8 +56,46 @@ class OfflineColorData(BaseModel):
     estado: bool = True
 
 
+class OfflineProductImageData(BaseModel):
+    """Imagen estructurada de galería compatible con CatalogImageData del catálogo original."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_imagen_producto: int
+    url_imagen: str
+    es_principal: bool = False
+
+
+class OfflineProductSizeFacet(BaseModel):
+    """Faceta de talla disponible en un producto compatible con CatalogSizeData."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_talla: int
+    nombre: str
+
+
+class OfflineProductColorFacet(BaseModel):
+    """Faceta de color disponible en un producto compatible con CatalogColorData."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_color: int
+    nombre: str
+    codigo_hex: str | None = None
+
+
+class OfflineCollectionData(BaseModel):
+    """Colección activa asociada al producto compatible con CatalogCollectionData."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_coleccion: int
+    nombre: str
+
+
 class OfflineProductData(BaseModel):
-    """Producto base con precio de lista para venta presencial y catálogo offline."""
+    """Producto activo con precios, imágenes y facetas para catálogo y operación offline."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,17 +103,30 @@ class OfflineProductData(BaseModel):
     id_categoria: int
     categoria: str | None = None
     id_temporada: int | None = None
+    temporada: str | None = None
     nombre: str
     seccion: str
     descripcion: str | None = None
+    descripcion_corta: str | None = None
     precio: Decimal
+    precio_base: Decimal | None = None
+    precio_final: Decimal | None = None
+    tiene_promocion: bool = False
     imagen_principal: str | None = None
     imagenes: list[str] = Field(default_factory=list)
+    galeria: list[OfflineProductImageData] = Field(default_factory=list)
+    tallas_disponibles: list[OfflineProductSizeFacet] = Field(default_factory=list)
+    colores_disponibles: list[OfflineProductColorFacet] = Field(default_factory=list)
+    colecciones: list[OfflineCollectionData] = Field(default_factory=list)
+    stock_total_disponible: int = 0
+    disponible_red: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     estado: bool = True
 
 
 class OfflineVariantData(BaseModel):
-    """Variante física comercializable (talla + color + SKU + precio correspondiente)."""
+    """Variante física comercializable (talla + color + SKU + precio + disponibilidad agregada)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,11 +139,13 @@ class OfflineVariantData(BaseModel):
     color_hex: str | None = None
     sku: str
     precio: Decimal | None = None
+    stock_total_disponible: int = 0
+    disponible_red: bool = False
     estado: bool = True
 
 
 class OfflineStockData(BaseModel):
-    """Existencia física en sucursal autorizada (sin modificar inventario)."""
+    """Existencia física conocida en sucursal autorizada (sin modificar inventario)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -100,15 +153,25 @@ class OfflineStockData(BaseModel):
     id_sucursal: int
     id_variante_producto: int
     id_producto: int | None = None
+    sku: str | None = None
+    id_talla: int | None = None
+    talla: str | None = None
+    id_color: int | None = None
+    color: str | None = None
+    color_hex: str | None = None
+    nombre_sucursal: str | None = None
+    id_ciudad: int | None = None
+    nombre_ciudad: str | None = None
     stock_actual: int
     stock_reservado: int
     stock_disponible: int
     stock_minimo: int
+    estado_disponibilidad: Literal["DISPONIBLE", "AGOTADO"] = "AGOTADO"
     updated_at: datetime
 
 
 class OfflineClientData(BaseModel):
-    """Cliente mínimo indispensable para venta offline sin datos sensibles ni contraseñas."""
+    """Cliente mínimo indispensable para operación offline sin datos sensibles ni contraseñas."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -174,4 +237,3 @@ class OfflineStatusResponse(BaseModel):
     suscripcion_activa: bool = True
     funcionalidad_offline: bool = True
     message: str
-

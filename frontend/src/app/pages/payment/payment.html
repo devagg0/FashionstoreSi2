@@ -3,27 +3,53 @@
     <a class="back-link" [routerLink]="back()">← Volver al resumen</a>
     <header class="heading">
       <div>
-        <p class="eyebrow">FASHIONSTORE · CHECKOUT</p>
-        <h1>Finalizar pago</h1>
+        <p class="eyebrow">
+          {{ offlineReceipt() ? 'FASHIONSTORE · OPERACIÓN OFFLINE' : 'FASHIONSTORE · CHECKOUT' }}
+        </p>
+        <h1>{{ offlineReceipt() ? 'Confirmación de operación' : 'Finalizar pago' }}</h1>
         <p>
           {{
-            completed()
-              ? 'Tu venta está completada. Gracias por elegir FashionStore.'
-              : rejected()
-                ? 'Stripe rechazó el pago. La venta quedó rechazada.'
-              : 'Tu venta está pendiente. Elige cómo finalizar tu compra.'
+            offlineReceipt()
+              ? (offlineReceipt()!.medio_pago === 'EFECTIVO'
+                  ? 'Cobro presencial en efectivo registrado localmente en caja. Operación guardada en este dispositivo y pendiente de sincronización.'
+                  : 'Simulación de pago local exitosa. Operación guardada en este dispositivo, pendiente de sincronización y validación bancaria al conectarse.')
+              : completed()
+                ? 'Tu venta está completada. Gracias por elegir FashionStore.'
+                : rejected()
+                  ? 'Stripe rechazó el pago. La venta quedó rechazada.'
+                : 'Tu venta está pendiente. Elige cómo finalizar tu compra.'
           }}
         </p>
       </div>
-      <span class="badge" [class.success]="completed()">{{ status() }}</span>
+      <span
+        class="badge"
+        [class.success]="completed()"
+        [class.pending]="!!offlineReceipt()"
+      >
+        {{
+          offlineReceipt()
+            ? (offlineReceipt()!.medio_pago === 'EFECTIVO'
+                ? 'REGISTRADA LOCAL (EN CAJA)'
+                : 'PENDIENTE DE SINCRONIZACIÓN')
+            : status()
+        }}
+      </span>
     </header>
     <ol class="steps" aria-label="Progreso de compra">
       <li>✓ Resumen de venta</li>
-      <li [class.active]="!completed()">{{ completed() ? '✓' : '02' }} Pago</li>
-      <li [class.active]="completed()">03 Comprobante</li>
+      <li [class.active]="!completed() && !offlineReceipt()">{{ (completed() || offlineReceipt()) ? '✓' : '02' }} Pago</li>
+      <li [class.active]="completed() || !!offlineReceipt()">03 Comprobante</li>
     </ol>
-    @if (completed() && sale()) {
+    @if (completed() && sale() && !offlineReceipt()) {
       <p><a class="button button--solid" [routerLink]="[back().startsWith('/staff') ? '/staff/ventas' : '/mis-compras', id, 'comprobante']">Ver comprobante</a></p>
+    }
+    @if (isOfflineMode() && !completed() && !offlineReceipt()) {
+      <section class="notice pending offline-banner" role="status">
+        <p>
+          📶 <strong>Modo offline activo:</strong> Estás operando sin conexión a internet.
+          {{ sale()?.canal === 'PRESENCIAL' ? 'Puedes registrar la venta con Efectivo, o con QR/Tarjeta simulados. Los datos se guardarán localmente para su posterior sincronización.' : 'Puedes completar tu compra con QR o Tarjeta en modo simulación; los datos se guardarán en este dispositivo para su posterior sincronización.' }}
+        </p>
+      </section>
     }
     @if (error()) {
       <section class="notice error" role="alert">
@@ -82,7 +108,75 @@
     @if (sale(); as current) {
       <div class="payment-layout" [attr.aria-busy]="busy()">
         <div class="content">
-          @if (payment(); as result) {
+          @if (offlineReceipt(); as receipt) {
+            <section class="notice pending receipt offline-voucher" role="status">
+              <span class="badge offline-badge">
+                {{ receipt.canal === 'PRESENCIAL' && receipt.medio_pago === 'EFECTIVO' ? 'VENTA REGISTRADA OFFLINE EN CAJA · PENDIENTE DE SINCRONIZACIÓN' : 'COMPRA REGISTRADA OFFLINE · PENDIENTE DE SINCRONIZACIÓN' }}
+              </span>
+              <p class="eyebrow">
+                {{ receipt.medio_pago === 'EFECTIVO' ? 'COBRO PRESENCIAL REGISTRADO' : 'SIMULACIÓN LOCAL EXITOSA' }}
+              </p>
+              <h2>
+                {{ receipt.canal === 'PRESENCIAL' && receipt.medio_pago === 'EFECTIVO' ? 'Cobro en efectivo registrado en caja' : receipt.canal === 'PRESENCIAL' ? 'Comprobante provisional de venta POS' : 'Comprobante provisional de compra' }}
+              </h2>
+              <p>Operación local: <strong>{{ receipt.numero_venta_local }}</strong> · Moneda: BOB (Bs)</p>
+
+              <div class="offline-warning">
+                @if (receipt.medio_pago === 'EFECTIVO') {
+                  <p>
+                    💵 <strong>Cobro presencial en caja:</strong> Se registró el cobro en efectivo por
+                    <strong>{{ money(receipt.total) }}</strong>. La venta quedó guardada localmente en este dispositivo y está
+                    <strong>pendiente de sincronización con el servidor</strong>.
+                  </p>
+                } @else {
+                  <p>
+                    ⚠️ <strong>Aviso importante:</strong> Operación guardada localmente en tu dispositivo.
+                    El medio de pago ({{ receipt.medio_pago }}) fue <strong>simulado sin conexión a internet</strong> y
+                    <strong>no constituye confirmación de cobro bancario real</strong>. La compra queda
+                    <strong>pendiente de sincronización y validación bancaria externa</strong> al conectarse a internet.
+                  </p>
+                }
+              </div>
+
+              <dl>
+                <div>
+                  <dt>Operación local</dt>
+                  <dd>{{ receipt.numero_venta_local }}</dd>
+                </div>
+                <div>
+                  <dt>Método</dt>
+                  <dd>{{ receipt.medio_pago === 'EFECTIVO' ? 'Efectivo (en caja)' : receipt.medio_pago + ' (simulado offline)' }}</dd>
+                </div>
+                <div>
+                  <dt>Importe</dt>
+                  <dd>{{ money(receipt.total) }}</dd>
+                </div>
+                <div>
+                  <dt>Referencia</dt>
+                  <dd>{{ receipt.referencia_pago }}</dd>
+                </div>
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{{ receipt.medio_pago === 'EFECTIVO' ? 'Registrado localmente (en caja)' : 'Pendiente de sincronización' }}</dd>
+                </div>
+              </dl>
+
+              <div class="actions">
+                <a
+                  class="button button--solid"
+                  [routerLink]="[receipt.canal === 'PRESENCIAL' ? '/staff/ventas' : '/mis-compras', receipt.id_venta_local, 'comprobante']"
+                >
+                  Ver comprobante provisional
+                </a>
+                <a
+                  class="button button--outline"
+                  [routerLink]="receipt.canal === 'PRESENCIAL' ? '/staff/ventas/nueva' : '/catalogo'"
+                >
+                  {{ receipt.canal === 'PRESENCIAL' ? 'Registrar otra venta' : 'Volver al catálogo' }}
+                </a>
+              </div>
+            </section>
+          } @else if (payment(); as result) {
             @if (completed() && result.estado === 'APROBADO') {
               <section class="notice success receipt" role="status">
                 <span class="result-icon">✓</span>
@@ -170,7 +264,7 @@
               </div>
             }
           }
-          @if (!completed() && status() === 'PENDIENTE' && !terminal()) {
+          @if (!offlineReceipt() && !completed() && status() === 'PENDIENTE' && !terminal()) {
             <section class="card">
               <p class="eyebrow">ELIGE CÓMO PAGAR</p>
               <h2>Método de pago</h2>
@@ -288,8 +382,8 @@
                   }
                 }
                 @case ('TARJETA') {
-                  <p class="eyebrow">STRIPE CHECKOUT · TEST</p>
-                  <h2>Paga con tarjeta de forma segura</h2>
+                  <p class="eyebrow">{{ isOfflineMode() ? 'PAGO CON TARJETA · SIMULACIÓN OFFLINE' : 'STRIPE CHECKOUT · TEST' }}</p>
+                  <h2>{{ isOfflineMode() ? 'Simular pago con tarjeta' : 'Paga con tarjeta de forma segura' }}</h2>
                   <p>
                     Introduce tus datos exclusivamente en Stripe Checkout. FashionStore no solicita
                     ni almacena datos de tarjeta.
@@ -303,9 +397,9 @@
                     [disabled]="!canPay()"
                     (click)="confirm()"
                   >
-                    Pagar con tarjeta
+                    {{ isOfflineMode() ? 'Simular pago con tarjeta' : 'Pagar con tarjeta' }}
                   </button>
-                  <p class="footnote">Entorno de prueba TEST. No se cobra dinero real.</p>
+                  <p class="footnote">{{ isOfflineMode() ? 'Modo sin conexión. La compra y el pago simulado se guardarán para su posterior sincronización; no se debita dinero real.' : 'Entorno de prueba TEST. No se cobra dinero real.' }}</p>
                 }
               }
             </section>
@@ -352,7 +446,7 @@
             </div>
             <div>
               <dt>Estado</dt>
-              <dd>{{ status() }}</dd>
+              <dd>{{ offlineReceipt() ? (offlineReceipt()!.medio_pago === 'EFECTIVO' ? 'REGISTRADA LOCAL' : 'PENDIENTE (OFFLINE)') : status() }}</dd>
             </div>
             <div>
               <dt>Moneda</dt>
@@ -376,9 +470,13 @@
           </dl>
           <p class="summary-note">
             {{
-              completed()
-                ? '✓ Pago aprobado y venta completada'
-                : 'La aprobación del pago confirma tu compra.'
+              offlineReceipt()
+                ? (offlineReceipt()!.medio_pago === 'EFECTIVO'
+                    ? '✓ Cobro presencial registrado localmente en caja'
+                    : '⏳ Simulación local guardada · Pendiente de sincronización')
+                : completed()
+                  ? '✓ Pago aprobado y venta completada'
+                  : 'La aprobación del pago confirma tu compra.'
             }}
           </p>
           <small>FashionStore · Moda para tu estilo</small>

@@ -1,0 +1,540 @@
+<section class="offline-ops-page" aria-labelledby="offline-ops-title">
+  <!-- Cabecera -->
+  <header class="offline-ops-header">
+    <div class="offline-ops-header__title">
+      <p class="offline-ops-kicker">PK08 — CU12 / CU13 / CU14 · OPERACIÓN OFFLINE</p>
+      <h2 id="offline-ops-title">Operaciones Locales Pendientes</h2>
+      <p class="offline-ops-desc">
+        Consulta y sincronización de reservas, compras y ventas registradas localmente en este dispositivo mientras estabas sin conexión.
+      </p>
+    </div>
+
+    <!-- Badges de estado de red y contadores -->
+    <div class="offline-ops-badges">
+      @if (isSyncing()) {
+        <span class="ops-badge ops-badge--warning" title="Sincronización en curso con el servidor central">
+          <span class="ops-dot"></span> Sincronizando...
+        </span>
+      } @else if (isOnline()) {
+        <span class="ops-badge ops-badge--online">
+          <span class="ops-dot"></span> En línea
+        </span>
+      } @else {
+        <span class="ops-badge ops-badge--offline">
+          <span class="ops-dot"></span> Sin conexión
+        </span>
+      }
+
+      <span class="ops-badge ops-badge--warning" title="Operaciones pendientes de sincronización central">
+        <app-icon name="layers" [size]="14" /> {{ totalPending() }} pendientes
+      </span>
+
+      @if (totalSynced() > 0) {
+        <span class="ops-badge ops-badge--success" title="Operaciones confirmadas en servidor central">
+          <app-icon name="circle-check" [size]="14" /> {{ totalSynced() }} sincronizadas
+        </span>
+      }
+
+      @if (totalConflicts() > 0) {
+        <span class="ops-badge ops-badge--danger" title="Operaciones que requieren atención">
+          <app-icon name="ban" [size]="14" /> {{ totalConflicts() }} con conflicto
+        </span>
+      }
+    </div>
+  </header>
+
+  <!-- Mensajes de feedback -->
+  @if (feedbackMessage(); as msg) {
+    <div class="ops-banner" [class.ops-banner--info]="!msg.includes('Error')" [class.ops-banner--error]="msg.includes('Error')" role="status">
+      <div class="ops-banner__content">
+        <app-icon name="circle-check" [size]="18" />
+        <span>{{ msg }}</span>
+      </div>
+      <button type="button" class="ops-banner__close" (click)="dismissNotice()" aria-label="Cerrar aviso">✕</button>
+    </div>
+  }
+
+  <!-- Barra de Filtros y Acciones -->
+  <section class="ops-toolbar" aria-label="Filtros y acciones de operaciones offline">
+    <div class="ops-filters">
+      <label class="ops-filter-group">
+        <span>Tipo de operación</span>
+        <select [(ngModel)]="filterTipo" (change)="onFilterChange()">
+          <option value="TODOS">Todos los tipos</option>
+          <option value="RESERVA">Reservas de prendas</option>
+          <option value="COMPRA">Compras digitales</option>
+          <option value="VENTA">Ventas presenciales POS</option>
+          <option value="TRANSICION_RESERVA">Atenciones de reserva</option>
+        </select>
+      </label>
+
+      <label class="ops-filter-group">
+        <span>Estado de sincronización</span>
+        <select [(ngModel)]="filterEstadoSync" (change)="onFilterChange()">
+          <option value="TODOS">Todos los estados</option>
+          <option value="PENDIENTE">Pendientes de sincronización</option>
+          <option value="SINCRONIZADA">Sincronizadas con éxito</option>
+          <option value="CONFLICTO">Con conflicto / Rechazadas</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="ops-actions">
+      <button
+        type="button"
+        class="ops-btn ops-btn--secondary"
+        [disabled]="loading() || isSyncing()"
+        (click)="load()"
+        title="Recargar desde almacenamiento local"
+      >
+        <app-icon name="refresh" [size]="16" />
+        <span>Actualizar</span>
+      </button>
+
+      <button
+        type="button"
+        class="ops-btn ops-btn--secondary"
+        [disabled]="loading() || verifying() || isSyncing() || !isOnline()"
+        (click)="verifyWithServer()"
+        title="Consultar al servidor el estado de las operaciones mostradas"
+      >
+        <app-icon name="search" [size]="16" />
+        <span>{{ verifying() ? 'Verificando...' : 'Verificar con servidor' }}</span>
+      </button>
+
+      @if (totalConflicts() > 0) {
+        <button
+          type="button"
+          class="ops-btn ops-btn--secondary"
+          [disabled]="loading() || isDiagnosing() || isResolving() || !isOnline()"
+          (click)="diagnoseAllConflicts()"
+          title="Diagnosticar operaciones en conflicto frente a PostgreSQL (CU14)"
+        >
+          <app-icon name="shield" [size]="16" />
+          <span>{{ isDiagnosing() ? 'Diagnosticando...' : 'Diagnosticar conflictos' }}</span>
+        </button>
+      }
+
+      @if (canShowSync()) {
+        <button
+          type="button"
+          class="ops-btn ops-btn--primary"
+          [disabled]="loading() || verifying() || isSyncing() || !isOnline()"
+          (click)="syncNow()"
+          title="Enviar y sincronizar operaciones pendientes con el servidor central (CU13)"
+        >
+          <app-icon name="layers" [size]="16" />
+          <span>{{ isSyncing() ? 'Sincronizando...' : 'Sincronizar pendientes' }}</span>
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- Lista de Operaciones -->
+  @if (loading()) {
+    <div class="ops-loading" role="status" aria-label="Cargando operaciones locales">
+      <div class="ops-spinner"></div>
+      <p>Consultando almacenamiento IndexedDB local...</p>
+    </div>
+  } @else if (operations().length === 0) {
+    <div class="ops-empty-state">
+      <app-icon name="search" [size]="36" />
+      <h3>No hay operaciones pendientes</h3>
+      <p>No se encontraron operaciones registradas localmente que coincidan con los filtros aplicados.</p>
+      @if (filterTipo() !== 'TODOS' || filterEstadoSync() !== 'TODOS') {
+        <button
+          type="button"
+          class="ops-btn ops-btn--secondary"
+          (click)="filterTipo.set('TODOS'); filterEstadoSync.set('TODOS'); onFilterChange()"
+        >
+          Limpiar filtros
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="ops-list">
+      @for (op of operations(); track op.uuid_operacion) {
+        <article
+          class="ops-card"
+          [class.ops-card--synced]="op.confirmada_en_servidor"
+          [class.ops-card--conflict]="hasConflict(op)"
+          [class.ops-card--blocked]="isOperationBlocked(op)"
+        >
+          <!-- Cabecera de la tarjeta -->
+          <div class="ops-card__header">
+            <div class="ops-card__identifiers">
+              <span class="ops-tag" [attr.data-type]="op.tipo">
+                {{ typeLabel(op.tipo) }}
+              </span>
+              <strong class="ops-card__code">{{ op.codigo_provisional }}</strong>
+              @if (op.codigo_servidor && op.codigo_servidor !== op.codigo_provisional) {
+                <span class="ops-card__server-code" title="Código asignado por el servidor central">
+                  (Servidor: {{ op.codigo_servidor }})
+                </span>
+              }
+              @if (isOperationBlocked(op)) {
+                <span class="ops-badge-blocked" title="Operación dependiente bloqueada hasta resolver el antecedente">
+                  <app-icon name="lock" [size]="12" /> Bloqueada por dependencia
+                </span>
+              }
+            </div>
+
+            <div class="ops-card__sync-badge">
+              <span class="ops-status-pill" [attr.data-sync]="op.estado_sincronizacion">
+                <span class="ops-status-dot"></span>
+                {{ syncStatusLabel(op.estado_sincronizacion) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Metadatos principales -->
+          <div class="ops-card__grid">
+            <div class="ops-field">
+              <small>Sucursal</small>
+              <strong>{{ op.sucursal_nombre }}</strong>
+            </div>
+
+            <div class="ops-field">
+              <small>Fecha registro</small>
+              <span>{{ op.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+
+            <div class="ops-field">
+              <small>Actor / Rol</small>
+              <span>{{ op.actor_nombre || 'Usuario' }} ({{ op.rol }})</span>
+            </div>
+
+            @if (op.importe !== null && op.importe !== undefined) {
+              <div class="ops-field ops-field--highlight">
+                <small>Importe total</small>
+                <strong>{{ formatMoney(op.importe) }}</strong>
+              </div>
+            }
+
+            @if (op.metodo_pago) {
+              <div class="ops-field">
+                <small>Método de pago</small>
+                <span>
+                  {{ op.metodo_pago }}
+                  @if (op.pago_simulado) {
+                    <em class="ops-sim-tag">(Simulado)</em>
+                  }
+                </span>
+              </div>
+            }
+
+            <div class="ops-field">
+              <small>Estado comercial</small>
+              <span class="ops-comm-state">{{ op.estado_comercial }}</span>
+            </div>
+          </div>
+
+          <!-- Mensaje de servidor si hay motivo o conflicto -->
+          @if (op.motivo_servidor) {
+            <div class="ops-card__notice" role="alert">
+              <app-icon name="ban" [size]="16" />
+              <span>{{ op.motivo_servidor }}</span>
+            </div>
+          }
+
+          <!-- Desglose de Prendas / Líneas de detalle -->
+          @if (op.detalles.length > 0) {
+            <div class="ops-card__details">
+              <button
+                type="button"
+                class="ops-details-toggle"
+                (click)="toggleDetails(op.uuid_operacion)"
+                [attr.aria-expanded]="isExpanded(op.uuid_operacion)"
+              >
+                <app-icon [name]="isExpanded(op.uuid_operacion) ? 'chevron-down' : 'chevron-right'" [size]="15" />
+                <span>
+                  {{ isExpanded(op.uuid_operacion) ? 'Ocultar prendas' : 'Ver prendas' }}
+                  ({{ op.detalles.length }} {{ op.detalles.length === 1 ? 'artículo' : 'artículos' }})
+                </span>
+              </button>
+
+              @if (isExpanded(op.uuid_operacion)) {
+                <div class="ops-details-table-wrapper">
+                  <table class="ops-details-table">
+                    <thead>
+                      <tr>
+                        <th>Prenda</th>
+                        <th>Talla</th>
+                        <th>Color</th>
+                        <th>Cantidad</th>
+                        <th>Precio unitario</th>
+                        <th>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of op.detalles; track item.id_variante_producto) {
+                        <tr>
+                          <td><strong>{{ item.producto_nombre }}</strong></td>
+                          <td>{{ item.talla || 'Única' }}</td>
+                          <td>{{ item.color || 'Único' }}</td>
+                          <td>{{ item.cantidad }}</td>
+                          <td>{{ formatMoney(item.precio) }}</td>
+                          <td><strong>{{ formatMoney(item.subtotal) }}</strong></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Footer con Acciones (Comprobante) -->
+          <footer class="ops-card__footer">
+            <span class="ops-card__uuid" title="UUID local de sincronización">
+              UUID: {{ op.uuid_operacion }}
+            </span>
+
+            <div class="ops-card__actions">
+              @if (op.ruta_comprobante) {
+                <a [routerLink]="op.ruta_comprobante" class="ops-btn-action">
+                  <app-icon name="bag" [size]="15" />
+                  <span>Ver comprobante</span>
+                </a>
+              }
+
+              @if (hasConflict(op)) {
+                <button
+                  type="button"
+                  class="ops-btn-action ops-btn-action--conflict"
+                  [class.ops-btn-action--active]="activeConflictUuid() === op.uuid_operacion"
+                  [disabled]="isResolving() || isDiagnosingOp(op.uuid_operacion) || !isOnline()"
+                  (click)="manageConflict(op)"
+                  title="Diagnosticar y resolver discrepancias comerciales con PostgreSQL (CU14)"
+                >
+                  <app-icon name="shield" [size]="15" />
+                  <span>
+                    {{ isDiagnosingOp(op.uuid_operacion)
+                      ? 'Diagnosticando...'
+                      : (activeConflictUuid() === op.uuid_operacion ? 'Cerrar gestión' : 'Gestionar conflicto') }}
+                  </span>
+                </button>
+              }
+            </div>
+          </footer>
+
+          <!-- Panel Interactivo de Gestión y Resolución de Conflicto (CU14) -->
+          @if (activeConflictUuid() === op.uuid_operacion) {
+            <section class="ops-conflict-panel" aria-label="Panel de gestión y resolución de conflicto">
+              <div class="ops-conflict-panel__header">
+                <div class="ops-conflict-panel__badge-row">
+                  <span class="ops-conflict-tag">
+                    <app-icon name="ban" [size]="14" />
+                    {{ conflictTypeLabel(getDiagnosis(op.uuid_operacion)?.codigo_conflicto_principal || op.conflictos?.[0]?.tipo_conflicto || 'CONFLICTO') }}
+                  </span>
+                  @if (getDiagnosis(op.uuid_operacion)?.corregible === false) {
+                    <span class="ops-conflict-tag ops-conflict-tag--danger">No corregible automáticamente</span>
+                  } @else {
+                    <span class="ops-conflict-tag ops-conflict-tag--info">Resolución disponible</span>
+                  }
+                </div>
+                <p class="ops-conflict-panel__motivo">
+                  {{ getDiagnosis(op.uuid_operacion)?.motivo || op.motivo_servidor || 'Discrepancia detectada entre los datos registrados localmente y el estado en el servidor central.' }}
+                </p>
+              </div>
+
+              <!-- Advertencia si está bloqueada por dependencia antecedente -->
+              @if (isOperationBlocked(op)) {
+                <div class="ops-conflict-blocked-banner" role="alert">
+                  <app-icon name="lock" [size]="16" />
+                  <div>
+                    <strong>Operación dependiente bloqueada:</strong>
+                    <p>{{ getBlockedReason(op) }}</p>
+                  </div>
+                </div>
+              }
+
+              <!-- Comparativa Local vs Servidor -->
+              @if (getDiagnosis(op.uuid_operacion)?.datos_actuales_servidor; as serverData) {
+                <div class="ops-conflict-comparison">
+                  <h4 class="ops-conflict-subtitle">
+                    <app-icon name="monitor-smartphone" [size]="15" />
+                    Comparación de datos: Local frente al Servidor
+                  </h4>
+
+                  <!-- Horarios si aplica reprogramación -->
+                  @if (serverData.horarios_sugeridos && serverData.horarios_sugeridos.length > 0) {
+                    <div class="ops-comparison-box">
+                      <div class="ops-comparison-row">
+                        <span class="ops-comparison-label">Horario de atención de la sucursal:</span>
+                        <span>{{ serverData.hora_apertura_sucursal || '08:00' }} - {{ serverData.hora_cierre_sucursal || '19:00' }}</span>
+                      </div>
+                      <div class="ops-comparison-row">
+                        <span class="ops-comparison-label">Horarios sugeridos por el servidor:</span>
+                        <div class="ops-schedule-chips">
+                          @for (h of serverData.horarios_sugeridos; track h) {
+                            <button
+                              type="button"
+                              class="ops-chip"
+                              [class.ops-chip--active]="newSchedule() === h"
+                              (click)="newSchedule.set(h)"
+                            >
+                              {{ h | date: 'dd/MM/yyyy HH:mm' }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Tabla de variantes, stock y precios -->
+                  @if (serverData.variantes && serverData.variantes.length > 0) {
+                    <div class="ops-comparison-table-wrapper">
+                      <table class="ops-comparison-table">
+                        <thead>
+                          <tr>
+                            <th>Prenda / SKU</th>
+                            <th>Cant. solicitada</th>
+                            <th>Stock disponible</th>
+                            <th>Precio local</th>
+                            <th>Precio servidor</th>
+                            @if (selectedAction() === 'AJUSTAR_CANTIDAD_STOCK') {
+                              <th>Cantidad ajustada</th>
+                            }
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (v of serverData.variantes; track v.id_variante_producto) {
+                            <tr [class.ops-tr--mismatch]="v.cantidad_solicitada > v.stock_disponible">
+                              <td>
+                                <strong>{{ v.nombre_producto || 'Prenda #' + v.id_variante_producto }}</strong>
+                                <span class="ops-sku-sub">{{ v.sku || '' }}</span>
+                              </td>
+                              <td>{{ v.cantidad_solicitada }}</td>
+                              <td>
+                                <span class="ops-stock-val" [class.ops-stock-val--insufficient]="v.stock_disponible < v.cantidad_solicitada">
+                                  {{ v.stock_disponible }}
+                                </span>
+                              </td>
+                              <td>{{ formatMoney(v.precio_capturado_offline) }}</td>
+                              <td>
+                                <span class="ops-price-val" [class.ops-price-val--diff]="v.precio_capturado_offline !== v.precio_neto_servidor">
+                                  {{ formatMoney(v.precio_neto_servidor) }}
+                                </span>
+                              </td>
+                              @if (selectedAction() === 'AJUSTAR_CANTIDAD_STOCK') {
+                                <td>
+                                  <input
+                                    type="number"
+                                    class="ops-qty-input"
+                                    [min]="0"
+                                    [max]="v.stock_disponible"
+                                    [ngModel]="stockAdjustments()[v.id_variante_producto] ?? v.stock_disponible"
+                                    (ngModelChange)="updateStockAdjustment(v.id_variante_producto, $event)"
+                                  />
+                                </td>
+                              }
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+
+                  <!-- Resumen de totales si aplica precio -->
+                  @if (serverData.total_servidor !== null && serverData.total_servidor !== undefined) {
+                    <div class="ops-total-diff-box">
+                      <div>
+                        <span class="ops-total-label">Total original local:</span>
+                        <strong>{{ formatMoney(op.importe) }}</strong>
+                      </div>
+                      <div class="ops-total-arrow">→</div>
+                      <div>
+                        <span class="ops-total-label">Total actual recalculado:</span>
+                        <strong class="ops-total-server">{{ formatMoney(serverData.total_servidor) }}</strong>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- Selector de Acciones Autorizadas -->
+              @if (getDiagnosis(op.uuid_operacion); as diag) {
+                <div class="ops-conflict-resolution-section">
+                  <h4 class="ops-conflict-subtitle">
+                    <app-icon name="shield" [size]="15" />
+                    Acciones de resolución autorizadas por el servidor
+                  </h4>
+
+                  <div class="ops-action-options">
+                    @for (action of diag.acciones_permitidas; track action) {
+                      <label class="ops-action-card" [class.ops-action-card--selected]="selectedAction() === action">
+                        <input
+                          type="radio"
+                          name="conflictAction_{{ op.uuid_operacion }}"
+                          [value]="action"
+                          [checked]="selectedAction() === action"
+                          (change)="selectAction(action)"
+                        />
+                        <div class="ops-action-card__body">
+                          <strong>{{ actionLabel(action) }}</strong>
+                          @if (action === 'ACEPTAR_PRECIO_SERVIDOR') {
+                            <small>Actualiza el total de la compra/venta con los precios y promociones vigentes.</small>
+                          } @else if (action === 'AJUSTAR_CANTIDAD_STOCK') {
+                            <small>Reduce las unidades de la prenda al stock disponible actual en tienda.</small>
+                          } @else if (action === 'REPROGRAMAR_HORARIO') {
+                            <small>Asigna un nuevo horario de recogida sugerido por la sucursal.</small>
+                          } @else if (action === 'DESCARTAR_OPERACION') {
+                            <small>Cancela la operación manteniendo su registro histórico y comprobante local.</small>
+                          } @else if (action === 'REINTENTAR_SIN_CAMBIOS') {
+                            <small>Reintenta la sincronización con el servidor central sin mutar datos.</small>
+                          }
+                        </div>
+                      </label>
+                    }
+                  </div>
+
+                  <!-- Consentimiento Explícito Requerido -->
+                  <div class="ops-consent-container">
+                    <label class="ops-consent-label">
+                      <input
+                        type="checkbox"
+                        [(ngModel)]="consentAccepted"
+                      />
+                      <span class="ops-consent-text">
+                        <strong>Consentimiento explícito requerido:</strong>
+                        Confirmo que he revisado las diferencias y autorizo la aplicación de esta resolución comercial.
+                      </span>
+                    </label>
+                  </div>
+
+                  <!-- Botones de Acción del Panel -->
+                  <div class="ops-panel-buttons">
+                    <button
+                      type="button"
+                      class="ops-btn ops-btn--secondary"
+                      (click)="closeConflictPanel()"
+                    >
+                      Cerrar
+                    </button>
+
+                    <button
+                      type="button"
+                      class="ops-btn"
+                      [class.ops-btn--danger]="selectedAction() === 'DESCARTAR_OPERACION'"
+                      [class.ops-btn--primary]="selectedAction() !== 'DESCARTAR_OPERACION'"
+                      [disabled]="!consentAccepted() || isResolving() || isOperationBlocked(op)"
+                      (click)="applyResolution(op)"
+                    >
+                      <app-icon [name]="selectedAction() === 'DESCARTAR_OPERACION' ? 'ban' : 'circle-check'" [size]="16" />
+                      <span>
+                        {{ isResolving()
+                          ? 'Aplicando resolución...'
+                          : (selectedAction() === 'DESCARTAR_OPERACION' ? 'Descartar operación definitivamente' : 'Confirmar y aplicar resolución') }}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </section>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>

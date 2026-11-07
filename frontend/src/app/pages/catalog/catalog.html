@@ -15,6 +15,29 @@
   </header>
 
   <form class="catalog-shell shell" [formGroup]="filterForm" (ngSubmit)="applySearch()">
+    @if (isOfflineMode()) {
+      <div class="offline-banner" [class.offline-banner--warning]="isOfflineExpired()">
+        <app-icon name="monitor-smartphone" [size]="18" />
+        <div class="offline-banner__content">
+          <div class="offline-banner__title">
+            <strong>Información offline</strong>
+            @if (offlineLastUpdated()) {
+              <span>· Preparado el {{ offlineLastUpdated() }}</span>
+            }
+          </div>
+          @if (isOfflineExpired()) {
+            <p class="offline-banner__warning">
+              Advertencia: Los datos locales están vencidos (vencieron el {{ offlineExpiryDate() }}). Conéctate a internet para sincronizar la disponibilidad y precios vigentes.
+            </p>
+          } @else {
+            <p class="offline-banner__note">
+              Estás visualizando el catálogo guardado en tu dispositivo. Búsqueda, filtros y disponibilidad por sucursal disponibles sin internet.
+            </p>
+          }
+        </div>
+      </div>
+    }
+
     <div class="catalog-toolbar">
       <label class="search-box">
         <span class="visually-hidden">Buscar productos</span>

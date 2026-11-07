@@ -1,4 +1,4 @@
-"""Repositorio de persistencia para PK08 - CU08: Preparar información para operación offline.
+"""Repositorio de persistencia para PK08 - CU08 y CU09: Preparar y consultar catálogo y disponibilidad offline.
 
 Consultas de sólo lectura estrictamente filtradas por tenant (empresa_id) y sucursales autorizadas.
 Nunca modifica inventario, no inserta ventas ni ejecuta transacciones de escritura.
@@ -13,13 +13,16 @@ from app.models.branch_inventory import BranchInventory
 from app.models.category import Category
 from app.models.city import City
 from app.models.client import Client
+from app.models.collection import Collection
 from app.models.color import Color
 from app.models.company import Company
 from app.models.employee import Employee
 from app.models.employee_branch import EmployeeBranch
 from app.models.product import Product
+from app.models.product_collection import ProductCollection
 from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
+from app.models.season import Season
 from app.models.size import Size
 from app.models.user import User
 
@@ -40,6 +43,15 @@ class OfflineRepository:
             Employee.id_usuario == user_id,
             Employee.empresa_id == company_id,
         )
+        return self.db.scalar(statement)
+
+    def get_client_for_user(
+        self, user_id: int, company_id: int | None = None
+    ) -> Client | None:
+        """Obtiene el perfil de cliente asociado al usuario autenticado."""
+        statement = select(Client).where(Client.id_usuario == user_id)
+        if company_id is not None:
+            statement = statement.where(Client.empresa_id == company_id)
         return self.db.scalar(statement)
 
     def get_authorized_branches_for_employee(
@@ -64,7 +76,7 @@ class OfflineRepository:
     def get_all_active_branches(
         self, company_id: int
     ) -> list[tuple[Branch, str | None]]:
-        """Retorna todas las sucursales activas de la empresa (para administradores)."""
+        """Retorna todas las sucursales activas de la empresa (para administradores y clientes)."""
         statement = (
             select(Branch, City.nombre.label("ciudad"))
             .outerjoin(City, City.id_ciudad == Branch.id_ciudad)
@@ -102,6 +114,34 @@ class OfflineRepository:
         )
         return list(self.db.scalars(statement).all())
 
+    def get_seasons(self, company_id: int) -> list[Season]:
+        """Obtiene las temporadas activas de la empresa."""
+        statement = (
+            select(Season)
+            .where(Season.empresa_id == company_id, Season.estado.is_(True))
+            .order_by(Season.id_temporada)
+        )
+        return list(self.db.scalars(statement).all())
+
+    def get_product_collections(
+        self, company_id: int
+    ) -> list[tuple[int, Collection]]:
+        """Obtiene las colecciones activas asociadas a productos de la empresa."""
+        statement = (
+            select(ProductCollection.id_producto, Collection)
+            .join(
+                Collection,
+                Collection.id_coleccion == ProductCollection.id_coleccion,
+            )
+            .where(
+                ProductCollection.empresa_id == company_id,
+                Collection.empresa_id == company_id,
+                Collection.estado.is_(True),
+            )
+            .order_by(ProductCollection.id_producto, Collection.nombre, Collection.id_coleccion)
+        )
+        return [(row[0], row[1]) for row in self.db.execute(statement).all()]
+
     def get_sizes(self, company_id: int) -> list[Size]:
         """Obtiene las tallas activas de la empresa."""
         statement = (
@@ -121,19 +161,30 @@ class OfflineRepository:
         return list(self.db.scalars(statement).all())
 
     def get_products(self, company_id: int) -> list[Product]:
-        """Obtiene los productos activos con sus precios oficiales."""
+        """Obtiene los productos activos pertenecientes a categorías activas de la empresa."""
         statement = (
             select(Product)
-            .where(Product.empresa_id == company_id, Product.estado.is_(True))
+            .join(Category, Category.id_categoria == Product.id_categoria)
+            .where(
+                Product.empresa_id == company_id,
+                Product.estado.is_(True),
+                Category.empresa_id == company_id,
+                Category.estado.is_(True),
+            )
             .order_by(Product.id_producto)
         )
         return list(self.db.scalars(statement).all())
 
     def get_product_images(self, company_id: int) -> list[ProductImage]:
-        """Obtiene las referencias de imágenes de productos de la empresa."""
+        """Obtiene las referencias de imágenes de productos activos de la empresa."""
         statement = (
             select(ProductImage)
-            .where(ProductImage.empresa_id == company_id)
+            .join(Product, Product.id_producto == ProductImage.id_producto)
+            .where(
+                ProductImage.empresa_id == company_id,
+                Product.empresa_id == company_id,
+                Product.estado.is_(True),
+            )
             .order_by(
                 ProductImage.id_producto,
                 ProductImage.es_principal.desc(),
@@ -143,12 +194,21 @@ class OfflineRepository:
         return list(self.db.scalars(statement).all())
 
     def get_variants(self, company_id: int) -> list[ProductVariant]:
-        """Obtiene las variantes activas de productos de la empresa."""
+        """Obtiene las variantes activas de productos activos con talla y color activos."""
         statement = (
             select(ProductVariant)
+            .join(Product, Product.id_producto == ProductVariant.id_producto)
+            .join(Size, Size.id_talla == ProductVariant.id_talla)
+            .join(Color, Color.id_color == ProductVariant.id_color)
             .where(
                 ProductVariant.empresa_id == company_id,
                 ProductVariant.estado.is_(True),
+                Product.empresa_id == company_id,
+                Product.estado.is_(True),
+                Size.empresa_id == company_id,
+                Size.estado.is_(True),
+                Color.empresa_id == company_id,
+                Color.estado.is_(True),
             )
             .order_by(ProductVariant.id_variante_producto)
         )
@@ -157,14 +217,27 @@ class OfflineRepository:
     def get_inventory(
         self, company_id: int, branch_ids: list[int]
     ) -> list[BranchInventory]:
-        """Obtiene existencias físicas únicamente para las sucursales autorizadas de la empresa."""
+        """Obtiene existencias físicas únicamente para variantes y sucursales activas autorizadas."""
         if not branch_ids:
             return []
         statement = (
             select(BranchInventory)
+            .join(
+                ProductVariant,
+                ProductVariant.id_variante_producto
+                == BranchInventory.id_variante_producto,
+            )
+            .join(Product, Product.id_producto == ProductVariant.id_producto)
+            .join(Branch, Branch.id_sucursal == BranchInventory.id_sucursal)
             .where(
                 BranchInventory.empresa_id == company_id,
                 BranchInventory.id_sucursal.in_(branch_ids),
+                ProductVariant.empresa_id == company_id,
+                ProductVariant.estado.is_(True),
+                Product.empresa_id == company_id,
+                Product.estado.is_(True),
+                Branch.empresa_id == company_id,
+                Branch.estado.is_(True),
             )
             .order_by(BranchInventory.id_inventario_sucursal)
         )

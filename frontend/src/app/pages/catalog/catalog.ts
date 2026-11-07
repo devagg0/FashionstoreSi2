@@ -13,6 +13,7 @@ import {
   CatalogSort,
   CatalogService,
 } from '../../core/services/catalog.service';
+import { OfflineService } from '../../core/services/offline.service';
 import { Icon } from '../../shared/components/icon/icon';
 import { CatalogProductCard } from './product-card/product-card';
 
@@ -29,6 +30,7 @@ interface CategoryOption {
 })
 export class Catalog implements OnInit {
   private readonly catalogService = inject(CatalogService);
+  private readonly offlineService = inject(OfflineService, { optional: true });
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
@@ -47,6 +49,28 @@ export class Catalog implements OnInit {
   protected readonly sizeOptions = signal<CatalogSize[]>([]);
   protected readonly colorOptions = signal<CatalogColor[]>([]);
   protected readonly branchName = signal('');
+  protected readonly usingOfflineData = signal(false);
+  protected readonly localPreparationDate = signal<string | null>(null);
+  protected readonly localExpiryDate = signal<string | null>(null);
+  protected readonly localIsExpired = signal<boolean>(false);
+
+  protected readonly isOfflineMode = computed(() => {
+    const offlineByService = this.offlineService ? !this.offlineService.isOnline() : false;
+    const offlineByNav = typeof navigator !== 'undefined' && !navigator.onLine;
+    return offlineByService || offlineByNav || this.usingOfflineData();
+  });
+
+  protected readonly offlineLastUpdated = computed(() => {
+    return this.offlineService?.offlinePreparationDate() ?? this.localPreparationDate();
+  });
+
+  protected readonly offlineExpiryDate = computed(() => {
+    return this.offlineService?.offlineExpiryDate() ?? this.localExpiryDate();
+  });
+
+  protected readonly isOfflineExpired = computed(() => {
+    return this.offlineService?.isPackageExpired() ?? this.localIsExpired();
+  });
 
   protected readonly filterForm = this.fb.nonNullable.group({
     search: '',
@@ -95,12 +119,14 @@ export class Catalog implements OnInit {
   });
 
   ngOnInit(): void {
+    void this.updateOfflineNotice();
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const filters = this.filtersFromParams(params);
       this.page.set(filters.page ?? 1);
       this.appliedFilters.set(filters);
       this.patchForm(filters);
       this.loadProducts(filters);
+      void this.offlineService?.ensurePreparedAutomatically({ branchId: filters.idSucursal });
     });
   }
 
@@ -163,10 +189,55 @@ export class Catalog implements OnInit {
     this.filtersVisible.update((visible) => !visible);
   }
 
+  protected async updateOfflineNotice(): Promise<void> {
+    if (!this.offlineService) return;
+    const summary =
+      this.offlineService.localSummary() ?? (await this.offlineService.loadLocalSummary());
+    if (summary) {
+      const rawDate = summary.metadata?.fecha_generacion || summary.savedAt;
+      if (rawDate) {
+        const savedDate = new Date(rawDate);
+        if (!isNaN(savedDate.getTime())) {
+          this.localPreparationDate.set(
+            savedDate.toLocaleString('es-BO', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          );
+        }
+      }
+      if (summary.metadata?.valido_hasta) {
+        const expiry = new Date(summary.metadata.valido_hasta);
+        if (!isNaN(expiry.getTime())) {
+          this.localExpiryDate.set(
+            expiry.toLocaleString('es-BO', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          );
+          this.localIsExpired.set(summary.isExpired || Date.now() > expiry.getTime());
+        }
+      }
+    }
+  }
+
   private loadProducts(filters: CatalogFilters): void {
     const sequence = ++this.requestSequence;
     this.loading.set(true);
     this.errorMessage.set('');
+    const isOfflineNow =
+      (this.offlineService ? !this.offlineService.isOnline() : false) ||
+      (typeof navigator !== 'undefined' && !navigator.onLine);
+    if (isOfflineNow) {
+      this.usingOfflineData.set(true);
+      void this.updateOfflineNotice();
+    }
     this.catalogService
       .listProducts(filters)
       .pipe(
@@ -184,6 +255,12 @@ export class Catalog implements OnInit {
           this.mergeFilterOptions(response.data);
           const located = response.data.find((item) => item.disponibilidad_sucursal);
           this.branchName.set(located?.disponibilidad_sucursal?.sucursal ?? '');
+          if (response.fromOffline || isOfflineNow) {
+            this.usingOfflineData.set(true);
+            void this.updateOfflineNotice();
+          } else {
+            this.usingOfflineData.set(false);
+          }
         },
         error: (error: HttpErrorResponse) => {
           if (sequence !== this.requestSequence) return;

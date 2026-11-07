@@ -1,9 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, HostListener, inject, OnInit, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, computed, DestroyRef, HostListener, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { OfflineReceiptData } from '../../core/models/offline.model';
+import { OfflineService } from '../../core/services/offline.service';
 import {
   ClientReservationsService,
   ReservationState,
@@ -21,6 +23,7 @@ import { Icon } from '../../shared/components/icon/icon';
 export class MyReservations implements OnInit {
   private readonly service = inject(ClientReservationsService);
   private readonly session = inject(SessionService);
+  private readonly offlineService = inject(OfflineService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -32,6 +35,7 @@ export class MyReservations implements OnInit {
     'EXPIRADA',
   ];
   protected readonly state = new FormControl<ReservationState | ''>('', { nonNullable: true });
+  protected readonly selectedState = toSignal(this.state.valueChanges, { initialValue: this.state.value });
   protected readonly reservations = signal<ReservationSummary[]>([]);
   protected readonly pagination = signal({ page: 1, page_size: 10, total: 0, total_pages: 0 });
   protected readonly loading = signal(false);
@@ -39,15 +43,93 @@ export class MyReservations implements OnInit {
   protected readonly errorMessage = signal('');
   protected readonly successMessage = signal('');
   protected readonly pendingCancellation = signal<ReservationSummary | null>(null);
+  /** Reservas guardadas sin internet (CU10/CU13) y su estado de sincronización local. */
+  protected readonly pendingLocal = signal<OfflineReceiptData[]>([]);
+
+  /**
+   * Reservas locales que coinciden con el filtro actual, evitando duplicados cuando
+   * una reserva ya sincronizada viene incluida en el listado oficial del servidor.
+   */
+  protected readonly filteredPendingLocal = computed(() => {
+    const selectedState = this.selectedState();
+    const serverRows = this.reservations();
+    const serverIds = new Set(serverRows.map((r) => r.id_reserva));
+    const serverCodes = new Set(serverRows.map((r) => r.codigo));
+    const offline = this.isOffline();
+
+    const deduped = this.pendingLocal().filter((local) => {
+      if (local.id_reserva && serverIds.has(local.id_reserva)) {
+        return false;
+      }
+      if (local.codigo_servidor && serverCodes.has(local.codigo_servidor)) {
+        return false;
+      }
+      if (local.estado === 'SINCRONIZADA' && !offline) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!selectedState) {
+      return deduped;
+    }
+    if (selectedState === 'PENDIENTE') {
+      return deduped.filter(
+        (local) =>
+          local.estado === 'REGISTRADA_LOCAL' ||
+          local.estado === 'ENVIADA' ||
+          local.estado === 'SINCRONIZADA',
+      );
+    }
+    if (selectedState === 'CANCELADA') {
+      return deduped.filter(
+        (local) => local.estado === 'RECHAZADA' || local.estado === 'EN_CONFLICTO',
+      );
+    }
+    return [];
+  });
+
+  /** Total combinado de reservas del servidor y pendientes locales. */
+  protected readonly totalCount = computed(() => {
+    return this.pagination().total + this.filteredPendingLocal().length;
+  });
+
+  protected isOffline(): boolean {
+    return (
+      !this.offlineService.isOnline() || (typeof navigator !== 'undefined' && !navigator.onLine)
+    );
+  }
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined') {
+      const handleOnline = () => this.load();
+      const handleOffline = () => this.load();
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      });
+    }
+
     this.load();
     this.state.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   protected load(page = 1): void {
-    this.loading.set(true);
     this.errorMessage.set('');
+    void this.offlineService
+      .getPendingClientReservations()
+      .then((rows) => this.pendingLocal.set(rows));
+
+    if (this.isOffline()) {
+      this.loading.set(false);
+      this.reservations.set([]);
+      this.pagination.set({ page: 1, page_size: 10, total: 0, total_pages: 0 });
+      return;
+    }
+
+    this.loading.set(true);
     this.service
       .listReservations({ estado: this.state.value || undefined, page, pageSize: 10 })
       .pipe(
@@ -59,7 +141,14 @@ export class MyReservations implements OnInit {
           this.reservations.set(data);
           this.pagination.set(pagination);
         },
-        error: (error: HttpErrorResponse) => this.errorMessage.set(this.resolveError(error)),
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 0 || this.isOffline()) {
+            this.reservations.set([]);
+            this.errorMessage.set('');
+            return;
+          }
+          this.errorMessage.set(this.resolveError(error));
+        },
       });
   }
 
@@ -101,6 +190,44 @@ export class MyReservations implements OnInit {
     return state.charAt(0) + state.slice(1).toLowerCase();
   }
 
+  protected localStateAttr(local: OfflineReceiptData): string {
+    if (local.estado === 'RECHAZADA' || local.estado === 'EN_CONFLICTO') {
+      return 'CANCELADA';
+    }
+    if (local.estado === 'SINCRONIZADA') {
+      return 'CONFIRMADA';
+    }
+    return 'PENDIENTE';
+  }
+
+  protected localStateLabel(local: OfflineReceiptData): string {
+    if (local.estado === 'RECHAZADA') {
+      return 'Rechazada por servidor';
+    }
+    if (local.estado === 'EN_CONFLICTO') {
+      return 'En conflicto de sincronización';
+    }
+    if (local.estado === 'SINCRONIZADA') {
+      return 'Sincronizada';
+    }
+    return 'Pendiente de sincronización';
+  }
+
+  protected localStateNotice(local: OfflineReceiptData): string {
+    if (local.estado === 'RECHAZADA' || local.estado === 'EN_CONFLICTO') {
+      return local.motivo_servidor || 'No pudo registrarse en el servidor central.';
+    }
+    if (local.estado === 'SINCRONIZADA') {
+      return local.codigo_servidor
+        ? `Confirmada con código oficial ${local.codigo_servidor}.`
+        : 'Confirmada en el servidor central.';
+    }
+    return (
+      local.motivo_servidor ||
+      'Guardada en este dispositivo; aún no confirmada por el servidor.'
+    );
+  }
+
   protected formatDate(value: string): string {
     return new Intl.DateTimeFormat('es-BO', {
       dateStyle: 'medium',
@@ -111,7 +238,15 @@ export class MyReservations implements OnInit {
     );
   }
 
-  protected formatMoney(value: string): string {
+  protected formatLocalDate(value: string): string {
+    return new Intl.DateTimeFormat('es-BO', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/La_Paz',
+    }).format(new Date(value));
+  }
+
+  protected formatMoney(value: string | number): string {
     return `Bs ${Number(value).toLocaleString('es-BO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

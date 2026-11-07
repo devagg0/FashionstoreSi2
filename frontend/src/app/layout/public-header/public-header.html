@@ -69,6 +69,7 @@
                 <a routerLink="/asistente" (click)="closeMenus()">Asistente de estilo</a>
                 <a routerLink="/mis-reservas" (click)="closeMenus()">Reservas</a>
                 <a routerLink="/mis-compras" (click)="closeMenus()">Mis compras</a>
+                <a routerLink="/operaciones-offline" (click)="closeMenus()">Operaciones offline</a>
               }
               <a routerLink="/perfil" (click)="closeMenus()">Mi perfil</a>
               <button type="button" (click)="logout()">Cerrar sesión</button>
@@ -158,6 +159,7 @@
                 @if (currentUser.rol.toUpperCase() === 'CLIENTE') {
                   <a routerLink="/mis-reservas" (click)="closeMobile()">Reservas</a>
                   <a routerLink="/mis-compras" (click)="closeMobile()">Mis compras</a>
+                  <a routerLink="/operaciones-offline" (click)="closeMobile()">Operaciones offline</a>
                 }
                 <a routerLink="/perfil" (click)="closeMobile()">Mi perfil</a>
                 <button type="button" (click)="logout()">Cerrar sesión</button>
