@@ -13,11 +13,25 @@
       @else if (retryable()) { <button type="button" (click)="load()">Reintentar</button> }
     </section>
   }
+  @if (isProvisionalOffline()) {
+    <section class="receipt-notice offline-provisional" role="status">
+      <strong>COMPROBANTE PROVISIONAL · REGISTRADO OFFLINE</strong>
+      <p>
+        @if (receipt()?.pago?.medio === 'EFECTIVO') {
+          Venta presencial en tienda cobrada en efectivo en caja y registrada localmente.
+          Operación guardada en este dispositivo y <strong>pendiente de sincronización con el servidor</strong>.
+        } @else {
+          Operación registrada localmente en este dispositivo, <strong>pendiente de sincronización y validación bancaria externa</strong>.
+          El medio de pago electrónico ({{ receipt() ? method(receipt()!.pago.medio) : 'electrónico' }}) es una simulación local y no representa confirmación definitiva de cobro bancario real.
+        }
+      </p>
+    </section>
+  }
   @if (receipt(); as sale) {
     <article class="sale-receipt" aria-labelledby="receipt-title">
       <header class="receipt-heading">
         <div><p class="receipt-brand">FashionStore<span>MODA PARA TU ESTILO</span></p><h1 id="receipt-title">Comprobante de venta</h1></div>
-        <span class="receipt-badge">COMPLETADA</span>
+        <span class="receipt-badge" [class.provisional]="isProvisionalOffline()">{{ isProvisionalOffline() ? (sale.pago.medio === 'EFECTIVO' ? 'REGISTRADA LOCAL (EN CAJA)' : 'PENDIENTE DE SINCRONIZACIÓN') : 'COMPLETADA' }}</span>
       </header>
       <section class="receipt-info" aria-label="Datos de la venta">
         <div><h2>Número de venta</h2><p class="reference">{{ sale.numero_venta }}</p></div>
@@ -38,10 +52,10 @@
         </table>
       </section>
       <div class="receipt-bottom">
-        <section class="receipt-payment"><h2>Información del pago</h2><dl><div><dt>Método</dt><dd>{{ method(sale.pago.medio) }}</dd></div><div><dt>Estado</dt><dd><span class="receipt-badge" [class.refunded]="sale.pago.estado === 'REEMBOLSADO'">{{ sale.pago.estado }}</span></dd></div><div><dt>Importe</dt><dd>{{ money(sale.pago.monto) }}</dd></div></dl></section>
+        <section class="receipt-payment"><h2>Información del pago</h2><dl><div><dt>Método</dt><dd>{{ method(sale.pago.medio) }}</dd></div><div><dt>Estado</dt><dd><span class="receipt-badge" [class.refunded]="sale.pago.estado === 'REEMBOLSADO'" [class.provisional]="isProvisionalOffline()">{{ isProvisionalOffline() ? (sale.pago.medio === 'EFECTIVO' ? 'COBRADO EN CAJA (OFFLINE)' : 'SIMULADO OFFLINE') : sale.pago.estado }}</span></dd></div><div><dt>Importe</dt><dd>{{ money(sale.pago.monto) }}</dd></div></dl></section>
         <section class="receipt-summary" aria-label="Resumen de importes"><dl><div><dt>Subtotal</dt><dd>{{ money(sale.subtotal) }}</dd></div><div><dt>Descuento total</dt><dd>{{ money(sale.descuento_total) }}</dd></div><div class="receipt-total"><dt>TOTAL <small>BOB</small></dt><dd>{{ money(sale.total) }}</dd></div></dl></section>
       </div>
-      <footer class="receipt-footer">Gracias por elegir FashionStore.<span>Comprobante comercial de venta</span></footer>
+      <footer class="receipt-footer">Gracias por elegir FashionStore.<span>{{ isProvisionalOffline() ? (sale.pago.medio === 'EFECTIVO' ? 'Comprobante provisional de cobro presencial en caja (offline)' : 'Comprobante provisional de operación local offline') : 'Comprobante comercial de venta' }}</span></footer>
     </article>
   }
 </main>

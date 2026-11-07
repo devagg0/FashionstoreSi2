@@ -42,6 +42,10 @@ from app.PK07.CU06_GestionarSuscripciones.router import router as company_subscr
 from app.PK07.CU07_ConsultarPlanLimites.router import router as company_plan_limits_router
 from app.PK08.CU08_PrepararInformacionOffline.router import router as offline_router
 from app.PK08.CU10_RegistrarReservaOffline.router import router as offline_reservation_router
+from app.PK08.CU11_RegistrarVentaOffline.router import router as offline_sales_router
+from app.PK08.CU12_ConsultarOperacionesPendientes.router import router as offline_operations_router
+from app.PK08.CU13_SincronizarOperacionesPendientes.router import router as offline_sync_queue_router
+from app.PK08.CU14_GestionarConflictosSincronizacion.router import router as offline_conflicts_router
 
 
 app = FastAPI(
@@ -107,6 +111,10 @@ app.include_router(company_subscriptions_router)
 app.include_router(company_plan_limits_router)
 app.include_router(offline_router)
 app.include_router(offline_reservation_router)
+app.include_router(offline_sales_router)
+app.include_router(offline_operations_router)
+app.include_router(offline_sync_queue_router)
+app.include_router(offline_conflicts_router)
 
 
 @app.get("/")

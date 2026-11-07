@@ -37,14 +37,14 @@ COMMON_RESPONSES = {
     "",
     response_model=OfflineReservationSyncResponse,
     status_code=status.HTTP_200_OK,
-    summary="Sincronizar reserva de prendas registrada offline",
+    summary="Sincronizar reserva de prendas registrada offline por el CLIENTE",
     responses=COMMON_RESPONSES,
 )
 @router.post(
     "/sync",
     response_model=OfflineReservationSyncResponse,
     status_code=status.HTTP_200_OK,
-    summary="Alias de sincronización de reserva offline",
+    summary="Alias de sincronización de reserva offline del CLIENTE",
     responses=COMMON_RESPONSES,
 )
 def sync_offline_reservation(
@@ -54,30 +54,31 @@ def sync_offline_reservation(
     ],
     empresa_id: Annotated[
         int | None,
-        Query(gt=0, description="ID de empresa (requerido únicamente para SUPERADMIN)"),
+        Query(
+            gt=0,
+            description="Opcional; si se envía debe coincidir estrictamente con la empresa del CLIENTE autenticado",
+        ),
     ] = None,
     db: Session = Depends(get_db),
 ) -> OfflineReservationSyncResponse | JSONResponse:
-    """Recibe una reserva de prendas creada en Angular PWA mientras estaba desconectado.
+    """Recibe y sincroniza una reserva de prendas creada por el CLIENTE en Angular PWA mientras estaba desconectado.
 
-    - Exige autenticación y deriva empresa/usuario exclusivamente del JWT.
-    - Valida rol autorizado (ADMINISTRADOR, ENCARGADO_SUCURSAL, CAJERO).
-    - Exige suscripción SaaS activa y módulo OFFLINE habilitado (CU07).
-    - Valida pertenencia de sucursal, cliente y variantes a la empresa.
-    - Comprueba disponibilidad real en PostgreSQL y reserva inventario atómicamente.
-    - Garantiza idempotencia estricta por UUID persistiendo el resultado en t_reserva_offline_sync.
+    - Exige rol CLIENTE autenticado (rechaza CAJERO y otros roles en la creación/sincronización).
+    - Deriva empresa, usuario y perfil de cliente exclusivamente desde la sesión autenticada.
+    - Exige suscripción SaaS activa y funcionalidad OFFLINE habilitada (CU07).
+    - Valida producto, variante (talla/color), cantidad, sucursal, horario de atención y disponibilidad real.
+    - Garantiza idempotencia por UUID e integra la reserva en t_reserva y t_detalle_reserva para atención por CAJERO.
     """
     if isinstance(current_user, JSONResponse):
         return current_user
 
     service = OfflineReservationService(db)
     try:
-        effective_company_id = empresa_id or current_user.id_empresa
-        if effective_company_id:
+        if current_user.id_empresa:
             set_tenant_context(
                 db,
-                effective_company_id,
-                is_superadmin=(current_user.rol.upper() == "SUPERADMIN"),
+                current_user.id_empresa,
+                is_superadmin=False,
             )
 
         return service.sync_offline_reservation(
@@ -93,4 +94,3 @@ def sync_offline_reservation(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "Error interno al procesar la reserva offline.",
         )
-

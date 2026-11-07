@@ -5,7 +5,32 @@
       <a class="button button--outline" routerLink="/catalogo">Continuar explorando</a>
     </header>
 
-    @if (!items().length) {
+    @if (offlineReceipt(); as receipt) {
+      <section class="checkout-receipt" aria-labelledby="offline-receipt-title">
+        <p class="checkout-receipt__badge" role="status">PENDIENTE DE SINCRONIZACIÓN</p>
+        <h2 id="offline-receipt-title">Reserva guardada en este dispositivo</h2>
+        <p>
+          Aún <strong>no está confirmada</strong>. Se enviará al servidor cuando recuperes internet y
+          solo entonces quedará confirmada o rechazada según la disponibilidad real.
+        </p>
+        <dl>
+          <div><dt>Código local</dt><dd>{{ receipt.codigo_local }}</dd></div>
+          <div><dt>Sucursal</dt><dd>{{ receipt.sucursal_nombre }}</dd></div>
+          <div><dt>Recogida programada</dt><dd>{{ formatReceiptDate(receipt.fecha_limite) }}</dd></div>
+          <div><dt>Registrada</dt><dd>{{ formatReceiptDate(receipt.fecha_registro) }}</dd></div>
+        </dl>
+        <ul class="checkout-receipt__lines">
+          @for (line of receipt.detalles; track line.id_variante_producto) {
+            <li>{{ line.cantidad }} × {{ line.producto_nombre }} · {{ line.color }} · Talla {{ line.talla }} <strong>{{ formatMoney(line.subtotal) }}</strong></li>
+          }
+        </ul>
+        <div class="checkout-total"><span>Total de referencia</span><strong>{{ formatMoney(receipt.total_referencial) }}</strong></div>
+        <div class="checkout-change-actions">
+          <button class="button button--outline" type="button" (click)="printReceipt()">Imprimir comprobante</button>
+          <a class="button button--solid" routerLink="/mis-reservas">Ver mis reservas</a>
+        </div>
+      </section>
+    } @else if (!items().length) {
       <section class="checkout-empty">
         <span><app-icon name="bag" [size]="28" /></span>
         <h2>Aún no elegiste prendas</h2>
@@ -76,9 +101,13 @@
           }
           @if (errorMessage()) { <p class="checkout-error" role="alert">{{ errorMessage() }}</p> }
           <div class="checkout-total"><span>Total de referencia</span><strong>{{ formatMoney(previewTotal()) }}</strong></div>
-          <small class="checkout-note">Al confirmar, el servidor vuelve a validar y bloquear todas las variantes en una única transacción.</small>
+          @if (isOffline()) {
+            <small class="checkout-note">Sin conexión: la reserva se guardará en este dispositivo como pendiente de sincronización. No estará confirmada hasta que el servidor la valide.</small>
+          } @else {
+            <small class="checkout-note">Al confirmar, el servidor vuelve a validar y bloquear todas las variantes en una única transacción.</small>
+          }
           <button class="button button--solid checkout-submit" type="button" [disabled]="!canSubmit()" (click)="confirm()">
-            {{ saving() ? 'Confirmando…' : 'Confirmar reserva' }}
+            {{ saving() ? (isOffline() ? 'Guardando…' : 'Confirmando…') : (isOffline() ? 'Guardar reserva offline' : 'Confirmar reserva') }}
           </button>
         </aside>
       </div>

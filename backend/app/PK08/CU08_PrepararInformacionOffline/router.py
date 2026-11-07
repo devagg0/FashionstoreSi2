@@ -1,11 +1,10 @@
-"""Endpoints FastAPI para PK08 - CU08: Preparar información para operación offline en FashionStore (Web Angular PWA)."""
+"""Endpoints FastAPI para PK08 - CU08 y CU09: Preparar y consultar catálogo y disponibilidad offline en FashionStore (Web Angular PWA)."""
 
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Response, Security, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -34,6 +33,25 @@ COMMON_RESPONSES = {
 }
 
 
+def _resolve_effective_company_id(
+    service: OfflineService,
+    current_user: AuthenticatedUserData,
+    requested_company_id: int | None,
+) -> int | None:
+    """Resuelve el id_empresa efectivo antes de configurar el contexto multitenant."""
+    effective_company_id = requested_company_id or current_user.id_empresa
+    if (
+        not effective_company_id
+        and current_user.rol.upper() == "CLIENTE"
+        and hasattr(service.repository, "get_client_for_user")
+    ):
+        client_profile = service.repository.get_client_for_user(current_user.id_usuario)
+        candidate_id = getattr(client_profile, "empresa_id", None)
+        if isinstance(candidate_id, int):
+            effective_company_id = candidate_id
+    return effective_company_id
+
+
 @router.get(
     "/status",
     response_model=OfflineStatusResponse,
@@ -50,10 +68,18 @@ def check_offline_package_status(
         str | None,
         Query(description="Alias de versión previa (since_version)"),
     ] = None,
+    version_cliente: Annotated[
+        str | None,
+        Query(description="Alias de versión del cliente (version_cliente)"),
+    ] = None,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
     id_sucursal: Annotated[
         int | None,
         Query(gt=0, description="ID de sucursal específica para validar"),
+    ] = None,
+    sucursal_id: Annotated[
+        int | None,
+        Query(gt=0, description="Alias de ID de sucursal específica para validar"),
     ] = None,
     empresa_id: Annotated[
         int | None,
@@ -67,7 +93,7 @@ def check_offline_package_status(
 
     service = OfflineService(db)
     try:
-        effective_company_id = empresa_id or current_user.id_empresa
+        effective_company_id = _resolve_effective_company_id(service, current_user, empresa_id)
         if effective_company_id:
             set_tenant_context(
                 db,
@@ -75,11 +101,17 @@ def check_offline_package_status(
                 is_superadmin=(current_user.rol.upper() == "SUPERADMIN"),
             )
 
-        candidate_version = version or since_version or (if_none_match.strip('"') if if_none_match else None)
+        target_branch_id = id_sucursal or sucursal_id
+        candidate_version = (
+            version
+            or since_version
+            or version_cliente
+            or (if_none_match.strip('"') if if_none_match else None)
+        )
         return service.check_offline_status(
             current_user,
             requested_company_id=empresa_id,
-            requested_branch_id=id_sucursal,
+            requested_branch_id=target_branch_id,
             client_version=candidate_version,
         )
     except OfflineServiceError as err:
@@ -108,6 +140,10 @@ def download_offline_package(
         int | None,
         Query(gt=0, description="Filtrar opcionalmente por una sucursal autorizada"),
     ] = None,
+    sucursal_id: Annotated[
+        int | None,
+        Query(gt=0, description="Alias de id_sucursal para filtrar por sucursal"),
+    ] = None,
     since_version: Annotated[
         str | None,
         Query(description="Versión previa en IndexedDB para verificar si requiere recarga"),
@@ -135,7 +171,7 @@ def download_offline_package(
 
     service = OfflineService(db)
     try:
-        effective_company_id = empresa_id or current_user.id_empresa
+        effective_company_id = _resolve_effective_company_id(service, current_user, empresa_id)
         if effective_company_id:
             set_tenant_context(
                 db,
@@ -143,13 +179,15 @@ def download_offline_package(
                 is_superadmin=(current_user.rol.upper() == "SUPERADMIN"),
             )
 
+        target_branch_id = id_sucursal or sucursal_id
+
         # Si el cliente envía version para verificar cambios antes de descargar
         candidate_version = since_version or version or (if_none_match.strip('"') if if_none_match else None)
         if candidate_version:
             status_check = service.check_offline_status(
                 current_user,
                 requested_company_id=empresa_id,
-                requested_branch_id=id_sucursal,
+                requested_branch_id=target_branch_id,
                 client_version=candidate_version,
             )
             if status_check.vigente and not status_check.requiere_actualizacion:
@@ -161,7 +199,7 @@ def download_offline_package(
         package = service.prepare_offline_package(
             current_user,
             requested_company_id=empresa_id,
-            requested_branch_id=id_sucursal,
+            requested_branch_id=target_branch_id,
         )
 
         response.headers["ETag"] = f'"{package.metadata.version}"'
@@ -176,4 +214,3 @@ def download_offline_package(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "Error interno al preparar el paquete de datos offline.",
         )
-

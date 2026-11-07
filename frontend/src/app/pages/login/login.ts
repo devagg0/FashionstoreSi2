@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService, LoginRequest, LoginResponse } from '../../core/services/auth.service';
+import { OfflineService } from '../../core/services/offline.service';
 import { SessionService } from '../../core/services/session.service';
 import { AuthLayout } from '../../layout/auth-layout/auth-layout';
 import { Icon } from '../../shared/components/icon/icon';
@@ -26,6 +27,7 @@ const POST_LOGIN_ROUTE_BY_ROLE: Readonly<Record<string, string>> = {
 })
 export class Login {
   private readonly authService = inject(AuthService);
+  private readonly offlineService = inject(OfflineService, { optional: true });
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
@@ -95,6 +97,8 @@ export class Login {
       this.serverMessage.set('No pudimos iniciar sesión en este momento. Inténtalo nuevamente.');
       return;
     }
+
+    void this.offlineService?.ensurePreparedAutomatically();
 
     const destination = POST_LOGIN_ROUTE_BY_ROLE[response.usuario.rol] ?? '/';
     void this.router.navigateByUrl(destination);

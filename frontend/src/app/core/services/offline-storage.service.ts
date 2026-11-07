@@ -17,9 +17,15 @@ import {
   OfflineSyncQueueItem,
   OfflineVariantData,
   OfflineVariantDetailItem,
+  OfflineCartItemLocal,
+  OfflinePurchaseLocal,
+  OfflinePurchaseDetailLocal,
+  OfflineCodeLinkItem,
+  OfflineOperationResolutionResult,
+  OfflineSyncOperationResult,
 } from '../models/offline.model';
 
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const PACKAGE_STORE_NAMES = [
   'metadata',
@@ -39,7 +45,13 @@ const CU10_STORE_NAMES = [
   'cola_sincronizacion_offline',
 ] as const;
 
-const STORE_NAMES = [...PACKAGE_STORE_NAMES, ...CU10_STORE_NAMES] as const;
+const CU11_STORE_NAMES = [
+  'carrito_offline',
+  'compras_offline',
+  'detalles_compra_offline',
+] as const;
+
+const STORE_NAMES = [...PACKAGE_STORE_NAMES, ...CU10_STORE_NAMES, ...CU11_STORE_NAMES] as const;
 
 type StoreName = (typeof STORE_NAMES)[number];
 type PackageStoreName = (typeof PACKAGE_STORE_NAMES)[number];
@@ -134,6 +146,31 @@ export class OfflineStorageService {
           colaStore.createIndex('estado', 'estado', { unique: false });
           colaStore.createIndex('created_at', 'created_at', { unique: false });
         }
+
+        // Stores CU11: Carrito Offline y Compras Digitales Offline
+        if (!db.objectStoreNames.contains('carrito_offline')) {
+          db.createObjectStore('carrito_offline', {
+            keyPath: 'id_variante_producto',
+          });
+        }
+        if (!db.objectStoreNames.contains('compras_offline')) {
+          const buyStore = db.createObjectStore('compras_offline', {
+            keyPath: 'uuid_venta_offline',
+          });
+          buyStore.createIndex('id_sucursal', 'id_sucursal', { unique: false });
+          buyStore.createIndex('id_cliente', 'id_cliente', { unique: false });
+          buyStore.createIndex('id_venta_local', 'id_venta_local', { unique: false });
+          buyStore.createIndex('estado', 'estado', { unique: false });
+          buyStore.createIndex('created_at', 'created_at', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('detalles_compra_offline')) {
+          const buyDetStore = db.createObjectStore('detalles_compra_offline', {
+            keyPath: 'id_detalle_local',
+            autoIncrement: true,
+          });
+          buyDetStore.createIndex('uuid_venta_offline', 'uuid_venta_offline', { unique: false });
+          buyDetStore.createIndex('id_variante_producto', 'id_variante_producto', { unique: false });
+        }
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -152,6 +189,10 @@ export class OfflineStorageService {
     userId: number,
     pkg: OfflinePackageResponse,
   ): Promise<void> {
+    if (!pkg || !pkg.metadata || pkg.metadata.id_empresa !== empresaId) {
+      throw new Error('El paquete recibido es inválido o no corresponde a la empresa activa.');
+    }
+
     const db = await this.openDatabase(empresaId, userId);
 
     return new Promise((resolve, reject) => {
@@ -342,14 +383,26 @@ export class OfflineStorageService {
   }
 
   /**
-   * Elimina por completo la base de datos IndexedDB local para el tenant y usuario.
+   * Limpia únicamente los almacenes del paquete de catálogo (metadata, sucursales, categorías,
+   * tallas, colores, productos, variantes, existencias y clientes), preservando intactas
+   * las reservas, detalles y operaciones pendientes de IndexedDB versión 2.
    */
   async clearDatabase(empresaId: number, userId: number): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
     return new Promise((resolve, reject) => {
-      const dbName = this.getDatabaseName(empresaId, userId);
-      const request = indexedDB.deleteDatabase(dbName);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      const tx = db.transaction(PACKAGE_STORE_NAMES as unknown as string[], 'readwrite');
+      for (const storeName of PACKAGE_STORE_NAMES) {
+        tx.objectStore(storeName).clear();
+      }
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        const err = tx.error ?? new Error('No fue posible limpiar los datos de catálogo offline.');
+        db.close();
+        reject(err);
+      };
     });
   }
 
@@ -534,18 +587,326 @@ export class OfflineStorageService {
   }
 
   /**
+   * Guarda o actualiza un lote de reservas autorizadas del personal y sus líneas de detalle
+   * en IndexedDB para disponibilidad offline.
+   * Respeta transiciones locales pendientes de sincronización para no sobrescribir estados modificados offline.
+   */
+  async saveStaffReservations(
+    empresaId: number,
+    userId: number,
+    reservations: OfflineReservationLocal[],
+    details: OfflineReservationDetailLocal[] = [],
+  ): Promise<void> {
+    if (!reservations || reservations.length === 0) return;
+    const db = await this.openDatabase(empresaId, userId);
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        ['reservas_offline', 'detalles_reserva_offline', 'cola_sincronizacion_offline'],
+        'readwrite',
+      );
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Error al guardar reservas de sucursal en IndexedDB');
+        db.close();
+        reject(error);
+      };
+
+      // 1. Leer cola de sincronización para identificar reservas con transiciones locales pendientes
+      const queueStore = tx.objectStore('cola_sincronizacion_offline');
+      const queueReq = queueStore.getAll();
+
+      queueReq.onsuccess = () => {
+        const queueItems = (queueReq.result as OfflineSyncQueueItem[]) || [];
+        const pendingEntities = new Set(
+          queueItems
+            .filter((item) => item.tipo_operacion === 'RESERVA')
+            .map((item) => item.uuid_entidad),
+        );
+
+        // 2. Guardar reservas que no tengan cambios locales pendientes
+        const resStore = tx.objectStore('reservas_offline');
+        for (const res of reservations) {
+          if (!pendingEntities.has(res.uuid_reserva_offline)) {
+            resStore.put(res);
+          }
+        }
+
+        // 3. Guardar o reemplazar detalles
+        if (details.length > 0) {
+          const detStore = tx.objectStore('detalles_reserva_offline');
+          const detReq = detStore.getAll();
+          detReq.onsuccess = () => {
+            const existingDetails = (detReq.result as OfflineReservationDetailLocal[]) || [];
+            const uuidsToUpdate = new Set(reservations.map((r) => r.uuid_reserva_offline));
+
+            for (const ed of existingDetails) {
+              if (uuidsToUpdate.has(ed.uuid_reserva_offline) && ed.id_detalle_local !== undefined) {
+                detStore.delete(ed.id_detalle_local);
+              }
+            }
+
+            for (const d of details) {
+              const toInsert = { ...d };
+              delete toInsert.id_detalle_local;
+              detStore.put(toInsert);
+            }
+          };
+        }
+      };
+    });
+  }
+
+  /**
    * Retorna un mapa con las cantidades reservadas pendientes por sucursal y variante:
    * Clave: `${id_sucursal}_${id_variante_producto}` -> Cantidad total reservada localmente.
    * Considera exclusivamente reservas en estado 'REGISTRADA_LOCAL' o 'ENVIADA'.
    */
+  /**
+   * Obtiene todos los artículos del carrito offline del cliente almacenados en IndexedDB.
+   */
+  async getOfflineCartItems(
+    empresaId: number,
+    userId: number,
+  ): Promise<OfflineCartItemLocal[]> {
+    return this.getAllFromStore<OfflineCartItemLocal>(empresaId, userId, 'carrito_offline');
+  }
+
+  /**
+   * Guarda o actualiza un artículo en el carrito offline en IndexedDB.
+   */
+  async saveOfflineCartItem(
+    empresaId: number,
+    userId: number,
+    item: OfflineCartItemLocal,
+  ): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('carrito_offline', 'readwrite');
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Error al guardar artículo en carrito offline');
+        db.close();
+        reject(error);
+      };
+      tx.objectStore('carrito_offline').put(item);
+    });
+  }
+
+  async updateOfflineReservationState(
+    empresaId: number,
+    userId: number,
+    reservation: OfflineReservationLocal,
+    queueItem?: OfflineSyncQueueItem,
+  ): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
+
+    return new Promise((resolve, reject) => {
+      const stores = queueItem
+        ? ['reservas_offline', 'cola_sincronizacion_offline']
+        : ['reservas_offline'];
+      const tx = db.transaction(stores, 'readwrite');
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Fallo al actualizar estado de reserva offline');
+        db.close();
+        reject(error);
+      };
+
+      const resStore = tx.objectStore('reservas_offline');
+      resStore.put(reservation);
+
+      if (queueItem) {
+        const queueStore = tx.objectStore('cola_sincronizacion_offline');
+        queueStore.put(queueItem);
+      }
+    });
+  }
+
+  /**
+   * Elimina un artículo del carrito offline por ID de variante de producto.
+   */
+  async removeOfflineCartItem(
+    empresaId: number,
+    userId: number,
+    idVarianteProducto: number,
+  ): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('carrito_offline', 'readwrite');
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Error al eliminar artículo del carrito offline');
+        db.close();
+        reject(error);
+      };
+      tx.objectStore('carrito_offline').delete(idVarianteProducto);
+    });
+  }
+
+  /**
+   * Vacía por completo el carrito offline local del cliente.
+   */
+  async clearOfflineCart(empresaId: number, userId: number): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('carrito_offline', 'readwrite');
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Error al vaciar carrito offline');
+        db.close();
+        reject(error);
+      };
+      tx.objectStore('carrito_offline').clear();
+    });
+  }
+
+  /**
+   * Obtiene todas las compras digitales registradas localmente en IndexedDB.
+   */
+  async getOfflinePurchases(
+    empresaId: number,
+    userId: number,
+  ): Promise<OfflinePurchaseLocal[]> {
+    return this.getAllFromStore<OfflinePurchaseLocal>(empresaId, userId, 'compras_offline');
+  }
+
+  /**
+   * Obtiene una compra digital offline por su UUID local.
+   */
+  async getOfflinePurchaseByUuid(
+    empresaId: number,
+    userId: number,
+    uuid: string,
+  ): Promise<OfflinePurchaseLocal | null> {
+    const purchases = await this.getOfflinePurchases(empresaId, userId);
+    return purchases.find((p) => p.uuid_venta_offline === uuid) ?? null;
+  }
+
+  /**
+   * Obtiene una compra digital offline por su ID numérico local (para rutas /compra/:id).
+   */
+  async getOfflinePurchaseByLocalId(
+    empresaId: number,
+    userId: number,
+    idVentaLocal: number,
+  ): Promise<OfflinePurchaseLocal | null> {
+    const purchases = await this.getOfflinePurchases(empresaId, userId);
+    return purchases.find((p) => p.id_venta_local === idVentaLocal) ?? null;
+  }
+
+  /**
+   * Obtiene los detalles de compras digitales locales, opcionalmente filtrados por UUID.
+   */
+  async getOfflinePurchaseDetails(
+    empresaId: number,
+    userId: number,
+    uuid?: string,
+  ): Promise<OfflinePurchaseDetailLocal[]> {
+    const details = await this.getAllFromStore<OfflinePurchaseDetailLocal>(
+      empresaId,
+      userId,
+      'detalles_compra_offline',
+    );
+    if (!uuid) return details;
+    return details.filter((d) => d.uuid_venta_offline === uuid);
+  }
+
+  /**
+   * Guarda de forma atómica una venta presencial o compra digital offline, sus líneas de detalle,
+   * la operación en la cola de sincronización (Outbox) y opcionalmente limpia el carrito offline
+   * dentro de una única transacción en IndexedDB.
+   */
+  async saveOfflinePurchaseAtomic(
+    empresaId: number,
+    userId: number,
+    purchase: OfflinePurchaseLocal,
+    details: OfflinePurchaseDetailLocal[],
+    queueItem: OfflineSyncQueueItem,
+    clearCart = true,
+  ): Promise<void> {
+    const db = await this.openDatabase(empresaId, userId);
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        [
+          'compras_offline',
+          'detalles_compra_offline',
+          'cola_sincronizacion_offline',
+          'carrito_offline',
+        ],
+        'readwrite',
+      );
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Fallo en transacción atómica de compra offline');
+        db.close();
+        reject(error);
+      };
+
+      tx.onabort = () => {
+        const error =
+          tx.error ?? new Error('Transacción abortada: se revirtió el registro de compra offline.');
+        db.close();
+        reject(error);
+      };
+
+      // 1. Guardar cabecera de la compra / venta presencial
+      const buyStore = tx.objectStore('compras_offline');
+      buyStore.put(purchase);
+
+      // 2. Guardar líneas de detalle
+      const detStore = tx.objectStore('detalles_compra_offline');
+      for (const item of details) {
+        detStore.put(item);
+      }
+
+      // 3. Guardar en la cola de sincronización (Outbox)
+      const queueStore = tx.objectStore('cola_sincronizacion_offline');
+      queueStore.put(queueItem);
+
+      // 4. Limpiar el carrito offline tras la compra si corresponde (solo cliente digital)
+      if (clearCart) {
+        const cartStore = tx.objectStore('carrito_offline');
+        cartStore.clear();
+      }
+    });
+  }
+
   async getPendingReservedQuantities(
     empresaId: number,
     userId: number,
   ): Promise<Map<string, number>> {
     try {
-      const [reservas, detalles] = await Promise.all([
+      const [reservas, detallesReserva, compras, detallesCompra] = await Promise.all([
         this.getOfflineReservations(empresaId, userId),
         this.getOfflineReservationDetails(empresaId, userId),
+        this.getOfflinePurchases(empresaId, userId),
+        this.getOfflinePurchaseDetails(empresaId, userId),
       ]);
 
       const pendingMap = new Map<string, number>(); // uuid -> id_sucursal
@@ -555,9 +916,28 @@ export class OfflineStorageService {
         }
       }
 
+      for (const c of compras) {
+        if (
+          c.estado === 'REGISTRADA_LOCAL' ||
+          c.estado === 'PENDIENTE_VALIDACION' ||
+          c.estado === 'ENVIADA'
+        ) {
+          pendingMap.set(c.uuid_venta_offline, c.id_sucursal);
+        }
+      }
+
       const branchVariantQuantities = new Map<string, number>();
-      for (const d of detalles) {
+      for (const d of detallesReserva) {
         const branchId = pendingMap.get(d.uuid_reserva_offline);
+        if (branchId !== undefined) {
+          const key = `${branchId}_${d.id_variante_producto}`;
+          const current = branchVariantQuantities.get(key) || 0;
+          branchVariantQuantities.set(key, current + d.cantidad);
+        }
+      }
+
+      for (const d of detallesCompra) {
+        const branchId = pendingMap.get(d.uuid_venta_offline);
         if (branchId !== undefined) {
           const key = `${branchId}_${d.id_variante_producto}`;
           const current = branchVariantQuantities.get(key) || 0;
@@ -661,6 +1041,8 @@ export class OfflineStorageService {
         id_variante_producto: v.id_variante_producto,
         id_producto: v.id_producto,
         sku: v.sku,
+        id_talla: v.id_talla,
+        id_color: v.id_color,
         talla: v.talla || sizeMap.get(v.id_talla) || 'Talla única',
         color: v.color || colorObj?.nombre || 'Color único',
         color_hex: v.color_hex || colorObj?.codigo_hex || null,
@@ -684,5 +1066,486 @@ export class OfflineStorageService {
       disponibilidadPorSucursal: branchList,
     };
   }
-}
 
+  /**
+   * PK08 - CU13: Aplica los resultados de sincronizacion atomicamente sobre IndexedDB:
+   * - Operaciones CONFIRMADAS: marca en cola como SINCRONIZADA, actualiza ID/codigo oficial del servidor
+   *   en reservas_offline y compras_offline.
+   * - Operaciones REINTENTABLES: conserva pendientes e incrementa contador de reintentos con ultimo error.
+   * - Operaciones RECHAZADAS / EN_CONFLICTO: actualiza estado y registra motivo/conflictos para CU14.
+   * - Resuelve vinculaciones_codigos en referencias cruzadas (e.g. reservas asociadas a ventas).
+   * - NUNCA elimina comprobantes provisionales ni registros historicos.
+   */
+  async applyBatchSyncResults(
+    empresaId: number,
+    userId: number,
+    results: OfflineSyncOperationResult[],
+    codeLinks: Record<string, OfflineCodeLinkItem> = {},
+  ): Promise<void> {
+    if (!results || results.length === 0) return;
+
+    const db = await this.openDatabase(empresaId, userId);
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        ['cola_sincronizacion_offline', 'reservas_offline', 'compras_offline'],
+        'readwrite',
+      );
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Fallo al aplicar resultados de sincronizacion en IndexedDB');
+        db.close();
+        reject(error);
+      };
+
+      tx.onabort = () => {
+        const error = tx.error ?? new Error('Transaccion abortada al aplicar sincronizacion');
+        db.close();
+        reject(error);
+      };
+
+      const queueStore = tx.objectStore('cola_sincronizacion_offline');
+      const resStore = tx.objectStore('reservas_offline');
+      const buyStore = tx.objectStore('compras_offline');
+
+      const qReq = queueStore.getAll();
+      const rReq = resStore.getAll();
+      const bReq = buyStore.getAll();
+
+      qReq.onsuccess = () => {
+        rReq.onsuccess = () => {
+          bReq.onsuccess = () => {
+            const queueItems = (qReq.result as OfflineSyncQueueItem[]) || [];
+            const reservations = (rReq.result as OfflineReservationLocal[]) || [];
+            const purchases = (bReq.result as OfflinePurchaseLocal[]) || [];
+
+            const queueMap = new Map<string, OfflineSyncQueueItem>();
+            for (const q of queueItems) {
+              queueMap.set(q.uuid_operacion, q);
+              if (q.uuid_entidad) queueMap.set(q.uuid_entidad, q);
+            }
+
+            const resMap = new Map<string, OfflineReservationLocal>();
+            for (const r of reservations) {
+              resMap.set(r.uuid_reserva_offline, r);
+              if (r.codigo_local) resMap.set(r.codigo_local, r);
+            }
+
+            const buyMap = new Map<string, OfflinePurchaseLocal>();
+            for (const b of purchases) {
+              buyMap.set(b.uuid_venta_offline, b);
+            }
+
+            const nowIso = new Date().toISOString();
+
+            for (const res of results) {
+              const qItem =
+                queueMap.get(res.uuid_operacion) ||
+                (res.uuid_entidad ? queueMap.get(res.uuid_entidad) : undefined);
+
+              if (res.estado_resultado === 'CONFIRMADA') {
+                if (qItem) {
+                  qItem.estado = 'SINCRONIZADA';
+                  qItem.payload = {
+                    ...qItem.payload,
+                    id_servidor: res.id_servidor,
+                    codigo_servidor: res.codigo_servidor,
+                    estado_servidor: res.estado_entidad_servidor,
+                  };
+                  qItem.ultimo_error = null;
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    targetRes.id_reserva = res.id_servidor ?? targetRes.id_reserva;
+                    targetRes.codigo_servidor = res.codigo_servidor ?? targetRes.codigo_servidor;
+                    targetRes.estado = 'SINCRONIZADA';
+                    targetRes.motivo_servidor = null;
+                    targetRes.conflictos = [];
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'TRANSICION_RESERVA') {
+                  const targetRes =
+                    (res.uuid_entidad ? resMap.get(res.uuid_entidad) : undefined) ||
+                    (res.codigo_reserva_asociada ? resMap.get(res.codigo_reserva_asociada) : undefined) ||
+                    (res.codigo_local ? resMap.get(res.codigo_local) : undefined);
+                  if (targetRes) {
+                    targetRes.id_reserva = res.id_servidor ?? targetRes.id_reserva;
+                    targetRes.codigo_servidor = res.codigo_servidor ?? targetRes.codigo_servidor;
+                    targetRes.estado =
+                      (res.estado_entidad_servidor as any) ||
+                      (qItem?.payload?.accion === 'attend' ? 'ATENDIDA' : 'CONFIRMADA');
+                    targetRes.motivo_servidor = null;
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    targetBuy.id_venta_servidor = res.id_servidor ?? targetBuy.id_venta_servidor;
+                    targetBuy.numero_venta_servidor = res.codigo_servidor ?? targetBuy.numero_venta_servidor;
+                    targetBuy.estado_pago =
+                      (res.estado_pago as any) ||
+                      (targetBuy.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE_VALIDACION');
+                    targetBuy.estado =
+                      res.estado_entidad_servidor === 'COMPLETADA'
+                        ? 'CONFIRMADA'
+                        : ((res.estado_entidad_servidor as any) || 'CONFIRMADA');
+                    targetBuy.motivo_servidor = null;
+                    targetBuy.conflictos = [];
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              } else if (res.estado_resultado === 'REINTENTABLE') {
+                const retryNotice =
+                  res.motivo || res.mensaje || 'Error temporal; reintento automatico programado';
+                if (qItem) {
+                  qItem.estado = 'PENDIENTE_SINCRONIZACION';
+                  qItem.reintentos = (qItem.reintentos || 0) + 1;
+                  qItem.ultimo_error = retryNotice;
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    if (targetRes.estado === 'RECHAZADA' || targetRes.estado === 'EN_CONFLICTO') {
+                      targetRes.estado = 'REGISTRADA_LOCAL';
+                    }
+                    targetRes.motivo_servidor = retryNotice;
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    if (targetBuy.estado === 'RECHAZADA' || targetBuy.estado === 'EN_CONFLICTO') {
+                      targetBuy.estado = 'REGISTRADA_LOCAL';
+                    }
+                    targetBuy.motivo_servidor = retryNotice;
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              } else if (res.estado_resultado === 'EN_CONFLICTO' || res.estado_resultado === 'RECHAZADA') {
+                const isConflict = res.estado_resultado === 'EN_CONFLICTO';
+                if (qItem) {
+                  qItem.estado = isConflict ? 'CONFLICTO' : 'RECHAZADA';
+                  qItem.ultimo_error = res.motivo || res.mensaje;
+                  qItem.conflictos = res.conflictos || [];
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA' || res.tipo_operacion === 'TRANSICION_RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    targetRes.estado = isConflict ? 'EN_CONFLICTO' : 'RECHAZADA';
+                    targetRes.motivo_servidor = res.motivo || res.mensaje;
+                    targetRes.conflictos = res.conflictos || [];
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    targetBuy.estado = isConflict ? 'EN_CONFLICTO' : 'RECHAZADA';
+                    targetBuy.motivo_servidor = res.motivo || res.mensaje;
+                    targetBuy.conflictos = res.conflictos || [];
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              }
+            }
+
+            if (codeLinks && Object.keys(codeLinks).length > 0) {
+              for (const [refKey, link] of Object.entries(codeLinks)) {
+                if (link.tipo_operacion === 'RESERVA') {
+                  for (const buy of purchases) {
+                    if (buy.uuid_reserva_offline === refKey || (buy as any).codigo_reserva === refKey) {
+                      buy.id_reserva = link.id_servidor;
+                      buy.updated_at = nowIso;
+                      buyStore.put(buy);
+                    }
+                  }
+                }
+              }
+            }
+          };
+        };
+      };
+    });
+  }
+
+  /**
+   * PK08 - CU14: Aplica resultados de resolución de conflictos en IndexedDB.
+   * - Conserva UUID, comprobantes e historial local sin borrados silenciosos.
+   * - Actualiza códigos oficiales (RSV-..., VTA-...) cuando el servidor los confirma.
+   * - Actualiza estados de sincronización y estado comercial.
+   * - Si se descarta por usuario, marca estado cancelado/descartado sin borrar el comprobante.
+   * - Propaga vinculación de códigos a operaciones dependientes.
+   */
+  async applyConflictResolutionResults(
+    empresaId: number,
+    userId: number,
+    results: OfflineOperationResolutionResult[],
+    codeLinks: Record<string, OfflineCodeLinkItem> = {},
+  ): Promise<void> {
+    if (!results || results.length === 0) return;
+
+    const db = await this.openDatabase(empresaId, userId);
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        ['cola_sincronizacion_offline', 'reservas_offline', 'compras_offline'],
+        'readwrite',
+      );
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        const error = tx.error ?? new Error('Fallo al aplicar resultados de resolución en IndexedDB');
+        db.close();
+        reject(error);
+      };
+
+      tx.onabort = () => {
+        const error = tx.error ?? new Error('Transacción abortada al resolver conflictos');
+        db.close();
+        reject(error);
+      };
+
+      const queueStore = tx.objectStore('cola_sincronizacion_offline');
+      const resStore = tx.objectStore('reservas_offline');
+      const buyStore = tx.objectStore('compras_offline');
+
+      const qReq = queueStore.getAll();
+      const rReq = resStore.getAll();
+      const bReq = buyStore.getAll();
+
+      qReq.onsuccess = () => {
+        rReq.onsuccess = () => {
+          bReq.onsuccess = () => {
+            const queueItems = (qReq.result as OfflineSyncQueueItem[]) || [];
+            const reservations = (rReq.result as OfflineReservationLocal[]) || [];
+            const purchases = (bReq.result as OfflinePurchaseLocal[]) || [];
+
+            const queueMap = new Map<string, OfflineSyncQueueItem>();
+            for (const q of queueItems) {
+              queueMap.set(q.uuid_operacion, q);
+              if (q.uuid_entidad) queueMap.set(q.uuid_entidad, q);
+            }
+
+            const resMap = new Map<string, OfflineReservationLocal>();
+            for (const r of reservations) {
+              resMap.set(r.uuid_reserva_offline, r);
+              if (r.codigo_local) resMap.set(r.codigo_local, r);
+            }
+
+            const buyMap = new Map<string, OfflinePurchaseLocal>();
+            for (const b of purchases) {
+              buyMap.set(b.uuid_venta_offline, b);
+            }
+
+            const nowIso = new Date().toISOString();
+
+            for (const res of results) {
+              const qItem =
+                queueMap.get(res.uuid_operacion) ||
+                (res.uuid_entidad ? queueMap.get(res.uuid_entidad) : undefined);
+
+              if (res.descartada_por_usuario || res.accion_aplicada === 'DESCARTAR_OPERACION') {
+                // Descartada voluntariamente: se retira de la cola de sincronización activa
+                // y se preserva el registro histórico con comprobante marcado como CANCELADA / RECHAZADA
+                if (qItem) {
+                  qItem.estado = 'RECHAZADA';
+                  qItem.ultimo_error = 'Operación descartada por decisión del usuario';
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA' || res.tipo_operacion === 'TRANSICION_RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    targetRes.estado = 'CANCELADA';
+                    targetRes.motivo_servidor = 'Descartada por el usuario';
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    targetBuy.estado = 'RECHAZADA';
+                    targetBuy.motivo_servidor = 'Descartada por el usuario';
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              } else if (res.confirmada || res.estado_resultado === 'CONFIRMADA') {
+                if (qItem) {
+                  qItem.estado = 'SINCRONIZADA';
+                  qItem.payload = {
+                    ...qItem.payload,
+                    id_servidor: res.id_servidor,
+                    codigo_servidor: res.codigo_servidor,
+                    estado_servidor: res.estado_entidad_servidor,
+                  };
+                  qItem.ultimo_error = null;
+                  qItem.conflictos = [];
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    targetRes.id_reserva = res.id_servidor ?? targetRes.id_reserva;
+                    targetRes.codigo_servidor = res.codigo_servidor ?? targetRes.codigo_servidor;
+                    targetRes.estado = 'SINCRONIZADA';
+                    targetRes.motivo_servidor = null;
+                    targetRes.conflictos = [];
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'TRANSICION_RESERVA') {
+                  const targetRes =
+                    (res.uuid_entidad ? resMap.get(res.uuid_entidad) : undefined) ||
+                    (res.codigo_reserva_asociada ? resMap.get(res.codigo_reserva_asociada) : undefined) ||
+                    (res.codigo_local ? resMap.get(res.codigo_local) : undefined);
+                  if (targetRes) {
+                    targetRes.id_reserva = res.id_servidor ?? targetRes.id_reserva;
+                    targetRes.codigo_servidor = res.codigo_servidor ?? targetRes.codigo_servidor;
+                    targetRes.estado =
+                      (res.estado_entidad_servidor as any) ||
+                      (qItem?.payload?.accion === 'attend' ? 'ATENDIDA' : 'CONFIRMADA');
+                    targetRes.motivo_servidor = null;
+                    targetRes.conflictos = [];
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    targetBuy.id_venta_servidor = res.id_servidor ?? targetBuy.id_venta_servidor;
+                    targetBuy.numero_venta_servidor = res.codigo_servidor ?? targetBuy.numero_venta_servidor;
+                    targetBuy.estado_pago =
+                      (res.estado_pago as any) ||
+                      (targetBuy.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE_VALIDACION');
+                    targetBuy.estado =
+                      res.estado_entidad_servidor === 'COMPLETADA'
+                        ? 'CONFIRMADA'
+                        : ((res.estado_entidad_servidor as any) || 'CONFIRMADA');
+                    if (res.total !== null && res.total !== undefined) {
+                      targetBuy.total = Number(res.total);
+                    }
+                    if (res.subtotal !== null && res.subtotal !== undefined) {
+                      targetBuy.subtotal = Number(res.subtotal);
+                    }
+                    targetBuy.motivo_servidor = null;
+                    targetBuy.conflictos = [];
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              } else if (res.estado_resultado === 'REINTENTABLE') {
+                const retryNotice = res.motivo || res.mensaje || 'Error temporal; reintentable';
+                if (qItem) {
+                  qItem.estado = 'PENDIENTE_SINCRONIZACION';
+                  qItem.reintentos = (qItem.reintentos || 0) + 1;
+                  qItem.ultimo_error = retryNotice;
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+              } else if (res.estado_resultado === 'EN_CONFLICTO' || res.estado_resultado === 'RECHAZADA') {
+                const isConflict = res.estado_resultado === 'EN_CONFLICTO';
+                if (qItem) {
+                  qItem.estado = isConflict ? 'CONFLICTO' : 'RECHAZADA';
+                  qItem.ultimo_error = res.motivo || res.mensaje;
+                  qItem.conflictos = res.conflictos || [];
+                  qItem.updated_at = nowIso;
+                  queueStore.put(qItem);
+                }
+
+                if (res.tipo_operacion === 'RESERVA' || res.tipo_operacion === 'TRANSICION_RESERVA') {
+                  const targetRes = res.uuid_entidad
+                    ? resMap.get(res.uuid_entidad)
+                    : resMap.get(res.uuid_operacion);
+                  if (targetRes) {
+                    targetRes.estado = isConflict ? 'EN_CONFLICTO' : 'RECHAZADA';
+                    targetRes.motivo_servidor = res.motivo || res.mensaje;
+                    targetRes.conflictos = res.conflictos || [];
+                    targetRes.updated_at = nowIso;
+                    resStore.put(targetRes);
+                  }
+                } else if (res.tipo_operacion === 'COMPRA' || res.tipo_operacion === 'VENTA') {
+                  const targetBuy = res.uuid_entidad
+                    ? buyMap.get(res.uuid_entidad)
+                    : buyMap.get(res.uuid_operacion);
+                  if (targetBuy) {
+                    targetBuy.estado = isConflict ? 'EN_CONFLICTO' : 'RECHAZADA';
+                    targetBuy.motivo_servidor = res.motivo || res.mensaje;
+                    targetBuy.conflictos = res.conflictos || [];
+                    targetBuy.updated_at = nowIso;
+                    buyStore.put(targetBuy);
+                  }
+                }
+              }
+            }
+
+            if (codeLinks && Object.keys(codeLinks).length > 0) {
+              for (const [refKey, link] of Object.entries(codeLinks)) {
+                if (link.tipo_operacion === 'RESERVA') {
+                  for (const buy of purchases) {
+                    if (buy.uuid_reserva_offline === refKey || (buy as any).codigo_reserva === refKey) {
+                      buy.id_reserva = link.id_servidor;
+                      if (link.codigo_servidor) {
+                        (buy as any).codigo_reserva = link.codigo_servidor;
+                      }
+                      buy.updated_at = nowIso;
+                      buyStore.put(buy);
+                    }
+                  }
+                }
+              }
+            }
+          };
+        };
+      };
+    });
+  }
+}

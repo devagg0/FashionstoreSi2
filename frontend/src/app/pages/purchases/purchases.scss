@@ -421,3 +421,9 @@ img {
     transition: none;
   }
 }
+
+.purchase-card--offline .badge {
+  white-space: normal;
+  text-align: right;
+  line-height: 1.3;
+}

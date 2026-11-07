@@ -12,6 +12,8 @@ import {
 } from '../../core/services/client-purchases.service';
 import { CheckoutNavigationService } from '../../core/services/checkout-navigation.service';
 import { Payment, PaymentsService } from '../../core/services/payments.service';
+import { OfflineService } from '../../core/services/offline.service';
+import { OfflinePurchaseReceiptData } from '../../core/models/offline.model';
 import { PurchaseReturnRequest } from './return-request/return-request';
 import { formatBs } from '../../core/utils/money';
 import { formatSaleReference } from '../../core/utils/sale-reference';
@@ -25,6 +27,7 @@ import { formatSaleReference } from '../../core/utils/sale-reference';
 export class PurchasesPage {
   private readonly api = inject(ClientPurchasesService);
   private readonly payments = inject(PaymentsService);
+  private readonly offlineService = inject(OfflineService);
   private readonly navigation = inject(CheckoutNavigationService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -42,6 +45,35 @@ export class PurchasesPage {
   readonly expired = signal(false);
   readonly missing = signal(false);
   readonly continuing = signal<number | null>(null);
+  readonly pendingLocal = signal<OfflinePurchaseReceiptData[]>([]);
+  readonly isOffline = computed(() => {
+    return !this.offlineService.isOnline() || (typeof navigator !== 'undefined' && !navigator.onLine);
+  });
+  readonly isOfflineDetail = computed(() => {
+    const d = this.detail();
+    if (!d) return false;
+    return this.pendingLocal().some(
+      (p) => p.id_venta_local === d.id_venta || p.numero_venta_local === d.numero_venta,
+    );
+  });
+  readonly hasLocalPurchases = computed(() => this.pendingLocal().length > 0);
+  readonly filteredPendingLocal = computed(() => {
+    const estadoFilter = this.estado();
+    const canalFilter = this.canal();
+    const serverSaleNumbers = new Set(this.items().map((i) => i.numero_venta));
+    return this.pendingLocal().filter((item) => {
+      if (serverSaleNumbers.has(item.numero_venta_local)) return false;
+      if (canalFilter && item.canal !== canalFilter) return false;
+      if (estadoFilter) {
+        if (estadoFilter === 'PENDIENTE') {
+          return item.estado_venta === 'PENDIENTE' || item.estado_pago === 'PENDIENTE_VALIDACION';
+        }
+        return item.estado_venta === estadoFilter;
+      }
+      return true;
+    });
+  });
+  readonly totalCount = computed(() => this.total() + this.filteredPendingLocal().length);
   readonly filtered = computed(() => !!this.estado() || !!this.canal());
   readonly more = computed(() => this.items().length < this.total());
   readonly money = formatBs;
@@ -83,6 +115,7 @@ export class PurchasesPage {
     this.expired.set(false);
     this.missing.set(false);
     this.failedAppend = append;
+    void this.loadPendingLocal();
     const id = this.id();
     if (id !== null && (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647)) {
       this.missing.set(true);
@@ -91,6 +124,10 @@ export class PurchasesPage {
     }
     this.loading.set(true);
     if (id !== null) {
+      if (this.isOffline()) {
+        void this.loadOfflineDetail(id);
+        return;
+      }
       this.request = this.api
         .detail(id)
         .pipe(
@@ -106,9 +143,23 @@ export class PurchasesPage {
             this.detail.set(response.data);
             this.reconcileStripePayment(response.data);
           },
-          error: (error) => this.fail(error),
+          error: async (error: HttpErrorResponse | Error) => {
+            const status = error instanceof HttpErrorResponse ? error.status : 0;
+            if (status === 0 || status === 404 || this.isOffline()) {
+              const loaded = await this.loadOfflineDetail(id);
+              if (loaded) return;
+            }
+            this.fail(error);
+          },
         });
     } else {
+      if (this.isOffline()) {
+        this.loading.set(false);
+        this.items.set([]);
+        this.total.set(0);
+        this.error.set('');
+        return;
+      }
       this.request = this.api
         .list(this.estado(), this.canal(), append ? this.items().length : 0)
         .pipe(
@@ -128,9 +179,99 @@ export class PurchasesPage {
             this.total.set(response.data.total);
             for (const purchase of this.items()) this.reconcileStripePayment(purchase);
           },
-          error: (error) => this.fail(error),
+          error: async (error: HttpErrorResponse | Error) => {
+            const status = error instanceof HttpErrorResponse ? error.status : 0;
+            if ((status === 0 || this.isOffline()) && this.id() === null) {
+              await this.loadPendingLocal();
+              if (this.pendingLocal().length > 0 || this.isOffline()) {
+                this.items.set([]);
+                this.total.set(0);
+                this.error.set('');
+                return;
+              }
+            }
+            this.fail(error);
+          },
         });
     }
+  }
+  private async loadPendingLocal(): Promise<void> {
+    try {
+      const rows = await this.offlineService.getPendingClientPurchases();
+      this.pendingLocal.set(rows);
+      if (rows.length > 0 && this.id() === null) {
+        if (this.error().includes('conectar') || this.isOffline()) {
+          this.error.set('');
+        }
+      }
+    } catch {
+      this.pendingLocal.set([]);
+    }
+  }
+  private async loadOfflineDetail(id: number): Promise<boolean> {
+    try {
+      const receipt = await this.offlineService.getOfflinePurchaseReceipt(id);
+      if (receipt) {
+        const detail: PurchaseDetail = {
+          id_venta: receipt.id_venta_local,
+          numero_venta: receipt.numero_venta_local,
+          fecha: receipt.fecha_registro,
+          fecha_completada: null,
+          canal: receipt.canal ?? 'DIGITAL',
+          estado: 'PENDIENTE',
+          subtotal: receipt.subtotal.toFixed(2),
+          descuento_total: receipt.descuento_total.toFixed(2),
+          total: receipt.total.toFixed(2),
+          moneda: receipt.moneda,
+          sucursal: {
+            id_sucursal: receipt.sucursal.id_sucursal,
+            nombre: receipt.sucursal.nombre,
+          },
+          pago: {
+            id_pago: receipt.id_venta_local,
+            medio: receipt.medio_pago,
+            estado: 'PENDIENTE',
+            monto: receipt.total.toFixed(2),
+            moneda: receipt.moneda,
+            fecha_aprobacion: null,
+          },
+          productos: receipt.detalles.map((d, idx) => ({
+            id_detalle_venta: d.id_detalle_local ?? idx + 1,
+            id_variante_producto: d.id_variante_producto,
+            nombre: d.producto_nombre,
+            talla: d.talla,
+            color: d.color,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario.toFixed(2),
+            descuento_unitario: d.descuento_unitario.toFixed(2),
+            subtotal_linea: d.subtotal_linea.toFixed(2),
+            imagen: null,
+          })),
+          pagos: [
+            {
+              id_pago: receipt.id_venta_local,
+              medio: receipt.medio_pago,
+              estado: 'PENDIENTE',
+              monto: receipt.total.toFixed(2),
+              moneda: receipt.moneda,
+              fecha_aprobacion: null,
+            },
+          ],
+          devoluciones: [],
+          reembolsos: [],
+        };
+        this.detail.set(detail);
+        this.error.set('');
+        this.loading.set(false);
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    this.loading.set(false);
+    this.missing.set(true);
+    this.error.set('Compra no encontrada.');
+    return false;
   }
   private reconcileStripePayment(purchase: PurchaseSummary): void {
     const payment = purchase.pago;
@@ -190,6 +331,10 @@ export class PurchasesPage {
   }
   private fail(error: HttpErrorResponse | Error): void {
     const status = error instanceof HttpErrorResponse ? error.status : 0;
+    if ((status === 0 || this.isOffline()) && (this.pendingLocal().length > 0 || this.isOffline()) && this.id() === null) {
+      this.error.set('');
+      return;
+    }
     this.expired.set(status === 401);
     this.missing.set(status === 404);
     this.error.set(

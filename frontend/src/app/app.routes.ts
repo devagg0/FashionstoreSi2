@@ -116,6 +116,15 @@ export const routes: Routes = [
     title: 'Detalle de reserva | FashionStore',
   },
   {
+    path: 'operaciones-offline',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/offline-pending-operations/offline-pending-operations').then(
+        (m) => m.OfflinePendingOperations,
+      ),
+    title: 'Operaciones offline pendientes | FashionStore',
+  },
+  {
     path: 'staff',
     canActivate: [staffGuard],
     canActivateChild: [staffChildGuard],
@@ -193,12 +202,12 @@ export const routes: Routes = [
         title: 'Catálogo Offline | FashionStore',
       },
       {
-        path: 'offline/reservar',
+        path: 'operaciones-offline',
         loadComponent: () =>
-          import('./pages/offline-reservation/offline-reservation-create').then(
-            ({ OfflineReservationCreate }) => OfflineReservationCreate,
+          import('./pages/offline-pending-operations/offline-pending-operations').then(
+            (m) => m.OfflinePendingOperations,
           ),
-        title: 'Registrar Reserva Offline | FashionStore',
+        title: 'Operaciones offline pendientes | FashionStore',
       },
       {
         path: 'perfil',
@@ -423,12 +432,12 @@ export const routes: Routes = [
         title: 'Catálogo Offline | FashionStore',
       },
       {
-        path: 'offline/reservar',
+        path: 'operaciones-offline',
         loadComponent: () =>
-          import('./pages/offline-reservation/offline-reservation-create').then(
-            ({ OfflineReservationCreate }) => OfflineReservationCreate,
+          import('./pages/offline-pending-operations/offline-pending-operations').then(
+            (m) => m.OfflinePendingOperations,
           ),
-        title: 'Registrar Reserva Offline | FashionStore',
+        title: 'Operaciones offline pendientes | FashionStore',
       },
       {
         path: 'perfil',

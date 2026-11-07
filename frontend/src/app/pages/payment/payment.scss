@@ -452,3 +452,49 @@ input:focus-visible {
 .qr-reference {
   overflow-wrap: anywhere;
 }
+
+
+.offline-banner {
+  border-left: 4px solid var(--color-terracotta, #b85d38);
+  background: #fbf5ee;
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.offline-voucher {
+  background: #fff9f2;
+  border: 1px solid #ebd9c8;
+  border-left: 4px solid var(--color-terracotta, #b85d38);
+  padding: 24px;
+  border-radius: var(--radius-lg, 12px);
+  margin-bottom: 24px;
+
+  .offline-badge {
+    display: inline-block;
+    background: #eeddcc;
+    color: #63331b;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+
+  .offline-warning {
+    background: #fef0e3;
+    padding: 12px 14px;
+    border-radius: 6px;
+    color: #793717;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 14px 0 20px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+}

@@ -43,10 +43,10 @@
           Limpiar filtros
         </button>
       }
-      <span class="count">{{ total() }} compras · Más recientes primero</span>
+      <span class="count">{{ totalCount() }} {{ totalCount() === 1 ? 'compra' : 'compras' }} · Más recientes primero</span>
     </section>
   }
-  @if (error()) {
+  @if (error() && (!hasLocalPurchases() || id() !== null)) {
     <section class="notice error" role="alert">
       <h2>{{ missing() ? 'Compra no encontrada' : 'No pudimos cargar tus compras' }}</h2>
       <p>{{ error() }}</p>
@@ -67,7 +67,7 @@
     </div>
   }
   @if (id() === null) {
-    @if (!loading() && !error() && items().length === 0) {
+    @if (!loading() && !error() && items().length === 0 && filteredPendingLocal().length === 0) {
       <section class="empty">
         <span aria-hidden="true">◇</span>
         <h2>
@@ -92,6 +92,45 @@
       </section>
     }
     <div class="history" [attr.aria-busy]="loading()">
+      @for (local of filteredPendingLocal(); track local.uuid_venta_offline) {
+        <article class="purchase-card purchase-card--offline">
+          <div class="card-top">
+            <span class="eyebrow">{{
+              local.canal === 'DIGITAL' ? 'COMPRA ONLINE' : 'COMPRA EN TIENDA'
+            }}</span>
+            <span class="badge" data-tone="pending">Compra simulada localmente — pendiente de sincronización</span>
+          </div>
+          <h2 class="sale-reference" [title]="local.numero_venta_local">
+            {{ saleReference(local.numero_venta_local) }}
+          </h2>
+          <p class="muted">{{ date(local.fecha_registro) }}</p>
+          <p>{{ local.sucursal.nombre }}</p>
+          <div class="payment-info">
+            <span>{{ local.medio_pago }}</span>
+            <span class="badge small" data-tone="pending">Compra simulada localmente — pendiente de sincronización</span>
+          </div>
+          <footer>
+            <div>
+              <small>Total · {{ local.moneda }}</small>
+              <strong>{{ money(local.total) }}</strong>
+            </div>
+            <div class="card-actions">
+              <a
+                class="solid continue-link"
+                [routerLink]="['/mis-compras', local.id_venta_local, 'comprobante']"
+                [attr.aria-label]="'Ver comprobante de ' + local.numero_venta_local"
+                >Ver comprobante</a
+              >
+              <a
+                class="detail-link"
+                [routerLink]="['/mis-compras', local.id_venta_local]"
+                [attr.aria-label]="'Ver detalle de ' + local.numero_venta_local"
+                >Ver detalle <span aria-hidden="true">↗</span></a
+              >
+            </div>
+          </footer>
+        </article>
+      }
       @for (purchase of items(); track purchase.id_venta) {
         <article class="purchase-card">
           <div class="card-top">
@@ -146,7 +185,7 @@
     </div>
     @if (more()) {
       <div class="load-more">
-        <p>{{ items().length }} de {{ total() }} compras</p>
+        <p>{{ items().length + filteredPendingLocal().length }} de {{ totalCount() }} compras</p>
         <button
           class="outline"
           type="button"
@@ -166,9 +205,11 @@
         </h2>
         <p>{{ date(purchase.fecha) }} · {{ purchase.canal }}</p>
       </div>
-      <span class="badge" [attr.data-tone]="tone(purchase.estado)">{{ purchase.estado }}</span>
+      <span class="badge" [attr.data-tone]="isOfflineDetail() ? 'pending' : tone(purchase.estado)">{{
+        isOfflineDetail() ? 'Compra simulada localmente — pendiente de sincronización' : purchase.estado
+      }}</span>
     </section>
-    @if (purchase.estado === 'COMPLETADA' && purchase.fecha_completada && purchase.pago && (purchase.pago.estado === 'APROBADO' || purchase.pago.estado === 'REEMBOLSADO') && purchase.pago.monto === purchase.total) {
+    @if ((purchase.estado === 'COMPLETADA' && purchase.fecha_completada && purchase.pago && (purchase.pago.estado === 'APROBADO' || purchase.pago.estado === 'REEMBOLSADO') && purchase.pago.monto === purchase.total) || isOfflineDetail()) {
       <p><a class="solid" [routerLink]="['/mis-compras', purchase.id_venta, 'comprobante']">Ver comprobante</a></p>
     }
     <app-purchase-return-request [purchase]="purchase" (changed)="retry()" />

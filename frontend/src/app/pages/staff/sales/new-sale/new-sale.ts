@@ -468,7 +468,7 @@ export class NewSale implements OnInit {
     const sale = this.result();
     if (!sale || sale.estado !== 'PENDIENTE' || this.busy()) return;
     try {
-      this.payments.saveSale({ id: sale.id_venta, numero: sale.numero_venta, sucursal: sale.sucursal.nombre,
+      this.payments.saveSale({ id: sale.id_venta, numero: sale.numero_venta, sucursal: sale.sucursal.nombre, id_sucursal: sale.id_sucursal, id_reserva: sale.id_reserva ?? null,
         canal: 'PRESENCIAL', estado: sale.estado, fecha: sale.fecha_venta, subtotal: sale.subtotal,
         descuento: sale.descuento_total, total: sale.total,
         items: sale.detalles.map(item => ({ id: item.id_variante_producto, nombre: item.producto,

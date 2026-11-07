@@ -7,7 +7,9 @@ import {
   BranchAvailability,
   CatalogAvailabilityService,
 } from '../../core/services/catalog-availability.service';
+import { OfflineReceiptData } from '../../core/models/offline.model';
 import { ClientReservationsService } from '../../core/services/client-reservations.service';
+import { OfflineService } from '../../core/services/offline.service';
 import {
   ReservationContext,
   ReservationSelectionService,
@@ -35,6 +37,7 @@ export class ReservationCheckout implements OnInit {
   private readonly availabilityService = inject(CatalogAvailabilityService);
   private readonly reservationService = inject(ClientReservationsService);
   private readonly session = inject(SessionService);
+  private readonly offlineService = inject(OfflineService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -47,6 +50,10 @@ export class ReservationCheckout implements OnInit {
   protected readonly branchesWithoutSchedule = signal(0);
   protected readonly editingContext = signal(false);
   protected readonly pendingSchedule = signal<ReservationScheduleSelection | null>(null);
+  /** Comprobante local (PENDIENTE DE SINCRONIZACIÓN) tras guardar la reserva sin internet. */
+  protected readonly offlineReceipt = signal<OfflineReceiptData | null>(null);
+  /** UUID idempotente del intento actual: se reutiliza en clics repetidos y se renueva al terminar. */
+  private draftUuid: string | null = null;
   protected readonly previewTotal = computed(() =>
     this.items().reduce(
       (total, item) => total + Number(item.precio_referencia) * item.cantidad,
@@ -175,10 +182,21 @@ export class ReservationCheckout implements OnInit {
     );
   }
 
+  protected isOffline(): boolean {
+    return (
+      !this.offlineService.isOnline() || (typeof navigator !== 'undefined' && !navigator.onLine)
+    );
+  }
+
   protected confirm(): void {
     const context = this.context();
+    if (this.saving()) return;
     if (!context || !this.canSubmit()) {
       this.errorMessage.set('Revisa el contexto y la disponibilidad antes de confirmar.');
+      return;
+    }
+    if (this.isOffline()) {
+      void this.confirmOffline(context);
       return;
     }
     this.saving.set(true);
@@ -217,6 +235,40 @@ export class ReservationCheckout implements OnInit {
           );
         },
       });
+  }
+
+  private async confirmOffline(context: ReservationContext): Promise<void> {
+    this.saving.set(true);
+    this.errorMessage.set('');
+    this.draftUuid ??= crypto.randomUUID();
+    try {
+      const result = await this.offlineService.registerClientOfflineReservation({
+        uuid: this.draftUuid,
+        context,
+        items: this.items(),
+      });
+      if (result.receipt) {
+        this.offlineReceipt.set(result.receipt);
+        this.selection.clear();
+        this.draftUuid = null;
+      } else {
+        this.errorMessage.set(result.errors.join(' '));
+      }
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  protected formatReceiptDate(value: string): string {
+    return new Intl.DateTimeFormat('es-BO', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/La_Paz',
+    }).format(new Date(value));
+  }
+
+  protected printReceipt(): void {
+    window.print();
   }
 
   protected formatContextDate(context: ReservationContext): string {

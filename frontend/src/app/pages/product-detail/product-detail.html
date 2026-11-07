@@ -9,6 +9,29 @@
       }
     </nav>
 
+    @if (isOfflineMode()) {
+      <div class="offline-banner" [class.offline-banner--warning]="isOfflineExpired()">
+        <app-icon name="monitor-smartphone" [size]="18" />
+        <div class="offline-banner__content">
+          <div class="offline-banner__title">
+            <strong>Información offline</strong>
+            @if (offlineLastUpdated()) {
+              <span>· Preparado el {{ offlineLastUpdated() }}</span>
+            }
+          </div>
+          @if (isOfflineExpired()) {
+            <p class="offline-banner__warning">
+              Advertencia: Los datos locales de esta prenda están vencidos (vencieron el {{ offlineExpiryDate() }}). Conéctate a internet para consultar existencias vigentes.
+            </p>
+          } @else {
+            <p class="offline-banner__note">
+              Mostrando la información de esta prenda guardada en tu dispositivo. Puedes consultar disponibilidad por sucursal sin conexión.
+            </p>
+          }
+        </div>
+      </div>
+    }
+
     @if (loading()) {
       <div class="detail-skeleton">
         <div></div>
