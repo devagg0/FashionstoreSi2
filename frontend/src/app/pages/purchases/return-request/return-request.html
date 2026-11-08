@@ -2,7 +2,7 @@
   <div>
     <p class="eyebrow">ESTAMOS PARA AYUDARTE</p>
     <h2>Atención a tu compra</h2>
-    <p>Solicita una revisión y sigue su estado desde aquí.</p>
+    <p>Solicita una revisión, cambio o devolución y sigue su estado desde aquí.</p>
   </div>
   <div class="actions">
     @if (canCancel()) {
@@ -16,17 +16,45 @@
       </button>
     }
     @if (purchase().estado === 'COMPLETADA') {
-      <button
-        type="button"
-        class="solid"
-        (click)="open('DEVOLUCION')"
-        [disabled]="busy() || checking()"
-      >
-        Solicitar devolución
-      </button>
+      @if (dentroPlazo72h()) {
+        <button
+          type="button"
+          class="solid"
+          (click)="open('CAMBIO')"
+          [disabled]="busy() || checking() || !isOnline()"
+        >
+          Solicitar cambio
+        </button>
+        <button
+          type="button"
+          class="outline"
+          (click)="open('DEVOLUCION')"
+          [disabled]="busy() || checking() || !isOnline()"
+        >
+          Solicitar devolución
+        </button>
+      }
     }
   </div>
 </section>
+@if (purchase().estado === 'COMPLETADA' && plazoExpiradoMensaje()) {
+  <p class="notice bad" role="alert">{{ plazoExpiradoMensaje() }}</p>
+}
+@if (purchase().estado === 'COMPLETADA' && dentroPlazo72h()) {
+  <p class="notice good plazo-info" role="status">
+    ✓ Plazo para cambios y devoluciones activo.
+    @if (horasRestantes() !== null) {
+      Dispones de hasta 72 horas posteriores a la compra (te quedan aprox. {{ horasRestantes() }} h).
+    } @else {
+      Dentro de las 72 horas posteriores a la finalización de tu compra.
+    }
+  </p>
+}
+@if (purchase().estado === 'COMPLETADA' && !isOnline()) {
+  <p class="notice bad" role="alert">
+    Se requiere conexión a internet para solicitar cambio o devolución.
+  </p>
+}
 @if (success()) {
   <p class="notice good" role="status">{{ success() }}</p>
 }
@@ -42,7 +70,7 @@
         (click)="view(entry.id_devolucion)"
         [disabled]="checking() || busy()"
       >
-        Consultar {{ reference(entry.id_devolucion) }}
+        Consultar {{ reference(entry.id_devolucion) }} ({{ label(entry.tipo) }})
       </button>
     }
   </div>
@@ -52,24 +80,246 @@
     <div>
       <p class="eyebrow">SEGUIMIENTO · {{ reference(entry.id_devolucion) }}</p>
       <h2>{{ label(entry.tipo) }}</h2>
+      <p class="delivery-modality">
+        Modalidad de entrega:
+        <strong>
+          {{
+            entry.modalidad_entrega === 'DELIVERY_SIMULADO'
+              ? 'Delivery simulado'
+              : entry.modalidad_entrega === 'ENTREGA_EN_TIENDA'
+                ? 'Entrega en tienda física'
+                : 'Pendiente de aceptación del cajero (CU16)'
+          }}
+        </strong>
+      </p>
       <p>{{ entry.motivo }}</p>
       <small>{{ date(entry.created_at) }}</small>
     </div>
-    <span class="badge" [attr.data-tone]="tone(entry.estado)">{{ entry.estado }}</span>
+    <span class="badge" [attr.data-tone]="tone(entry.estado)">
+      {{ stateLabel(entry.estado) }}
+    </span>
+    @if (entry.motivo_rechazo) {
+      <div class="notice bad" style="margin-top: 0.75rem;" role="alert">
+        <strong>Motivo del rechazo:</strong> {{ entry.motivo_rechazo }}
+      </div>
+    }
+    @if (entry.estado === 'ACEPTADA_INICIALMENTE') {
+      <div class="notice good" style="margin-top: 1rem;">
+        <h4>¡Tu solicitud fue aceptada inicialmente por la tienda!</h4>
+        <p>Ahora debes elegir cómo harás llegar la prenda para la verificación e inspección física:</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0;">
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+            <input
+              type="radio"
+              name="chosenModality"
+              value="ENTREGA_EN_TIENDA"
+              [ngModel]="clientSelectedModality()"
+              (ngModelChange)="clientSelectedModality.set($event)"
+              [disabled]="savingModality()"
+            />
+            <div>
+              <strong>Entrega en tienda física</strong>
+              <p style="margin: 0; font-size: 0.85rem; color: inherit; opacity: 0.9;">
+                Acércate a la sucursal de la compra para entregar la prenda en persona.
+              </p>
+            </div>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+            <input
+              type="radio"
+              name="chosenModality"
+              value="DELIVERY_SIMULADO"
+              [ngModel]="clientSelectedModality()"
+              (ngModelChange)="clientSelectedModality.set($event)"
+              [disabled]="savingModality()"
+            />
+            <div>
+              <strong>Delivery simulado</strong>
+              <p style="margin: 0; font-size: 0.85rem; color: inherit; opacity: 0.9;">
+                Envía la prenda por delivery. El personal confirmará la recepción física en tienda.
+              </p>
+            </div>
+          </label>
+        </div>
+        <button
+          type="button"
+          class="solid"
+          (click)="confirmDeliveryModality(entry.id_devolucion)"
+          [disabled]="!clientSelectedModality() || savingModality() || !isOnline()"
+        >
+          {{ savingModality() ? 'Guardando modalidad…' : 'Confirmar modalidad de entrega' }}
+        </button>
+      </div>
+    }
+    @if (entry.estado === 'PENDIENTE_ENTREGA') {
+      <p class="notice pending" style="margin-top: 0.75rem;">
+        Modalidad seleccionada: <strong>{{ entry.modalidad_entrega === 'DELIVERY_SIMULADO' ? 'Delivery simulado' : 'Entrega en tienda física' }}</strong>.
+        Por favor haz llegar la prenda a la tienda para que el personal confirme su recepción e inspección.
+      </p>
+    }
+    @if (entry.estado === 'RECIBIDA') {
+      <p class="notice info" style="margin-top: 0.75rem;">
+        Prenda recibida en tienda física el {{ date(entry.fecha_recepcion) }}. En espera de la inspección física.
+      </p>
+    }
+    @if (entry.estado === 'APROBADA') {
+      <p class="notice good" style="margin-top: 0.75rem;">
+        Prenda inspeccionada y aprobada definitivamente. Pendiente del procesamiento del cambio o devolución de dinero.
+      </p>
+    }
+    @if (entry.tipo === 'CAMBIO') {
+      <div class="economic-summary-result">
+        @if (entry.estado === 'APROBADA' && entry.estado_pago_adicional === 'CONFIRMADO') {
+          <div class="notice good" style="margin-top: 0.75rem;">
+            <strong>✓ Pago de diferencia confirmado:</strong>
+            {{ money(entry.monto_adicional_cobrado ?? entry.diferencia_definitiva ?? 0) }} con {{ entry.medio_pago_adicional || 'tarjeta' }}.
+            @if (entry.referencia_pago_adicional) { (Ref: {{ entry.referencia_pago_adicional }}) }
+            <br /><small>Tu pago está registrado y validado en el sistema. Puedes retirar tu prenda de reemplazo en la tienda.</small>
+            @if (paymentSuccess()) {
+              <p style="margin: 0.5rem 0 0; font-size: 0.85rem; font-weight: 500;">{{ paymentSuccess() }}</p>
+            }
+          </div>
+        } @else if (entry.estado === 'APROBADA' && ((entry.diferencia_definitiva && +entry.diferencia_definitiva > 0) || (entry.resumen_economico?.resultado_economico === 'IMPORTE_ADICIONAL' && +entry.resumen_economico?.importe_adicional_estimado > 0))) {
+          <div class="notice pending" style="margin-top: 0.75rem; border: 1px solid #3b82f6; padding: 1rem; border-radius: 8px;">
+            <p style="margin: 0; font-size: 0.95rem;">
+              <strong>Importe definitivo pendiente por el cambio:</strong>
+              <span style="font-size: 1.15rem; font-weight: bold; color: #b91c1c; margin-left: 0.5rem;">
+                {{ money(entry.diferencia_definitiva ?? entry.importe_adicional_estimado ?? entry.resumen_economico?.importe_adicional_estimado ?? 0) }}
+              </span>
+            </p>
+            <p style="margin: 0.25rem 0 0.75rem; font-size: 0.85rem; color: #4b5563;">
+              La prenda de reemplazo tiene un valor mayor. Elige cómo prefieres abonar la diferencia:
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 0.5rem;">
+              <div style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.85rem; background: #ffffff;">
+                <h5 style="margin: 0 0 0.25rem; font-size: 0.95rem; color: #1e3a8a;">💳 Opción 1: Pagar online con Stripe</h5>
+                <p style="margin: 0 0 0.75rem; font-size: 0.8rem; color: #4b5563;">
+                  Paga con tarjeta de débito o crédito mediante Stripe Checkout seguro (modo TEST).
+                </p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="solid"
+                    style="font-size: 0.85rem; padding: 0.4rem 0.75rem;"
+                    (click)="payWithStripe(entry.id_devolucion)"
+                    [disabled]="payingStripe() || verifyingStripe() || stripePendingReconciliation() || !isOnline()"
+                    [title]="stripePendingReconciliation() ? 'Existe una sesión de pago pendiente de conciliación; usa Verificar pago online' : 'Iniciar o continuar pago en Stripe Checkout'"
+                  >
+                    {{ payingStripe() ? 'Iniciando Stripe…' : stripePendingReconciliation() ? 'Pago en conciliación' : 'Pagar online con Stripe' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="outline"
+                    style="font-size: 0.85rem; padding: 0.4rem 0.75rem;"
+                    (click)="verifyStripePayment(entry.id_devolucion)"
+                    [disabled]="payingStripe() || verifyingStripe() || !isOnline()"
+                    title="Si completaste el pago en Stripe, confirma aquí el resultado"
+                  >
+                    {{ verifyingStripe() ? 'Verificando…' : 'Verificar pago online' }}
+                  </button>
+                </div>
+                @if (stripePendingReconciliation()) {
+                  <p style="margin: 0.5rem 0 0; font-size: 0.8rem; color: #92400e;">
+                    Existe una sesión de pago pendiente de conciliación. Usa «Verificar pago online» para confirmar el cobro sin generar un nuevo cargo.
+                  </p>
+                }
+              </div>
+
+              <div style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.85rem; background: #ffffff;">
+                <h5 style="margin: 0 0 0.25rem; font-size: 0.95rem; color: #1e3a8a;">🏪 Opción 2: Pagar en tienda</h5>
+                <p style="margin: 0; font-size: 0.85rem; color: #4b5563;">
+                  Acércate a la sucursal de la compra para abonar la diferencia en caja (efectivo, POS físico o QR presencial) al retirar tu prenda de reemplazo.
+                </p>
+              </div>
+            </div>
+
+            @if (verifyingStripe()) {
+              <p class="notice info" style="margin-top: 0.75rem;" role="status">
+                Verificando pago de Stripe con el servidor FashionStore… Por favor, espera un momento.
+              </p>
+            }
+            @if (paymentSuccess()) {
+              <p class="notice good" style="margin-top: 0.75rem;" role="status">{{ paymentSuccess() }}</p>
+            }
+            @if (paymentError()) {
+              <p class="notice bad" style="margin-top: 0.75rem;" role="alert">{{ paymentError() }}</p>
+            }
+          </div>
+        } @else if (entry.resumen_economico?.resultado_economico === 'IMPORTE_ADICIONAL' || (entry.importe_adicional_estimado && +entry.importe_adicional_estimado > 0)) {
+          <p class="notice pending">
+            <strong>Importe adicional estimado a abonar:</strong>
+            {{ money(entry.importe_adicional_estimado || entry.resumen_economico?.importe_adicional_estimado || 0) }}
+            <br /><small>El reemplazo seleccionado tiene un valor mayor. Se abonará una vez inspeccionada y aprobada la solicitud.</small>
+          </p>
+        } @else if (entry.resumen_economico?.resultado_economico === 'SALDO_A_FAVOR' || (entry.saldo_a_favor_estimado && +entry.saldo_a_favor_estimado > 0)) {
+          <p class="notice good">
+            <strong>Saldo a favor estimado del cliente:</strong>
+            {{ money(entry.saldo_a_favor_estimado || entry.resumen_economico?.saldo_a_favor_estimado || 0) }}
+            <br /><small>El reemplazo tiene un valor menor. Se restituirá como crédito o reembolso.</small>
+          </p>
+        } @else {
+          <p class="notice good">
+            <strong>Sin diferencia de precio:</strong> Bs 0.00
+            <br /><small>Las prendas de reemplazo tienen el mismo valor neto reconocido.</small>
+          </p>
+        }
+      </div>
+    }
     @if (entry.lineas.length) {
-      <ul>
+      <ul class="request-lines-list">
         @for (line of entry.lineas; track line.id_variante_producto) {
           <li>
-            Variante #{{ line.id_variante_producto }} · {{ line.cantidad }} unidades · Restitución
-            {{ money(line.importe_restitucion) }}
+            <div>
+              <strong>Prenda original:</strong>
+              Variante #{{ line.id_variante_producto }}
+              @if (line.prenda_original?.nombre_producto) {
+                ({{ line.prenda_original?.nombre_producto }} · Talla {{ line.prenda_original?.talla }} · Color {{ line.prenda_original?.color }})
+              }
+              · {{ line.cantidad }} unidad(es)
+              @if (entry.tipo === 'DEVOLUCION') {
+                · Restitución {{ money(line.importe_restitucion) }}
+              }
+            </div>
+            @if (line.id_variante_reemplazo) {
+              <div class="replacement-info">
+                ↳ <strong>Reemplazo:</strong>
+                Variante #{{ line.id_variante_reemplazo }}
+                @if (line.prenda_reemplazo?.nombre_producto) {
+                  ({{ line.prenda_reemplazo?.nombre_producto }} · Talla {{ line.prenda_reemplazo?.talla }} · Color {{ line.prenda_reemplazo?.color }})
+                }
+              </div>
+            }
           </li>
         }
       </ul>
     }
+    @if (entry.tipo === 'DEVOLUCION') {
+      <div style="margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border, #e5e7eb); background: var(--bg-card, #f9fafb);">
+        <p style="margin: 0 0 0.35rem;">
+          <strong>Importe de restitución:</strong>
+          {{ money(entry.monto_reembolsar ?? entry.saldo_a_favor_estimado ?? 0) }}
+          @if (entry.pago) {
+            · <strong>Medio original:</strong> {{ entry.pago.medio }} ({{ entry.pago.proveedor === 'STRIPE' ? 'Stripe TEST' : 'En tienda' }})
+          }
+        </p>
+        <p style="margin: 0;">
+          <strong>Estado del reembolso:</strong>
+          <span class="badge" [attr.data-tone]="entry.estado_reembolso === 'CONFIRMADO' ? 'good' : (entry.estado_reembolso === 'FALLIDO' ? 'bad' : 'pending')">
+            {{ entry.estado_reembolso || 'PENDIENTE' }}
+          </span>
+        </p>
+      </div>
+    }
     @for (refund of entry.reembolsos; track refund.id_reembolso) {
-      <p>
-        Reembolso {{ money(refund.monto) }}
-        <span class="badge" [attr.data-tone]="tone(refund.estado)">{{ refund.estado }}</span>
+      <p style="margin-top: 0.5rem;">
+        Reembolso #{{ refund.id_reembolso }}: <strong>{{ money(refund.monto) }}</strong>
+        <span class="badge" [attr.data-tone]="tone(refund.estado)">
+          {{ refund.estado === 'APROBADO' ? 'CONFIRMADO (APROBADO)' : (refund.estado === 'RECHAZADO' ? 'FALLIDO (RECHAZADO)' : refund.estado) }}
+        </span>
+        @if (refund.referencia_externa) {
+          · <small>Ref: {{ refund.referencia_externa }}</small>
+        }
       </p>
       @if (refund.estado === 'PENDIENTE') {
         <p class="notice pending">
@@ -82,6 +332,18 @@
         </p>
       }
     }
+    @if (entry.estado === 'PROCESADA') {
+      <div class="notice good" style="margin: 0.75rem 0;">
+        <h4>✓ Solicitud procesada con éxito</h4>
+        <p style="margin: 0.25rem 0 0;">
+          {{
+            entry.tipo === 'CAMBIO'
+              ? 'El cambio ha sido procesado y la prenda de reemplazo fue entregada.'
+              : 'La devolución y el reembolso de ' + money(entry.monto_reembolsar ?? entry.saldo_a_favor_estimado ?? 0) + ' han sido procesados y confirmados con éxito.'
+          }}
+        </p>
+      </div>
+    }
     <button
       type="button"
       class="outline"
@@ -90,11 +352,24 @@
     >
       {{ checking() ? 'Consultando…' : 'Actualizar estado' }}
     </button>
+    <a
+      class="outline"
+      [routerLink]="['/mis-devoluciones', entry.id_devolucion]"
+      style="margin-left: 0.5rem; text-decoration: none; display: inline-block;"
+    >
+      Ver seguimiento completo ↗
+    </a>
   </section>
 }
 @if (kind(); as mode) {
   <app-return-modal
-    [title]="mode === 'CANCELACION' ? 'Cancelar compra' : 'Solicitar devolución'"
+    [title]="
+      mode === 'CANCELACION'
+        ? 'Cancelar compra'
+        : mode === 'CAMBIO'
+          ? 'Solicitar cambio de prenda'
+          : 'Solicitar devolución'
+    "
     [busy]="busy() || checking()"
     (closed)="close()"
   >
@@ -103,48 +378,123 @@
         {{
           mode === 'CANCELACION'
             ? 'Enviarás una solicitud de cancelación. La compra se anulará cuando el personal la apruebe y procese; su disponibilidad se verificará nuevamente.'
-            : 'Selecciona las prendas y cantidades. FashionStore revisará tu solicitud antes de autorizar el reintegro y el reembolso.'
+            : mode === 'CAMBIO'
+              ? 'Elige las prendas que deseas cambiar, la cantidad y la prenda de reemplazo con stock en la sucursal. Tu solicitud quedará pendiente de revisión del cajero; la modalidad de entrega se elegirá una vez que el cajero la acepte.'
+              : 'Selecciona las prendas y cantidades a devolver. Tu solicitud quedará pendiente de revisión del cajero; la modalidad de entrega se elegirá una vez que el cajero la acepte.'
         }}
       </p>
-      @if (checking()) {
-        <p role="status">Verificando devoluciones anteriores…</p>
+      @if (checking() || loadingOptions()) {
+        <p role="status">Verificando opciones y disponibilidad con el servidor…</p>
       }
-      @if (mode === 'DEVOLUCION') {
+      @if (mode === 'DEVOLUCION' || mode === 'CAMBIO') {
         <div class="return-products">
           @for (item of purchase().productos; track item.id_detalle_venta) {
             <article class="return-product">
-              <div>
+              <div class="product-info">
                 <strong>{{ item.nombre || 'Producto #' + item.id_variante_producto }}</strong>
                 <p>Talla {{ item.talla || '—' }} · Color {{ item.color || '—' }}</p>
-                <small>Compradas: {{ item.cantidad }} · Disponibles: {{ available(item) }}</small>
+                <small>Compradas: {{ item.cantidad }} · Disponibles: {{ available(item) }} · Valor compra: {{ money(unitRecognizedValue(item)) }} c/u</small>
               </div>
-              <label
-                >Devolver<input
-                  type="number"
-                  min="0"
-                  step="1"
-                  [max]="available(item)"
-                  [name]="'quantity-' + item.id_detalle_venta"
-                  [ngModel]="quantities()[item.id_detalle_venta] || 0"
-                  (ngModelChange)="quantity(item, $event)"
-                  [disabled]="busy() || checking() || frozen() || available(item) === 0"
-              /></label>
+              <div class="product-qty">
+                <label>
+                  {{ mode === 'CAMBIO' ? 'Cambiar' : 'Devolver' }}
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    [max]="available(item)"
+                    [name]="'quantity-' + item.id_detalle_venta"
+                    [ngModel]="quantities()[item.id_detalle_venta] || 0"
+                    (ngModelChange)="quantity(item, $event)"
+                    (input)="onQuantityInput(item, $event)"
+                    (paste)="onQuantityPaste(item, $event)"
+                    [disabled]="busy() || checking() || frozen() || available(item) === 0"
+                  />
+                </label>
+              </div>
+              @if (mode === 'CAMBIO' && (quantities()[item.id_detalle_venta] || 0) > 0) {
+                <div class="replacement-selector">
+                  <label>
+                    Prenda de reemplazo (sucursal {{ purchase().sucursal.nombre }}):
+                    <select
+                      [name]="'replacement-' + item.id_detalle_venta"
+                      [ngModel]="replacements()[item.id_detalle_venta] || null"
+                      (ngModelChange)="setReplacement(item.id_detalle_venta, $event)"
+                      [disabled]="busy() || frozen()"
+                      required
+                    >
+                      <option [ngValue]="null">-- Seleccionar talla, color o producto --</option>
+                      @for (v of availableReplacementsFor(item); track v.id_variante_producto) {
+                        <option [ngValue]="v.id_variante_producto">
+                          {{ v.nombre_producto }} · Talla {{ v.talla }} · Color {{ v.color }} · {{ money(v.precio_unitario) }} (Stock: {{ v.stock_disponible }})
+                        </option>
+                      }
+                    </select>
+                  </label>
+                  @if (selectedReplacementVariant(item.id_detalle_venta); as rep) {
+                    <small class="replacement-preview">
+                      Seleccionado: {{ rep.nombre_producto }} (Talla {{ rep.talla }}, Color {{ rep.color }}) — {{ money(rep.precio_unitario) }} c/u
+                    </small>
+                  }
+                </div>
+              }
             </article>
           }
         </div>
         <p class="selection">{{ units() }} unidades seleccionadas</p>
+        @if (economicSummary(); as summary) {
+          @if (units() > 0) {
+            <div class="economic-summary-box">
+              <h3>Resumen económico estimado</h3>
+              <dl>
+                <div>
+                  <dt>Valor original reconocido:</dt>
+                  <dd>{{ money(summary.totalOriginal) }}</dd>
+                </div>
+                @if (mode === 'CAMBIO') {
+                  <div>
+                    <dt>Valor prendas reemplazo:</dt>
+                    <dd>{{ money(summary.totalReemplazo) }}</dd>
+                  </div>
+                }
+              </dl>
+              @if (mode === 'CAMBIO') {
+                @if (summary.resultado === 'IMPORTE_ADICIONAL') {
+                  <p class="notice pending">
+                    <strong>Importe adicional estimado a pagar:</strong> {{ money(summary.importeAdicional) }}
+                    <br /><small>El reemplazo seleccionado tiene un valor mayor. Se abonará en tienda al retirar la prenda.</small>
+                  </p>
+                } @else if (summary.resultado === 'SALDO_A_FAVOR') {
+                  <p class="notice good">
+                    <strong>Saldo a favor estimado del cliente:</strong> {{ money(summary.saldoAFavor) }}
+                    <br /><small>El reemplazo seleccionado tiene un valor menor. Se restituirá como crédito o reembolso.</small>
+                  </p>
+                } @else {
+                  <p class="notice good">
+                    <strong>Sin diferencia de precio:</strong> Bs 0.00
+                    <br /><small>Las prendas seleccionadas tienen exactamente el mismo valor neto.</small>
+                  </p>
+                }
+              } @else if (mode === 'DEVOLUCION') {
+                <p class="notice good">
+                  <strong>Restitución estimada a reembolsar:</strong> {{ money(summary.totalOriginal) }}
+                </p>
+              }
+            </div>
+          }
+        }
       }
       <label class="reason"
         >Motivo <span>Obligatorio · máximo 500 caracteres</span>
         <textarea
           name="reason"
-          rows="4"
+          rows="3"
           required
           maxlength="500"
           [ngModel]="reason()"
           (ngModelChange)="reason.set($event)"
           [disabled]="busy() || frozen()"
-          placeholder="Cuéntanos por qué necesitas esta solicitud"
+          placeholder="Cuéntanos el motivo de tu solicitud (ej. cambio de talla, prenda no adecuada, etc.)"
         ></textarea>
       </label>
       @if (frozen()) {
@@ -167,7 +517,8 @@
             busy() ||
             checking() ||
             !reason().trim() ||
-            (mode === 'DEVOLUCION' && (units() === 0 || !verified()))
+            (mode === 'DEVOLUCION' && (units() === 0 || !verified())) ||
+            (mode === 'CAMBIO' && (units() === 0 || !allReplacementsSelected()))
           "
         >
           {{ busy() ? 'Enviando…' : frozen() ? 'Reintentar solicitud' : 'Confirmar solicitud' }}

@@ -1,4 +1,4 @@
-﻿<main id="main-content" class="purchases-page shell">
+<main id="main-content" class="purchases-page shell">
   <a class="back" [routerLink]="id() === null ? '/catalogo' : '/mis-compras'"
     >← {{ id() === null ? 'Explorar catálogo' : 'Volver a mis compras' }}</a
   >
@@ -8,7 +8,11 @@
       <h1>{{ id() === null ? 'Mis compras' : 'Detalle de compra' }}</h1>
       <p>Todo lo que elegiste, en un solo lugar.</p>
     </div>
-    <span class="heading-mark" aria-hidden="true">◇</span>
+    @if (id() === null) {
+      <a class="outline" routerLink="/mis-devoluciones">Ver mis cambios y devoluciones ↗</a>
+    } @else {
+      <span class="heading-mark" aria-hidden="true">◇</span>
+    }
   </header>
   @if (id() === null) {
     <section class="filters" aria-label="Filtrar compras">
@@ -280,7 +284,7 @@
             @for (entry of purchase.devoluciones; track entry.id_devolucion) {
               <article class="return-record">
                 <div class="card-top">
-                  <h3>{{ entry.tipo === 'CANCELACION' ? 'Cancelación' : 'Devolución' }} · SOL-{{ entry.id_devolucion }}</h3>
+                  <h3>{{ entry.tipo === 'CANCELACION' ? 'Cancelación' : entry.tipo === 'CAMBIO' ? 'Cambio de prenda' : 'Devolución' }} · SOL-{{ entry.id_devolucion }}</h3>
                   <span class="badge" [attr.data-tone]="tone(entry.estado)">{{
                     entry.estado
                   }}</span>

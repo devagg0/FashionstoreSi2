@@ -1,4 +1,4 @@
-﻿import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -82,6 +82,15 @@ export class PurchasesPage {
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
       const raw = params.get('id');
+      if (raw === null) {
+        const idVentaQuery = this.route.snapshot.queryParamMap.get('id_venta');
+        if (idVentaQuery && /^[1-9]\d*$/.test(idVentaQuery)) {
+          void this.router.navigate(['/mis-compras', idVentaQuery], {
+            queryParams: this.route.snapshot.queryParams,
+          });
+          return;
+        }
+      }
       this.id.set(raw === null ? null : /^[1-9]\d*$/.test(raw) ? Number(raw) : NaN);
       this.items.set([]);
       this.detail.set(null);

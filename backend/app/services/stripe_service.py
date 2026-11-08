@@ -89,6 +89,40 @@ class StripeService:
         except StripeError:
             raise StripeConnectionError("No se pudo crear Checkout TEST; reintente el mismo pago") from None
 
+    def create_exchange_checkout_session(self, *, amount, currency, sale_id, return_id, key, success_url, cancel_url):
+        metadata = {
+            "id_venta": str(sale_id),
+            "id_devolucion": str(return_id),
+            "clave_idempotencia": str(key),
+            "tipo": "CAMBIO_DIFERENCIA",
+        }
+        try:
+            return self._client.v1.checkout.sessions.create(
+                params={
+                    "mode": "payment",
+                    "payment_method_types": ["card"],
+                    "client_reference_id": f"fashionstore-exchange-{return_id}",
+                    "line_items": [{
+                        "quantity": 1,
+                        "price_data": {
+                            "currency": currency.lower(),
+                            "unit_amount": amount,
+                            "product_data": {
+                                "name": f"FashionStore - Diferencia de cambio SOL-{return_id:05d}",
+                                "description": f"Diferencia económica por cambio de prenda en compra #{sale_id}",
+                            },
+                        },
+                    }],
+                    "metadata": metadata,
+                    "payment_intent_data": {"metadata": metadata},
+                    "success_url": success_url,
+                    "cancel_url": cancel_url,
+                },
+                options={"idempotency_key": f"fashionstore-cu17-checkout-{key}"},
+            )
+        except StripeError:
+            raise StripeConnectionError("No se pudo crear Checkout TEST para el cambio; reintente la operación") from None
+
     def create_saas_checkout_session(
         self,
         *,

@@ -1,4 +1,4 @@
-﻿import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
@@ -39,14 +39,25 @@ export interface PurchaseItem {
   subtotal_linea: string;
   imagen?: string | null;
 }
+export type PurchaseReturnState =
+  | 'SOLICITADA'
+  | 'ACEPTADA_INICIALMENTE'
+  | 'PENDIENTE_ENTREGA'
+  | 'RECIBIDA'
+  | 'APROBADA'
+  | 'RECHAZADA'
+  | 'PROCESADA';
+
 export interface PurchaseReturn {
   id_devolucion: number;
-  tipo: 'DEVOLUCION' | 'CANCELACION';
-  estado: 'SOLICITADA' | 'APROBADA' | 'RECHAZADA' | 'PROCESADA';
+  tipo: 'DEVOLUCION' | 'CANCELACION' | 'CAMBIO';
+  estado: PurchaseReturnState;
   motivo: string;
   fecha: string;
   fecha_resolucion: string | null;
   fecha_procesamiento: string | null;
+  modalidad_entrega?: string | null;
+  motivo_rechazo?: string | null;
 }
 export interface PurchaseRefund {
   id_reembolso: number;

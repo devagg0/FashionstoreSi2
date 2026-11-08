@@ -304,7 +304,7 @@ class PaymentsService:
         try:
             return obj[name]
         except (KeyError, TypeError):
-            return default
+            return getattr(obj, name, default)
 
     def _return_urls(self, sale, payment, *, return_target="web"):
         if return_target == "mobile":

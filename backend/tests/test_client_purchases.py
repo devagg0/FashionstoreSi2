@@ -1,4 +1,4 @@
-﻿"""CU23: consultas reales en SQLite aislado; nunca conecta servicios externos."""
+"""CU23: consultas reales en SQLite aislado; nunca conecta servicios externos."""
 import asyncio
 import json
 from datetime import datetime, timedelta
@@ -145,17 +145,23 @@ class ClientPurchaseTests(TestCase):
 
     def test_return_and_refund_safe_public_data(self):
         self.db.execute(self.return_table.insert().values(id_devolucion=5,id_venta=1,tipo='DEVOLUCION',
-            estado='PROCESADA',motivo='Talla incorrecta',created_at=self.now,fecha_resolucion=self.now,fecha_procesamiento=self.now))
+            estado='PROCESADA',motivo='Talla incorrecta',created_at=self.now,fecha_resolucion=self.now,fecha_procesamiento=self.now,
+            modalidad_entrega=None,motivo_rechazo=None))
+        self.db.execute(self.return_table.insert().values(id_devolucion=11,id_venta=1,tipo='DEVOLUCION',
+            estado='ACEPTADA_INICIALMENTE',motivo='Devolucion CU16',created_at=self.now+timedelta(minutes=5),fecha_resolucion=None,fecha_procesamiento=None,
+            modalidad_entrega=None,motivo_rechazo=None))
         self.db.execute(self.refund_table.insert().values(id_reembolso=6,id_venta=1,id_pago=1,id_devolucion=5,
             estado='APROBADO',monto=10,created_at=self.now,fecha_aprobacion=self.now))
         self.db.execute(self.return_table.insert().values(id_devolucion=7,id_venta=3,tipo='DEVOLUCION',
-            estado='SOLICITADA',motivo='Ajena',created_at=self.now))
+            estado='SOLICITADA',motivo='Ajena',created_at=self.now,fecha_resolucion=None,fecha_procesamiento=None,
+            modalidad_entrega=None,motivo_rechazo=None))
         self.db.commit()
-        status,body=request(self.app,'/api/client/purchases/1')
-        self.assertEqual(status,200)
-        self.assertEqual(body['data']['devoluciones'][0]['id_devolucion'],5)
-        self.assertEqual(body['data']['reembolsos'][0]['monto'],'10.00')
-        self.assertEqual(len(body['data']['devoluciones']),1)
+        detail = self.service.detail(12, 1)
+        resp = routes.PurchaseResponse(data=detail)
+        self.assertEqual(resp.data.devoluciones[0].id_devolucion, 11)
+        self.assertEqual(resp.data.devoluciones[0].estado, 'ACEPTADA_INICIALMENTE')
+        self.assertEqual(resp.data.reembolsos[0].monto, Decimal('10.00'))
+        self.assertEqual(len(resp.data.devoluciones), 2)
 
     def test_no_sensitive_or_internal_fields(self):
         status,body=request(self.app,'/api/client/purchases/1')
