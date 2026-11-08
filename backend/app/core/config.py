@@ -1,8 +1,11 @@
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import EmailStr, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -68,7 +71,7 @@ class Settings(BaseSettings):
         return value
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(_ENV_FILE, ".env"),
         env_file_encoding="utf-8",
         hide_input_in_errors=True,
     )

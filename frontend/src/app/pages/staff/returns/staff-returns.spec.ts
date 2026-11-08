@@ -310,4 +310,50 @@ describe('CU24 personal', () => {
     page.open('PROCESAR');
     expect(page.action()).toBe('PROCESAR');
   });
+
+  it('diferencia error de servidor de una lista vacía y muestra mensaje claro con botón reintentar', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { paramMap: of(convertToParamMap({})) },
+        },
+        {
+          provide: SessionService,
+          useValue: {
+            getAccessToken: () => 'token',
+            getUser: () => ({ id_usuario: 5 }),
+            logout: vi.fn(),
+          },
+        },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(StaffReturnsPage);
+    page = fixture.componentInstance;
+
+    // 1. Simular error 500 del servidor
+    const req = http.expectOne((r) => r.url === base);
+    req.flush({ message: 'Error interno del servidor' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    // Comprueba banner de error visible y que NO diga falsamente "No hay solicitudes"
+    expect(page.error()).toContain('servidor');
+    expect(fixture.nativeElement.querySelector('.error-banner')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).not.toContain('No hay solicitudes');
+
+    // 2. Hacer clic en Reintentar y responder con lista vacía legítima
+    page.load();
+    const reqRetry = http.expectOne((r) => r.url === base);
+    reqRetry.flush({ success: true, data: [] });
+    fixture.detectChanges();
+
+    // Comprueba que desaparece el error y ahora sí se muestra el estado vacío informativo
+    expect(page.error()).toBe('');
+    expect(fixture.nativeElement.querySelector('.error-banner')).toBeFalsy();
+    expect(fixture.nativeElement.textContent).toContain('No hay solicitudes');
+  });
 });

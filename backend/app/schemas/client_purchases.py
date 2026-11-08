@@ -52,12 +52,22 @@ class PurchaseItem(BaseModel):
 
 class PurchaseReturn(BaseModel):
     id_devolucion: int
-    tipo: Literal["DEVOLUCION", "CANCELACION"]
-    estado: Literal["SOLICITADA", "APROBADA", "RECHAZADA", "PROCESADA"]
+    tipo: Literal["DEVOLUCION", "CANCELACION", "CAMBIO"]
+    estado: Literal[
+        "SOLICITADA",
+        "ACEPTADA_INICIALMENTE",
+        "PENDIENTE_ENTREGA",
+        "RECIBIDA",
+        "APROBADA",
+        "RECHAZADA",
+        "PROCESADA",
+    ]
     motivo: str
     fecha: datetime
     fecha_resolucion: datetime | None
     fecha_procesamiento: datetime | None
+    modalidad_entrega: str | None = None
+    motivo_rechazo: str | None = None
 
 
 class PurchaseRefund(BaseModel):

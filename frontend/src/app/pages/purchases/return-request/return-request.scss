@@ -130,18 +130,128 @@ textarea {
 }
 .return-product {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 18px;
+  flex-direction: column;
+  gap: 12px;
   padding: 18px 0;
   border-bottom: 1px solid var(--color-line);
 }
+.return-product .product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.return-product .product-qty {
+  display: flex;
+  align-items: center;
+}
 .return-product p {
   font-size: 0.8rem;
-  margin: 8px 0;
+  margin: 4px 0;
 }
 .return-product input {
   width: 100px;
+}
+.modality-fieldset {
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.modality-fieldset legend {
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--color-terracotta);
+  padding: 0 6px;
+}
+.modality-options {
+  display: grid;
+  gap: 12px;
+}
+.radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.radio-label input[type='radio'] {
+  margin-top: 3px;
+  accent-color: var(--color-terracotta);
+  width: auto;
+}
+.radio-label span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.radio-label small {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.replacement-selector {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--color-linen);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.replacement-selector select {
+  width: 100%;
+  font-size: 0.85rem;
+}
+.replacement-preview {
+  color: var(--color-terracotta);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.economic-summary-box {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  background: #faf8f5;
+  border-radius: 10px;
+}
+.economic-summary-box h3 {
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+}
+.economic-summary-box dl {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px 0;
+}
+.economic-summary-box dl > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+.delivery-modality {
+  font-size: 0.85rem;
+  margin: 4px 0;
+}
+.economic-summary-result {
+  margin: 12px 0;
+  width: 100%;
+}
+.request-lines-list {
+  width: 100%;
+  padding-left: 20px;
+  margin: 10px 0;
+}
+.request-lines-list li {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.replacement-info {
+  margin-top: 4px;
+  color: var(--color-terracotta);
+  font-size: 0.8rem;
+}
+.plazo-info {
+  margin-bottom: 16px;
 }
 .selection {
   font-weight: 600;

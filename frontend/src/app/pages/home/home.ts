@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CategoryCard } from '../../shared/components/category-card/category-card';
 import { Icon, IconName } from '../../shared/components/icon/icon';
 import { Recommendations } from '../../shared/components/recommendations/recommendations';
@@ -25,6 +25,24 @@ interface Benefit {
   styleUrl: './home.scss',
 })
 export class Home {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  constructor() {
+    this.route.queryParamMap.subscribe((params) => {
+      const idVenta = params.get('id_venta');
+      if (idVenta && /^[1-9]\d*$/.test(idVenta)) {
+        const queryParams: Record<string, string> = {};
+        for (const key of params.keys) {
+          queryParams[key] = params.get(key) || '';
+        }
+        void this.router.navigate(['/mis-compras', idVenta], {
+          queryParams,
+        });
+      }
+    });
+  }
+
   protected readonly heroImage =
     'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1800&q=85';
 

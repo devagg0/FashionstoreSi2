@@ -15,6 +15,20 @@ export const routes: Routes = [
     title: 'Comprobante de venta | FashionStore',
   },
   {
+    path: 'mis-devoluciones',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/client-returns/client-returns').then((m) => m.ClientReturnsPage),
+    title: 'Mis cambios y devoluciones | FashionStore',
+  },
+  {
+    path: 'mis-devoluciones/:id',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/client-returns/client-returns').then((m) => m.ClientReturnsPage),
+    title: 'Detalle de cambio o devolución | FashionStore',
+  },
+  {
     path: 'mis-compras',
     canActivate: [clientGuard],
     loadComponent: () => import('./pages/purchases/purchases').then((m) => m.PurchasesPage),
@@ -25,6 +39,16 @@ export const routes: Routes = [
     canActivate: [clientGuard],
     loadComponent: () => import('./pages/purchases/purchases').then((m) => m.PurchasesPage),
     title: 'Detalle de compra | FashionStore',
+  },
+  {
+    path: 'purchases',
+    redirectTo: 'mis-compras',
+    pathMatch: 'full',
+  },
+  {
+    path: 'purchases/:id',
+    redirectTo: 'mis-compras/:id',
+    pathMatch: 'full',
   },
   {
     path: 'compra/:id/pago',
@@ -137,8 +161,8 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/receipt/receipt').then(m => m.ReceiptPage),
         title: 'Comprobante de venta | FashionStore',
       },
-      { path: 'devoluciones', canActivate: [cashierGuard], loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Devoluciones | FashionStore' },
-      { path: 'devoluciones/:id', canActivate: [cashierGuard], loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Detalle de devoluci?n | FashionStore' },
+      { path: 'devoluciones', loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Devoluciones | FashionStore' },
+      { path: 'devoluciones/:id', loadComponent: () => import('./pages/staff/returns/staff-returns').then(m => m.StaffReturnsPage), title: 'Detalle de devolución | FashionStore' },
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       {
         path: 'ventas/:id/pago',

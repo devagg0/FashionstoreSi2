@@ -1,0 +1,487 @@
+<main id="main-content" class="returns-page shell">
+  <a class="back" [routerLink]="id() === null ? '/mis-compras' : '/mis-devoluciones'">
+    ← {{ id() === null ? 'Volver a mis compras' : 'Volver al listado de solicitudes' }}
+  </a>
+
+  <header class="heading">
+    <div>
+      <p class="eyebrow">FASHIONSTORE · GESTIÓN POSVENTA</p>
+      <h1>{{ id() === null ? 'Mis cambios y devoluciones' : 'Seguimiento de solicitud' }}</h1>
+      <p>Consulta el historial, estado de prendas, inspecciones y liquidaciones en tiempo real.</p>
+    </div>
+    <button type="button" class="outline update-btn" (click)="load()" [disabled]="loading()">
+      {{ loading() ? 'Actualizando…' : 'Actualizar' }}
+    </button>
+  </header>
+
+  @if (error()) {
+    <section class="notice bad" role="alert">
+      <h2>Error al consultar solicitudes</h2>
+      <p>{{ error() }}</p>
+      <button class="outline" type="button" [disabled]="loading()" (click)="load()">
+        Reintentar consulta
+      </button>
+    </section>
+  }
+
+  @if (loading()) {
+    <div class="loading" role="status">
+      <span class="spinner"></span> Cargando {{ id() === null ? 'tus solicitudes' : 'el detalle de la solicitud' }}…
+    </div>
+  }
+
+  <!-- VISTA LISTADO -->
+  @if (id() === null) {
+    <section class="filters" aria-label="Filtrar solicitudes">
+      <label>
+        Tipo
+        <select
+          #tipoSelect
+          [value]="tipo()"
+          (change)="filter(tipoSelect.value, stateSelect.value, modSelect.value)"
+          [disabled]="loading()"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="CAMBIO">CAMBIO</option>
+          <option value="DEVOLUCION">DEVOLUCION</option>
+          <option value="CANCELACION">CANCELACION</option>
+        </select>
+      </label>
+
+      <label>
+        Estado
+        <select
+          #stateSelect
+          [value]="state()"
+          (change)="filter(tipoSelect.value, stateSelect.value, modSelect.value)"
+          [disabled]="loading()"
+        >
+          <option value="">Todos los estados</option>
+          <option value="SOLICITADA">SOLICITADA</option>
+          <option value="ACEPTADA_INICIALMENTE">ACEPTADA_INICIALMENTE</option>
+          <option value="PENDIENTE_ENTREGA">PENDIENTE_ENTREGA</option>
+          <option value="RECIBIDA">RECIBIDA</option>
+          <option value="APROBADA">APROBADA</option>
+          <option value="RECHAZADA">RECHAZADA</option>
+          <option value="PROCESADA">PROCESADA</option>
+        </select>
+      </label>
+
+      <label>
+        Modalidad de entrega
+        <select
+          #modSelect
+          [value]="modalidad()"
+          (change)="filter(tipoSelect.value, stateSelect.value, modSelect.value)"
+          [disabled]="loading()"
+        >
+          <option value="">Todas las modalidades</option>
+          <option value="ENTREGA_EN_TIENDA">ENTREGA_EN_TIENDA</option>
+          <option value="DELIVERY_SIMULADO">DELIVERY_SIMULADO</option>
+        </select>
+      </label>
+
+      @if (filtered()) {
+        <button class="outline" type="button" (click)="filter('', '', '')" [disabled]="loading()">
+          Limpiar filtros
+        </button>
+      }
+      <span class="count">{{ items().length }} {{ items().length === 1 ? 'solicitud' : 'solicitudes' }} · Más recientes primero</span>
+    </section>
+
+    @if (!loading() && !error() && items().length === 0) {
+      <section class="empty">
+        <span aria-hidden="true">◇</span>
+        <h2>{{ filtered() ? 'Sin solicitudes para estos filtros' : 'No tienes cambios ni devoluciones registrados' }}</h2>
+        <p>
+          {{
+            filtered()
+              ? 'Prueba otros criterios de filtrado para encontrar tus solicitudes.'
+              : 'Puedes solicitar un cambio o devolución desde el detalle de cualquiera de tus compras completadas dentro del plazo permitido.'
+          }}
+        </p>
+        @if (filtered()) {
+          <button class="solid" type="button" (click)="filter('', '', '')">Ver todas mis solicitudes</button>
+        } @else {
+          <a class="solid" routerLink="/mis-compras">Ir a mis compras</a>
+        }
+      </section>
+    }
+
+    <div class="history" [attr.aria-busy]="loading()">
+      @for (row of items(); track row.id_devolucion) {
+        <article class="return-card">
+          <div class="card-top">
+            <span class="eyebrow">{{ label(row.tipo) }}</span>
+            <span class="badge" [attr.data-tone]="tone(row.estado)">{{ stateLabel(row.estado) }}</span>
+          </div>
+
+          <h2 class="card-title">
+            {{ row.codigo_solicitud || reference(row.id_devolucion) }}
+          </h2>
+
+          <p class="muted">
+            Compra:
+            <a class="link-subtle" [routerLink]="['/mis-compras', row.id_venta]">
+              {{ row.numero_venta ? saleReference(row.numero_venta) : '#' + row.id_venta }} ↗
+            </a>
+            · Solicitada el {{ date(row.created_at || null) }}
+          </p>
+
+          @if (row.modalidad_entrega) {
+            <p class="modality-tag">
+              Modalidad:
+              <strong>{{ row.modalidad_entrega === 'DELIVERY_SIMULADO' ? 'Delivery simulado' : 'Entrega en tienda física' }}</strong>
+            </p>
+          }
+
+          <p class="reason-preview">{{ row.motivo }}</p>
+
+          <!-- Resumen económico o de reembolso -->
+          <div class="financial-summary">
+            @if (row.tipo === 'CAMBIO') {
+              <div>
+                <small class="muted">Pago de diferencia:</small>
+                <span class="badge small" [attr.data-tone]="tone(row.estado_pago_adicional || 'NO_APLICA')">
+                  {{ row.estado_pago_adicional || 'NO_APLICA' }}
+                </span>
+                @if (row.monto_adicional_cobrado) {
+                  <strong> · {{ money(row.monto_adicional_cobrado) }}</strong>
+                }
+              </div>
+            } @else {
+              <div>
+                <small class="muted">Reembolso:</small>
+                <span class="badge small" [attr.data-tone]="row.estado_reembolso === 'CONFIRMADO' ? 'good' : (row.estado_reembolso === 'FALLIDO' ? 'bad' : 'pending')">
+                  {{ row.estado_reembolso || 'PENDIENTE' }}
+                </span>
+                @if (row.monto_reembolsar) {
+                  <strong> · {{ money(row.monto_reembolsar) }}</strong>
+                }
+              </div>
+            }
+          </div>
+
+          <footer>
+            <div>
+              <small class="muted">Sucursal</small>
+              <p class="branch-name">{{ row.sucursal?.nombre || 'Central' }}</p>
+            </div>
+            <a class="solid" [routerLink]="['/mis-devoluciones', row.id_devolucion]">
+              Ver seguimiento completo ↗
+            </a>
+          </footer>
+        </article>
+      }
+    </div>
+
+    @if (items().length > 0 || offset() > 0) {
+      <footer class="pagination">
+        <button class="outline" type="button" [disabled]="offset() === 0 || loading()" (click)="page(-1)">
+          Anterior
+        </button>
+        <span>Página {{ offset() / 20 + 1 }}</span>
+        <button class="outline" type="button" [disabled]="!hasNext() || loading()" (click)="page(1)">
+          Siguiente
+        </button>
+      </footer>
+    }
+  }
+
+  <!-- VISTA DETALLE -->
+  @if (id() !== null && detail(); as row) {
+    <div class="detail-container">
+      <div class="detail-header-card">
+        <div class="card-top">
+          <span class="eyebrow">{{ label(row.tipo) }}</span>
+          <span class="badge" [attr.data-tone]="tone(row.estado)">{{ stateLabel(row.estado) }}</span>
+        </div>
+
+        <h2 class="detail-title">
+          {{ row.codigo_solicitud || reference(row.id_devolucion) }}
+        </h2>
+
+        <div class="meta-row">
+          <span>
+            Compra asociada:
+            <a class="link-accent" [routerLink]="['/mis-compras', row.id_venta]">
+              {{ row.numero_venta ? saleReference(row.numero_venta) : '#' + row.id_venta }} ↗
+            </a>
+          </span>
+          <span>· Solicitada el: {{ date(row.created_at || null) }}</span>
+          @if (row.sucursal) {
+            <span>· Sucursal: <strong>{{ row.sucursal.nombre }}</strong></span>
+          }
+        </div>
+      </div>
+
+      <!-- HISTORIAL VISUAL DE PROGRESO (CU19) -->
+      @if (row.historial_progreso && row.historial_progreso.length > 0) {
+        <section class="timeline-section" aria-label="Progreso de la solicitud">
+          <div class="section-title">
+            <h3>Historial y avance de la solicitud</h3>
+            <span class="muted">Actualizado en tiempo real</span>
+          </div>
+
+          <ol class="timeline-stepper">
+            @for (step of row.historial_progreso; track step.paso) {
+              <li class="timeline-step" [attr.data-status]="step.estado">
+                <div class="step-indicator" [attr.data-status]="step.estado">
+                  <span class="step-icon">{{ stepIcon(step) }}</span>
+                </div>
+                <div class="step-content">
+                  <div class="step-header">
+                    <h4 class="step-name">{{ step.titulo }}</h4>
+                    <span class="badge small" [attr.data-tone]="stepTone(step)">{{ step.estado }}</span>
+                  </div>
+                  @if (step.fecha) {
+                    <p class="step-date">{{ date(step.fecha) }}</p>
+                  }
+                  <p class="step-desc">{{ step.descripcion }}</p>
+                </div>
+              </li>
+            }
+          </ol>
+        </section>
+      }
+
+      <!-- ACCIÓN SUGERIDA SEGÚN ESTADO -->
+      @if (row.estado === 'ACEPTADA_INICIALMENTE') {
+        <div class="notice pending action-card">
+          <div class="action-text">
+            <strong>Solicitud aceptada inicialmente:</strong>
+            <p>Elige tu modalidad de entrega (en tienda física o delivery simulado) para coordinar la recepción de la prenda.</p>
+          </div>
+          <a class="solid" [routerLink]="['/mis-compras', row.id_venta]">
+            Elegir entrega en compra ↗
+          </a>
+        </div>
+      }
+
+      @if (row.tipo === 'CAMBIO' && row.estado === 'APROBADA' && row.estado_pago_adicional === 'PENDIENTE') {
+        <div class="notice pending action-card">
+          <div class="action-text">
+            <strong>Diferencia de cambio pendiente de pago:</strong>
+            <p>Se requiere pagar la diferencia de precio para que el personal entregue la prenda de reemplazo.</p>
+          </div>
+          <a class="solid" [routerLink]="['/mis-compras', row.id_venta]">
+            Pagar diferencia con Stripe o en tienda ↗
+          </a>
+        </div>
+      }
+
+      @if (row.estado === 'RECHAZADA') {
+        <div class="notice bad" role="alert">
+          <strong>Solicitud rechazada:</strong>
+          <p>{{ row.motivo_rechazo || 'La solicitud no cumple con los criterios de aceptación o inspección.' }}</p>
+        </div>
+      }
+
+      <!-- INFORMACIÓN COMPLETA EN PANELES -->
+      <div class="info-grid">
+        <!-- Panel 1: Datos de la solicitud y entrega -->
+        <section class="info-card">
+          <h3>Detalle de la solicitud</h3>
+          <dl class="data-list">
+            <div>
+              <dt>Motivo expresado</dt>
+              <dd>{{ row.motivo }}</dd>
+            </div>
+            @if (row.fecha_evaluacion_inicial) {
+              <div>
+                <dt>Revisión inicial</dt>
+                <dd>
+                  {{ date(row.fecha_evaluacion_inicial) }}
+                  @if (row.evaluador) {
+                    por {{ row.evaluador.nombre }} {{ row.evaluador.apellido || '' }}
+                  }
+                </dd>
+              </div>
+            }
+            @if (row.modalidad_entrega) {
+              <div>
+                <dt>Modalidad de entrega</dt>
+                <dd>
+                  <strong>{{ row.modalidad_entrega === 'DELIVERY_SIMULADO' ? 'Delivery simulado' : 'Entrega presencial en tienda' }}</strong>
+                  @if (row.fecha_seleccion_modalidad) {
+                    <small class="muted"> (elegida el {{ date(row.fecha_seleccion_modalidad) }})</small>
+                  }
+                </dd>
+              </div>
+            }
+            @if (row.fecha_recepcion) {
+              <div>
+                <dt>Recepción en tienda</dt>
+                <dd>
+                  Confirmada el {{ date(row.fecha_recepcion) }}
+                  @if (row.receptor) {
+                    por {{ row.receptor.nombre }} {{ row.receptor.apellido || '' }}
+                  }
+                </dd>
+              </div>
+            }
+          </dl>
+        </section>
+
+        <!-- Panel 2: Inspección física -->
+        <section class="info-card">
+          <h3>Inspección física de prendas</h3>
+          @if (row.fecha_inspeccion) {
+            <dl class="data-list">
+              <div>
+                <dt>Fecha de inspección</dt>
+                <dd>
+                  {{ date(row.fecha_inspeccion) }}
+                  @if (row.inspector) {
+                    por {{ row.inspector.nombre }} {{ row.inspector.apellido || '' }}
+                  }
+                </dd>
+              </div>
+              <div>
+                <dt>Estado físico</dt>
+                <dd><strong>{{ row.estado_fisico || 'ÓPTIMO' }}</strong></dd>
+              </div>
+              <div>
+                <dt>Etiquetas intactas</dt>
+                <dd>{{ row.etiquetas_intactas ? '✓ Sí' : '✕ No' }}</dd>
+              </div>
+              <div>
+                <dt>Corresponde a compra</dt>
+                <dd>{{ row.correspondencia_compra ? '✓ Sí' : '✕ No' }}</dd>
+              </div>
+              @if (row.observaciones_inspeccion) {
+                <div>
+                  <dt>Observaciones</dt>
+                  <dd>{{ row.observaciones_inspeccion }}</dd>
+                </div>
+              }
+            </dl>
+          } @else {
+            <p class="muted">Inspección física pendiente de realización en sucursal.</p>
+          }
+        </section>
+
+        <!-- Panel 3: Resumen económico -->
+        <section class="info-card">
+          <h3>Liquidación económica</h3>
+          @if (row.tipo === 'CAMBIO') {
+            <dl class="data-list">
+              @if (row.resumen_economico) {
+                <div>
+                  <dt>Valor original reconocido</dt>
+                  <dd>{{ money(row.resumen_economico.valor_original_reconocido) }}</dd>
+                </div>
+                <div>
+                  <dt>Valor reemplazo estimado</dt>
+                  <dd>{{ money(row.resumen_economico.valor_reemplazo_estimado) }}</dd>
+                </div>
+              }
+              <div>
+                <dt>Diferencia definitiva</dt>
+                <dd>
+                  <strong>{{ money(row.diferencia_definitiva ?? row.diferencia_precio_estimada ?? 0) }}</strong>
+                </dd>
+              </div>
+              <div>
+                <dt>Estado del pago adicional</dt>
+                <dd>
+                  <span class="badge small" [attr.data-tone]="tone(row.estado_pago_adicional || 'NO_APLICA')">
+                    {{ row.estado_pago_adicional || 'NO_APLICA' }}
+                  </span>
+                </dd>
+              </div>
+              @if (row.medio_pago_adicional) {
+                <div>
+                  <dt>Medio de pago</dt>
+                  <dd>{{ row.medio_pago_adicional }}</dd>
+                </div>
+              }
+              @if (row.referencia_pago_adicional) {
+                <div>
+                  <dt>Referencia de pago</dt>
+                  <dd><small>{{ row.referencia_pago_adicional }}</small></dd>
+                </div>
+              }
+            </dl>
+          } @else {
+            <dl class="data-list">
+              <div>
+                <dt>Monto reembolsable</dt>
+                <dd>
+                  <strong>{{ money(row.monto_reembolsar ?? row.saldo_a_favor_estimado ?? 0) }}</strong>
+                </dd>
+              </div>
+              <div>
+                <dt>Estado del reembolso</dt>
+                <dd>
+                  <span class="badge small" [attr.data-tone]="row.estado_reembolso === 'CONFIRMADO' ? 'good' : (row.estado_reembolso === 'FALLIDO' ? 'bad' : 'pending')">
+                    {{ row.estado_reembolso || 'PENDIENTE' }}
+                  </span>
+                </dd>
+              </div>
+              @if (row.pago) {
+                <div>
+                  <dt>Medio de pago original</dt>
+                  <dd>{{ row.pago.medio }} ({{ row.pago.proveedor === 'STRIPE' ? 'Stripe TEST' : 'En tienda' }})</dd>
+                </div>
+              }
+            </dl>
+
+            @if (row.reembolsos && row.reembolsos.length > 0) {
+              <div class="refunds-list">
+                <h4>Reembolsos procesados</h4>
+                @for (ref of row.reembolsos; track ref.id_reembolso) {
+                  <div class="refund-entry">
+                    <span>Reembolso #{{ ref.id_reembolso }}: <strong>{{ money(ref.monto) }}</strong></span>
+                    <span class="badge small" [attr.data-tone]="ref.estado === 'APROBADO' ? 'good' : (ref.estado === 'RECHAZADO' ? 'bad' : 'pending')">
+                      {{ ref.estado === 'APROBADO' ? 'CONFIRMADO' : ref.estado }}
+                    </span>
+                    @if (ref.referencia_externa) {
+                      <small class="muted">Ref: {{ ref.referencia_externa }}</small>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
+        </section>
+      </div>
+
+      <!-- PRENDAS INVOLUCRADAS -->
+      <section class="info-card items-section">
+        <h3>Prendas involucradas en la solicitud</h3>
+        <div class="lines-list">
+          @for (line of row.lineas; track line.id_variante_producto) {
+            <article class="garment-card">
+              <div class="garment-side">
+                <span class="badge small">PRENDA DEVUELTA</span>
+                <h4>{{ line.prenda_original?.nombre_producto || line.nombre || 'Variante #' + line.id_variante_producto }}</h4>
+                <p class="muted">
+                  Talla {{ line.prenda_original?.talla || line.talla || '—' }} · Color {{ line.prenda_original?.color || line.color || '—' }} · Cantidad: {{ line.cantidad }}
+                </p>
+                <p>
+                  Valor reconocido: <strong>{{ money(line.prenda_original?.valor_reconocido ?? line.precio_original_reconocido ?? line.importe_restitucion ?? 0) }}</strong>
+                </p>
+              </div>
+
+              @if (line.prenda_reemplazo) {
+                <div class="exchange-arrow" aria-hidden="true">➔</div>
+                <div class="garment-side replacement">
+                  <span class="badge good small">PRENDA DE REEMPLAZO</span>
+                  <h4>{{ line.prenda_reemplazo.nombre_producto || 'Variante #' + line.prenda_reemplazo.id_variante_producto }}</h4>
+                  <p class="muted">
+                    Talla {{ line.prenda_reemplazo.talla || '—' }} · Color {{ line.prenda_reemplazo.color || '—' }} · Cantidad: {{ line.cantidad_reemplazo || line.cantidad }}
+                  </p>
+                  <p>
+                    Precio vigente: <strong>{{ money(line.prenda_reemplazo.precio_unitario_actual ?? line.precio_reemplazo_estimado ?? 0) }}</strong>
+                  </p>
+                </div>
+              }
+            </article>
+          }
+        </div>
+      </section>
+    </div>
+  }
+</main>
+

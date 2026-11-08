@@ -15,7 +15,8 @@ from app.repositories.client_checkout import ClientCheckoutRepository
 # parciales en Base ni se refleja/escribe el esquema de la base de datos.
 returns = table("t_devolucion", column("id_devolucion", Integer), column("id_venta", Integer),
     column("tipo", String), column("estado", String), column("motivo", String),
-    column("created_at", DateTime), column("fecha_resolucion", DateTime), column("fecha_procesamiento", DateTime))
+    column("created_at", DateTime), column("fecha_resolucion", DateTime), column("fecha_procesamiento", DateTime),
+    column("modalidad_entrega", String), column("motivo_rechazo", String))
 refunds = table("t_reembolso", column("id_reembolso", Integer), column("id_venta", Integer),
     column("id_devolucion", Integer), column("id_pago", Integer), column("estado", String),
     column("monto", Numeric(12, 2)), column("created_at", DateTime), column("fecha_aprobacion", DateTime))
@@ -59,7 +60,8 @@ class ClientPurchasesRepository(ClientCheckoutRepository):
 
     def purchase_returns(self, sale_id):
         return self.db.execute(select(returns.c.id_devolucion, returns.c.tipo, returns.c.estado, returns.c.motivo,
-            returns.c.created_at.label("fecha"), returns.c.fecha_resolucion, returns.c.fecha_procesamiento)
+            returns.c.created_at.label("fecha"), returns.c.fecha_resolucion, returns.c.fecha_procesamiento,
+            returns.c.modalidad_entrega, returns.c.motivo_rechazo)
             .where(returns.c.id_venta == sale_id).order_by(returns.c.created_at.desc(), returns.c.id_devolucion.desc())).mappings().all()
 
     def purchase_refunds(self, sale_id):

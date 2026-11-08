@@ -80,6 +80,14 @@ small {
   font: 600 0.65rem sans-serif;
   white-space: nowrap;
 }
+.error-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
 .notice {
   padding: 14px 18px;
   border-radius: 10px;
