@@ -39,6 +39,8 @@ from app.models.inventory_movement import InventoryMovement
 from app.models.inventory_movement_detail import InventoryMovementDetail
 
 from app.models.returns import Return, ReturnDetail, Refund
+from app.models.generated_report import GeneratedReport
+from app.models.notification import Notification
 
 from app.models.multitenant_metadata import configure_multitenant_metadata
 

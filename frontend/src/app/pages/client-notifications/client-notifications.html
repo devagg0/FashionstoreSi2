@@ -1,0 +1,176 @@
+<div class="notifications-page shell">
+  <!-- Encabezado de página -->
+  <header class="notifications-header">
+    <div class="header-titles">
+      <span class="eyebrow">MI CUENTA</span>
+      <h1>Mis notificaciones</h1>
+      <p class="subtitle">Entérate al instante del estado de tus reservas, compras y transacciones.</p>
+    </div>
+
+    @if (unreadCount() > 0) {
+      <div class="header-actions">
+        <button
+          type="button"
+          class="btn-mark-all"
+          (click)="markAllAsRead()"
+          [disabled]="markingAll() || loading()"
+        >
+          <app-icon name="check" [size]="16" />
+          <span>{{ markingAll() ? 'Actualizando...' : 'Marcar todas como leídas' }}</span>
+        </button>
+      </div>
+    }
+  </header>
+
+  <!-- Pestañas de filtrado -->
+  <div class="filter-tabs">
+    <button
+      type="button"
+      class="tab-btn"
+      [class.is-active]="!filterUnread()"
+      (click)="setFilter(false)"
+    >
+      <span>Todas</span>
+      <span class="tab-badge">{{ total() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="tab-btn"
+      [class.is-active]="filterUnread()"
+      (click)="setFilter(true)"
+    >
+      <span>No leídas</span>
+      @if (unreadCount() > 0) {
+        <span class="tab-badge badge-unread">{{ unreadCount() }}</span>
+      }
+    </button>
+  </div>
+
+  <!-- Alerta de error -->
+  @if (error()) {
+    <div class="alert-banner alert-error">
+      <app-icon name="alert-circle" [size]="20" />
+      <div>
+        <strong>Error:</strong>
+        <p>{{ error() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- Estado de carga -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando tus notificaciones...</p>
+    </div>
+  } @else if (notifications().length === 0) {
+    <!-- Estado vacío -->
+    <div class="empty-state">
+      <div class="empty-icon-wrap">
+        <app-icon name="inbox" [size]="40" />
+      </div>
+      <h3>No tienes notificaciones</h3>
+      <p>
+        {{
+          filterUnread()
+            ? '¡Estás al día! No tienes notificaciones pendientes de lectura.'
+            : 'Aquí recibirás confirmaciones automáticas sobre tus reservas en tienda y compras en línea.'
+        }}
+      </p>
+      <div class="empty-actions">
+        <a routerLink="/catalogo" class="btn-primary">Explorar catálogo</a>
+        <a routerLink="/mis-reservas" class="btn-secondary">Mis reservas</a>
+      </div>
+    </div>
+  } @else {
+    <!-- Lista de notificaciones -->
+    <div class="notifications-list">
+      @for (item of notifications(); track item.id_notificacion) {
+        <article
+          class="notification-card"
+          [class.is-unread]="!item.leido"
+          (click)="navigateToTarget(item)"
+        >
+          <!-- Icono temático -->
+          <div class="card-icon" [ngClass]="getIconClass(item.tipo)">
+            <app-icon [name]="getIconName(item.tipo)" [size]="20" />
+          </div>
+
+          <!-- Contenido central -->
+          <div class="card-content">
+            <div class="card-top-row">
+              <h3 class="card-title">
+                {{ item.titulo }}
+                @if (!item.leido) {
+                  <span class="unread-dot" title="No leída"></span>
+                }
+              </h3>
+              <time class="card-date" [attr.datetime]="item.created_at">
+                {{ item.created_at | date: 'd/M/yyyy, HH:mm' }}
+              </time>
+            </div>
+
+            <p class="card-message">{{ item.mensaje }}</p>
+
+            <div class="card-meta">
+              @if (item.codigo_referencia) {
+                <span class="reference-tag">Ref: {{ item.codigo_referencia }}</span>
+              }
+
+              @if (getActionUrl(item); as targetUrl) {
+                <span class="action-hint">
+                  <span>{{ getActionLabel(item) }}</span>
+                  <app-icon name="chevron-right" [size]="14" />
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Botón de acción rápida individual -->
+          @if (!item.leido) {
+            <div class="card-actions">
+              <button
+                type="button"
+                class="btn-mark-one"
+                (click)="markAsRead(item, $event)"
+                title="Marcar como leída"
+              >
+                <app-icon name="check" [size]="16" />
+                <span class="sr-only">Marcar leída</span>
+              </button>
+            </div>
+          }
+        </article>
+      }
+    </div>
+
+    <!-- Paginación -->
+    @if (totalPages() > 1) {
+      <nav class="pagination-bar" aria-label="Navegación de notificaciones">
+        <button
+          type="button"
+          class="btn-page"
+          [disabled]="currentPage() <= 1 || loading()"
+          (click)="loadNotifications(currentPage() - 1)"
+        >
+          <app-icon name="chevron-left" [size]="16" />
+          <span>Anterior</span>
+        </button>
+
+        <span class="page-indicator">Página {{ currentPage() }} de {{ totalPages() }}</span>
+
+        <button
+          type="button"
+          class="btn-page"
+          [disabled]="currentPage() >= totalPages() || loading()"
+          (click)="loadNotifications(currentPage() + 1)"
+        >
+          <span>Siguiente</span>
+          <app-icon name="chevron-right" [size]="16" />
+        </button>
+      </nav>
+    }
+  }
+</div>
+

@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.admin_branches import router as admin_branches_router
 from app.routers.admin_sales_report import router as admin_sales_report_router
+from app.routers.admin_nl_report import router as admin_nl_report_router
 from app.routers.admin_inventory_report import router as admin_inventory_report_router
+from app.routers.admin_predictions import router as admin_predictions_router
+from app.routers.admin_patterns import router as admin_patterns_router
+from app.routers.admin_dashboard import router as admin_dashboard_router
 from app.routers.admin_reservations_report import router as admin_reservations_report_router
 from app.routers.admin_inventory import router as admin_inventory_router
 from app.routers.admin_global_inventory import router as admin_global_inventory_router
@@ -27,6 +31,8 @@ from app.routers.client_checkout import router as client_checkout_router
 from app.routers.client_purchases import router as client_purchases_router
 from app.routers.client_recommendations import router as client_recommendations_router
 from app.routers.client_chatbot import router as client_chatbot_router
+from app.routers.client_notifications import router as client_notifications_router
+from app.routers.client_operations import router as client_operations_router
 from app.routers.staff_reservations import router as staff_reservations_router
 from app.routers.staff_sales import router as staff_sales_router
 from app.routers.payments import router as payments_router
@@ -55,6 +61,8 @@ app = FastAPI(
 
 
 origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
     "http://localhost:4201",
     "http://127.0.0.1:4201",
     "https://fashionstore-frontend-r9b5.onrender.com",
@@ -81,6 +89,8 @@ app.include_router(client_checkout_router)
 app.include_router(client_purchases_router)
 app.include_router(client_recommendations_router)
 app.include_router(client_chatbot_router)
+app.include_router(client_notifications_router)
+app.include_router(client_operations_router)
 app.include_router(staff_reservations_router)
 app.include_router(staff_sales_router)
 app.include_router(payments_router)
@@ -98,6 +108,10 @@ app.include_router(admin_branches_router)
 app.include_router(admin_sales_report_router)
 app.include_router(admin_inventory_report_router)
 app.include_router(admin_reservations_report_router)
+app.include_router(admin_nl_report_router)
+app.include_router(admin_predictions_router)
+app.include_router(admin_patterns_router)
+app.include_router(admin_dashboard_router)
 app.include_router(admin_inventory_router)
 app.include_router(admin_global_inventory_router)
 app.include_router(admin_inventory_movements_router)

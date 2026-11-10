@@ -1,0 +1,21 @@
+{
+  "algoritmo": "K-Means Clustering (scikit-learn compatible)",
+  "tipo_aprendizaje": "No supervisado",
+  "descripcion": "Segmentación de productos según velocidad de rotación, volumen, margen y nivel de stock",
+  "n_clusters": 4,
+  "variables": [
+    "unidades_vendidas",
+    "ingresos_totales",
+    "frecuencia_ventas",
+    "precio_unitario",
+    "stock_actual",
+    "ratio_rotacion"
+  ],
+  "dataset_sintetico_tamano": 400,
+  "metricas": {
+    "silhouette_score": 0.5453,
+    "inercia": 414.83
+  },
+  "es_experimental": true,
+  "nota_metodologica": "Modelo referencial entrenado sobre datos sintéticos de FashionStore. El análisis administrativo aplica este mismo pipeline directamente sobre datos reales de PostgreSQL."
+}

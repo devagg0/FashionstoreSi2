@@ -85,6 +85,54 @@
         }
       </a>
       <a
+        routerLink="/admin/reportes-ia"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="sparkles" [size]="20" />
+        <span>Reportes con IA</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
+        routerLink="/admin/predicciones-ml"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="trending-up" [size]="20" />
+        <span>Predicciones ML</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
+        routerLink="/admin/patrones-ml"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="layers" [size]="20" />
+        <span>Patrones ML</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
+        routerLink="/admin/dashboard-inteligente"
+        routerLinkActive="is-active"
+        [class.is-locked]="hasNoActiveSubscription()"
+        (click)="closeSidebar()"
+      >
+        <app-icon name="dashboard" [size]="20" />
+        <span>Dashboard Inteligente</span>
+        @if (hasNoActiveSubscription()) {
+          <span class="nav-lock" title="Requiere suscripción activa">🔒</span>
+        }
+      </a>
+      <a
         routerLink="/admin/reporte-ventas"
         routerLinkActive="is-active"
         [class.is-locked]="hasNoActiveSubscription()"

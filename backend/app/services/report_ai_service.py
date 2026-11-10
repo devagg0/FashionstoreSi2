@@ -2,16 +2,19 @@
 
 No consulta la base de datos ni recalcula indicadores: resume los datos ya
 calculados por cada reporte (los mismos que el dashboard tiene en pantalla)
-y se los entrega a Gemini para obtener una lectura ejecutiva.
+y se los entrega a DeepSeek para obtener una lectura ejecutiva.
 """
 
-from app.integrations.gemini import GeminiAnalysisError, GeminiClient
+from app.core.config import settings
+from app.integrations.deepseek import DeepSeekClient, DeepSeekError
 from app.schemas.admin_inventory_report import InventoryReportData
 from app.schemas.admin_reservations_report import ReservationsReportData
 from app.schemas.admin_sales_report import SalesReportData
 
 
-GEMINI_MODEL_LABEL = "gemini-2.0-flash"
+MODEL_LABEL = settings.DEEPSEEK_MODEL
+# Alias historico: los routers de reportes aun importan este nombre.
+GEMINI_MODEL_LABEL = MODEL_LABEL
 
 
 class ReportAIUnavailableError(Exception):
@@ -19,10 +22,10 @@ class ReportAIUnavailableError(Exception):
 
 
 class ReportAIService:
-    """Construye el prompt de cada reporte y delega la generacion a Gemini."""
+    """Construye el prompt de cada reporte y delega la generacion a DeepSeek."""
 
-    def __init__(self, client: GeminiClient | None = None):
-        self.client = client or GeminiClient()
+    def __init__(self, client: DeepSeekClient | None = None):
+        self.client = client or DeepSeekClient()
 
     def analyze_sales(self, data: SalesReportData, pregunta: str | None = None) -> str:
         return self._analyze(self._sales_prompt(data), pregunta)
@@ -42,7 +45,7 @@ class ReportAIService:
             )
         try:
             return self.client.generate_analysis(prompt=prompt)
-        except GeminiAnalysisError as exc:
+        except DeepSeekError as exc:
             raise ReportAIUnavailableError("No fue posible generar el analisis con IA") from exc
 
     @staticmethod

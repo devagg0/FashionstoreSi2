@@ -1,5 +1,6 @@
 """Reglas y transacciones de CU18 para personal de sucursal."""
 
+import logging
 from datetime import date, datetime, time, timedelta, timezone
 from math import ceil
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -32,6 +33,9 @@ from app.services.client_reservations import (
 
 class StaffReservationAccessError(ReservationValidationError):
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 class StaffReservationService(ClientReservationService):
@@ -217,6 +221,13 @@ class StaffReservationService(ClientReservationService):
                     reservation.id_empleado_atencion = employee.id_empleado
                     reservation.fecha_atencion = now
                 self.db.flush()
+                if target == "CONFIRMADA":
+                    try:
+                        with self.db.begin_nested():
+                            from app.services.notification_service import NotificationService
+                            NotificationService.notify_reservation_confirmed(self.db, reservation)
+                    except Exception as exc:
+                        logger.warning("No se pudo generar la notificacion de confirmacion: %s", exc)
             return self._get_detail(reservation_id, branch_ids)
 
         result = self._transaction(operation)

@@ -1,0 +1,500 @@
+<section class="operations-page">
+  <div class="container">
+    <!-- Encabezado del módulo -->
+    <header class="heading">
+      <div>
+        <a class="back-link" routerLink="/">
+          <app-icon name="chevron-left" [size]="16" />
+          <span>Volver al inicio</span>
+        </a>
+        <span class="eyebrow">CONSULTA UNIFICADA CU30</span>
+        <h1>Mis operaciones</h1>
+        <p class="subtitle">
+          Historial y estado en tiempo real de tus compras, reservas y pagos, tanto en línea como sincronizados desde operaciones offline.
+        </p>
+      </div>
+      <div class="header-refresh">
+        <button
+          class="btn-refresh"
+          type="button"
+          (click)="loadOperations(currentPage()); loadSummary(); loadLocalPending()"
+          [disabled]="loading()"
+          title="Actualizar operaciones"
+        >
+          <app-icon name="refresh" [size]="18" />
+          <span>Actualizar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Resumen analítico de operaciones -->
+    @if (summary(); as s) {
+      <div class="summary-cards">
+        <div class="kpi-card">
+          <div class="kpi-icon kpi-total">
+            <app-icon name="layers" [size]="22" />
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Total Operaciones</span>
+            <strong class="kpi-value">{{ s.total_operaciones }}</strong>
+          </div>
+        </div>
+
+        <div class="kpi-card" (click)="setTipoFilter('COMPRA')">
+          <div class="kpi-icon kpi-compra">
+            <app-icon name="bag" [size]="22" />
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Compras Realizadas</span>
+            <strong class="kpi-value">{{ s.total_compras }}</strong>
+            <span class="kpi-sub">Bs. {{ s.importe_total_compras | number:'1.2-2' }} gastado</span>
+          </div>
+        </div>
+
+        <div class="kpi-card" (click)="setTipoFilter('RESERVA')">
+          <div class="kpi-icon kpi-reserva">
+            <app-icon name="file-text" [size]="22" />
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Reservas</span>
+            <strong class="kpi-value">{{ s.total_reservas }}</strong>
+            <span class="kpi-sub">Prendas reservadas</span>
+          </div>
+        </div>
+
+        <div class="kpi-card" (click)="setTipoFilter('PAGO')">
+          <div class="kpi-icon kpi-pago">
+            <app-icon name="circle-check" [size]="22" />
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Pagos Registrados</span>
+            <strong class="kpi-value">{{ s.total_pagos }}</strong>
+            <span class="kpi-sub">{{ s.confirmadas }} confirmados</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Alerta si hay operaciones locales en el dispositivo no sincronizadas -->
+    @if (localOperations().length > 0) {
+      <div class="local-alert" role="alert">
+        <app-icon name="alert-circle" [size]="22" />
+        <div class="local-alert__body">
+          <strong>Operaciones en cola local del dispositivo ({{ localOperations().length }})</strong>
+          <p>
+            Estas transacciones se registraron sin conexión a internet y se encuentran almacenadas en tu navegador.
+            <span class="highlight-warn">No se consideran confirmadas</span> hasta que la sincronización automática con el servidor sea exitosa.
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- Barra de Filtros -->
+    <div class="filters-bar">
+      <!-- Selector de Tipo por Pestañas -->
+      <div class="type-pills" role="tablist">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="filterTipo() === ''"
+          (click)="setTipoFilter('')"
+        >
+          Todas
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="filterTipo() === 'COMPRA'"
+          (click)="setTipoFilter('COMPRA')"
+        >
+          Compras
+          @if (totalesPorTipo()['COMPRA']) {
+            <span class="pill-badge">{{ totalesPorTipo()['COMPRA'] }}</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="filterTipo() === 'RESERVA'"
+          (click)="setTipoFilter('RESERVA')"
+        >
+          Reservas
+          @if (totalesPorTipo()['RESERVA']) {
+            <span class="pill-badge">{{ totalesPorTipo()['RESERVA'] }}</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="filterTipo() === 'PAGO'"
+          (click)="setTipoFilter('PAGO')"
+        >
+          Pagos
+          @if (totalesPorTipo()['PAGO']) {
+            <span class="pill-badge">{{ totalesPorTipo()['PAGO'] }}</span>
+          }
+        </button>
+      </div>
+
+      <!-- Filtros desplegables -->
+      <div class="filter-controls">
+        <div class="control-group">
+          <label for="filter-estado">Estado:</label>
+          <select
+            id="filter-estado"
+            [ngModel]="filterEstado()"
+            (ngModelChange)="onEstadoChange($event)"
+          >
+            <option value="">Todos los estados</option>
+            <option value="CONFIRMADA">Confirmadas / Aprobadas</option>
+            <option value="PENDIENTE">Pendientes</option>
+            <option value="RECHAZADA">Rechazadas / Anuladas</option>
+            <option value="CANCELADA">Canceladas</option>
+            <option value="EXPIRADA">Expiradas</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="filter-origen">Origen:</label>
+          <select
+            id="filter-origen"
+            [ngModel]="filterOrigen()"
+            (ngModelChange)="onOrigenChange($event)"
+          >
+            <option value="">Todos los orígenes</option>
+            <option value="ONLINE">En línea (Online)</option>
+            <option value="OFFLINE_SYNC">Sincronizada (Offline)</option>
+            <option value="LOCAL_OFFLINE">Local en dispositivo</option>
+          </select>
+        </div>
+
+        @if (filterTipo() || filterEstado() || filterOrigen()) {
+          <button class="btn-clear" type="button" (click)="clearFilters()">
+            <app-icon name="close" [size]="14" />
+            Limpiar filtros
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Estado de Error -->
+    @if (error()) {
+      <div class="error-banner">
+        <app-icon name="alert-circle" [size]="24" />
+        <div>
+          <strong>Error al cargar operaciones</strong>
+          <p>{{ error() }}</p>
+        </div>
+        <button class="btn-retry" type="button" (click)="loadOperations(1); loadSummary()">Reintentar</button>
+      </div>
+    }
+
+    <!-- Estado de Carga -->
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Cargando operaciones...</p>
+      </div>
+    } @else if (!error() && combinedOperations().length === 0) {
+      <!-- Estado Vacío -->
+      <div class="empty-state">
+        <div class="empty-icon">
+          <app-icon name="inbox" [size]="48" />
+        </div>
+        <h3>No se encontraron operaciones</h3>
+        <p>No tienes transacciones que coincidan con los filtros seleccionados.</p>
+        @if (filterTipo() || filterEstado() || filterOrigen()) {
+          <button class="btn-primary" type="button" (click)="clearFilters()">Restablecer filtros</button>
+        } @else {
+          <a class="btn-primary" routerLink="/catalogo">Explorar catálogo</a>
+        }
+      </div>
+    } @else if (combinedOperations().length > 0) {
+      <!-- Listado de Operaciones -->
+      <div class="operations-grid">
+        @for (op of combinedOperations(); track op.id_operacion) {
+          <article class="op-card" [class.is-local]="op.origen === 'LOCAL_OFFLINE'">
+            <!-- Cabecera de la tarjeta -->
+            <div class="op-card__header">
+              <div class="badges-row">
+                <!-- Tipo de operación -->
+                <span class="type-badge" [attr.data-type]="op.tipo">
+                  @if (op.tipo === 'COMPRA') {
+                    <app-icon name="bag" [size]="14" />
+                  } @else if (op.tipo === 'RESERVA') {
+                    <app-icon name="file-text" [size]="14" />
+                  } @else {
+                    <app-icon name="circle-check" [size]="14" />
+                  }
+                  {{ op.tipo }}
+                </span>
+
+                <!-- Origen -->
+                @let origin = getOriginBadge(op.origen);
+                <span class="origin-badge" [class]="origin.tone" [title]="origin.label">
+                  <app-icon [name]="origin.icon" [size]="12" />
+                  {{ origin.label }}
+                </span>
+              </div>
+
+              <!-- Estado visual de la transacción -->
+              <span class="status-badge" [attr.data-tone]="getStatusTone(op)">
+                @if (op.confirmada) {
+                  <app-icon name="check" [size]="14" />
+                } @else if (op.estado === 'PENDIENTE' || op.estado === 'PENDIENTE_SINCRONIZACION') {
+                  <app-icon name="history" [size]="14" />
+                } @else {
+                  <app-icon name="alert-circle" [size]="14" />
+                }
+                {{ op.estado_etiqueta }}
+              </span>
+            </div>
+
+            <!-- Contenido principal -->
+            <div class="op-card__body">
+              <div class="op-code-row">
+                <strong class="op-code">{{ op.codigo }}</strong>
+                @if (op.codigo_referencia) {
+                  <span class="op-ref">Ref: {{ op.codigo_referencia }}</span>
+                }
+              </div>
+
+              <div class="op-meta">
+                <span class="meta-item">
+                  <app-icon name="history" [size]="14" />
+                  {{ op.fecha | date:'d MMM y, HH:mm':'UTC' }}
+                </span>
+
+                @if (op.sucursal) {
+                  <span class="meta-item">
+                    <app-icon name="store" [size]="14" />
+                    {{ op.sucursal }}
+                  </span>
+                }
+
+                @if (op.cantidad_prendas > 0) {
+                  <span class="meta-item">
+                    <app-icon name="layers" [size]="14" />
+                    {{ op.cantidad_prendas }} {{ op.cantidad_prendas === 1 ? 'prenda' : 'prendas' }}
+                  </span>
+                }
+              </div>
+
+              @if (op.motivo) {
+                <div class="op-warning-box">
+                  <app-icon name="alert-circle" [size]="14" />
+                  <span>{{ op.motivo }}</span>
+                </div>
+              }
+            </div>
+
+            <!-- Pie de la tarjeta -->
+            <div class="op-card__footer">
+              <div class="op-price">
+                <span class="price-label">Importe:</span>
+                <strong class="price-val">Bs. {{ op.importe | number:'1.2-2' }}</strong>
+              </div>
+
+              <button class="btn-detail" type="button" (click)="openDetail(op)">
+                <span>Ver detalle</span>
+                <app-icon name="chevron-right" [size]="16" />
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+
+      <!-- Paginación del servidor -->
+      @if (totalPages() > 1) {
+        <div class="pagination">
+          <button
+            class="btn-page"
+            type="button"
+            [disabled]="currentPage() <= 1"
+            (click)="loadOperations(currentPage() - 1)"
+          >
+            <app-icon name="chevron-left" [size]="16" />
+            Anterior
+          </button>
+          <span class="page-indicator">Página {{ currentPage() }} de {{ totalPages() }}</span>
+          <button
+            class="btn-page"
+            type="button"
+            [disabled]="currentPage() >= totalPages()"
+            (click)="loadOperations(currentPage() + 1)"
+          >
+            Siguiente
+            <app-icon name="chevron-right" [size]="16" />
+          </button>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Modal / Panel de Detalle de Operación -->
+  @if (selectedOperation(); as detail) {
+    <div class="modal-backdrop" (click)="closeDetail()">
+      <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <span class="modal-type-tag" [attr.data-type]="detail.tipo">{{ detail.tipo }}</span>
+            <h2>Detalle de Operación: {{ detail.codigo }}</h2>
+          </div>
+          <button class="btn-close-modal" type="button" (click)="closeDetail()" aria-label="Cerrar modal">
+            <app-icon name="close" [size]="20" />
+          </button>
+        </header>
+
+        <div class="modal-content">
+          @if (detailLoading()) {
+            <div class="loading-state modal-loading">
+              <div class="spinner"></div>
+              <p>Cargando información completa...</p>
+            </div>
+          } @else {
+            <!-- Resumen superior -->
+            <div class="detail-overview">
+              <div class="overview-item">
+                <span class="lbl">Estado:</span>
+                <span class="status-badge" [attr.data-tone]="getStatusTone(detail)">
+                  {{ detail.estado_etiqueta }}
+                </span>
+              </div>
+              <div class="overview-item">
+                <span class="lbl">Origen:</span>
+                @let orig = getOriginBadge(detail.origen);
+                <span class="origin-badge" [class]="orig.tone">
+                  <app-icon [name]="orig.icon" [size]="12" />
+                  {{ orig.label }}
+                </span>
+              </div>
+              <div class="overview-item">
+                <span class="lbl">Fecha:</span>
+                <strong>{{ detail.fecha | date:'d/MM/yyyy HH:mm':'UTC' }}</strong>
+              </div>
+              <div class="overview-item">
+                <span class="lbl">Sucursal:</span>
+                <strong>{{ detail.sucursal || 'Tienda Central' }}</strong>
+              </div>
+              @if (detail.fecha_atencion_programada) {
+                <div class="overview-item">
+                  <span class="lbl">Atención programada:</span>
+                  <strong>{{ detail.fecha_atencion_programada | date:'d/MM/yyyy HH:mm':'UTC' }}</strong>
+                </div>
+              }
+              @if (detail.fecha_expiracion) {
+                <div class="overview-item">
+                  <span class="lbl">Vencimiento:</span>
+                  <strong>{{ detail.fecha_expiracion | date:'d/MM/yyyy HH:mm':'UTC' }}</strong>
+                </div>
+              }
+            </div>
+
+            <!-- Advertencia si es local no confirmada -->
+            @if (detail.origen === 'LOCAL_OFFLINE') {
+              <div class="local-warning-panel">
+                <app-icon name="alert-circle" [size]="20" />
+                <div>
+                  <strong>Operación almacenada localmente</strong>
+                  <p>Esta transacción no ha sido confirmada por el servidor y reside exclusivamente en la memoria local de tu dispositivo.</p>
+                </div>
+              </div>
+            }
+
+            @if (detail.motivo) {
+              <div class="motivo-panel">
+                <strong>Motivo / Observación:</strong>
+                <p>{{ detail.motivo }}</p>
+              </div>
+            }
+
+            <!-- Desglose de prendas / artículos -->
+            @if (detail.detalles && detail.detalles.length > 0) {
+              <div class="items-section">
+                <h3>Prendas incluidas ({{ detail.detalles.length }})</h3>
+                <div class="items-list">
+                  @for (item of detail.detalles; track item.sku || $index) {
+                    <div class="item-row">
+                      <div class="item-img-placeholder">
+                        <app-icon name="bag" [size]="20" />
+                      </div>
+                      <div class="item-info">
+                        <strong class="item-title">{{ item.producto }}</strong>
+                        <div class="item-specs">
+                          @if (item.talla) { <span>Talla: {{ item.talla }}</span> }
+                          @if (item.color) {
+                            <span class="color-spec">
+                              Color: {{ item.color }}
+                              @if (item.codigo_hex) {
+                                <span class="color-dot" [style.background-color]="item.codigo_hex"></span>
+                              }
+                            </span>
+                          }
+                          @if (item.sku) { <span class="sku-spec">SKU: {{ item.sku }}</span> }
+                        </div>
+                      </div>
+                      <div class="item-math">
+                        <span class="item-qty">{{ item.cantidad }} x Bs. {{ item.precio_unitario | number:'1.2-2' }}</span>
+                        <strong class="item-subtotal">Bs. {{ item.subtotal | number:'1.2-2' }}</strong>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Información del pago asociado -->
+            @if (detail.pago; as p) {
+              <div class="payment-section">
+                <h3>Información de Pago</h3>
+                <div class="payment-card">
+                  <div class="payment-grid">
+                    <div>
+                      <span class="lbl">ID Pago:</span>
+                      <strong>#{{ p.id_pago }}</strong>
+                    </div>
+                    <div>
+                      <span class="lbl">Medio:</span>
+                      <strong>{{ p.medio }}</strong>
+                    </div>
+                    <div>
+                      <span class="lbl">Proveedor:</span>
+                      <strong>{{ p.proveedor }}</strong>
+                    </div>
+                    <div>
+                      <span class="lbl">Estado de Pago:</span>
+                      <span class="status-badge" [attr.data-tone]="p.confirmado ? 'good' : (p.estado === 'PENDIENTE' ? 'pending' : 'bad')">
+                        {{ p.confirmado ? 'CONFIRMADO (APROBADO)' : p.estado }}
+                      </span>
+                    </div>
+                    <div>
+                      <span class="lbl">Monto Pagado:</span>
+                      <strong class="price-val">Bs. {{ p.monto | number:'1.2-2' }}</strong>
+                    </div>
+                    @if (p.referencia_externa) {
+                      <div class="ref-ext">
+                        <span class="lbl">Ref. Externa:</span>
+                        <span class="code-ref">{{ p.referencia_externa }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+
+            <!-- Total General -->
+            <div class="modal-total-bar">
+              <span>Importe Total:</span>
+              <strong class="modal-total-value">Bs. {{ detail.importe | number:'1.2-2' }}</strong>
+            </div>
+          }
+        </div>
+
+        <footer class="modal-footer">
+          <button class="btn-modal-close" type="button" (click)="closeDetail()">Cerrar</button>
+        </footer>
+      </div>
+    </div>
+  }
+</section>
+

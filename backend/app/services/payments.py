@@ -1,4 +1,5 @@
 """CU22: QR simulado, Checkout TEST y conciliacion transaccional idempotente."""
+import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.parse import urlsplit
@@ -16,6 +17,9 @@ from app.services.stripe_service import StripeConnectionError, StripeService
 
 class PaymentError(SaleError):
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentsService:
@@ -154,6 +158,13 @@ class PaymentsService:
         payment.fecha_aprobacion = now
         payment.updated_at = now
         self.db.flush()
+        try:
+            with self.db.begin_nested():
+                from app.services.notification_service import NotificationService
+                NotificationService.notify_payment_confirmed(self.db, sale, payment)
+                NotificationService.notify_purchase_confirmed(self.db, sale)
+        except Exception as exc:
+            logger.warning("No se pudo generar la notificacion de pago aprobado: %s", exc)
 
     def _reject(self, sale, payment):
         self._pending(sale)
@@ -173,6 +184,12 @@ class PaymentsService:
         payment.estado = "RECHAZADO"
         payment.updated_at = now
         self.db.flush()
+        try:
+            with self.db.begin_nested():
+                from app.services.notification_service import NotificationService
+                NotificationService.notify_payment_rejected(self.db, sale, payment)
+        except Exception as exc:
+            logger.warning("No se pudo generar la notificacion de pago rechazado: %s", exc)
 
     def _assert_current_payment(self, sale, payment):
         if (payment.estado != "PENDIENTE" or payment.monto != sale.total

@@ -1,0 +1,626 @@
+<section class="nl-report-container">
+  <header class="page-heading">
+    <p>INTELIGENCIA EMPRESARIAL</p>
+    <h1>Reportes con Lenguaje Natural</h1>
+    <span>Genera, consulta y exporta reportes empresariales con IA a partir de datos reales de tu tienda.</span>
+  </header>
+
+  <!-- Pestañas de navegación CU20 / CU21 -->
+  <nav class="report-tabs" role="tablist" aria-label="Navegación de reportes empresariales">
+    <button
+      type="button"
+      role="tab"
+      class="tab-btn"
+      [class.active]="activeTab() === 'generar'"
+      [attr.aria-selected]="activeTab() === 'generar'"
+      (click)="switchTab('generar')"
+    >
+      <app-icon name="sparkles" [size]="18" />
+      <span>Generar reporte (CU20)</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="tab-btn"
+      [class.active]="activeTab() === 'historial'"
+      [attr.aria-selected]="activeTab() === 'historial'"
+      (click)="switchTab('historial')"
+    >
+      <app-icon name="history" [size]="18" />
+      <span>Historial de reportes (CU21)</span>
+      @if (historyCount() > 0) {
+        <span class="tab-badge">{{ historyCount() }}</span>
+      }
+    </button>
+  </nav>
+
+  @if (!hasAiReports()) {
+    <div class="panel plan-warning" role="alert">
+      <div class="warning-icon">
+        <app-icon name="lock" [size]="24" />
+      </div>
+      <div>
+        <h3>Funcionalidad no incluida en tu suscripción actual</h3>
+        <p>Los reportes con inteligencia artificial y lenguaje natural requieren un plan superior con la funcionalidad <strong>REPORTES_IA</strong> habilitada.</p>
+        <a class="modal-button modal-button--primary" routerLink="/admin/suscripcion">Revisar mi suscripción</a>
+      </div>
+    </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!--                      PESTAÑA 1: GENERAR REPORTE (CU20)                    -->
+  <!-- ========================================================================= -->
+  @if (activeTab() === 'generar') {
+    @if (isViewingSavedReport()) {
+      <div class="panel saved-report-banner" role="status">
+        <div class="banner-info">
+          <span class="banner-badge">Reporte guardado #{{ currentReportId() }}</span>
+          <strong>Estás visualizando un reporte guardado del historial</strong>
+          @if (savedReportDate()) {
+            <span class="banner-date">Generado el {{ savedReportDate() | date:'medium':'America/La_Paz' }}</span>
+          }
+        </div>
+        <div class="banner-actions">
+          <button type="button" class="modal-button modal-button--secondary" (click)="backToHistory()">
+            <app-icon name="chevron-left" [size]="16" />
+            <span>Volver al historial</span>
+          </button>
+          <button type="button" class="modal-button modal-button--secondary" (click)="reset()">
+            <app-icon name="plus" [size]="16" />
+            <span>Nueva consulta</span>
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (!isViewingSavedReport()) {
+      <section class="panel query-box">
+        <div class="example-chips">
+          <span class="chips-label">Ejemplos sugeridos:</span>
+          <div class="chips-list">
+            @for (query of exampleQueries; track query) {
+              <button
+                type="button"
+                class="chip"
+                [disabled]="loading() || voiceListening()"
+                (click)="useExample(query)"
+              >
+                {{ query }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <form class="query-form" (ngSubmit)="submitQuery()">
+          <div class="input-wrapper">
+            <input
+              type="text"
+              name="consulta"
+              [(ngModel)]="queryText"
+              [disabled]="loading() || voiceListening()"
+              placeholder="Escribe tu consulta (ej. ¿Cuáles fueron las ventas por canal del último mes?)"
+              autocomplete="off"
+            />
+            @if (voiceSupported()) {
+              <button
+                type="button"
+                class="voice-btn"
+                [class.is-listening]="voiceListening()"
+                [disabled]="loading()"
+                (click)="listenVoice()"
+                [attr.aria-label]="voiceListening() ? 'Escuchando consulta por voz' : 'Preguntar por voz'"
+                [attr.title]="voiceListening() ? 'Escuchando... habla ahora' : 'Preguntar por voz'"
+              >
+                <app-icon name="mic" [size]="16" class="voice-icon" />
+                <span class="voice-text">{{ voiceListening() ? 'Escuchando…' : 'Voz' }}</span>
+              </button>
+            }
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="modal-button modal-button--primary submit-btn"
+              [disabled]="loading() || voiceListening() || !queryText().trim()"
+            >
+              @if (loading()) {
+                <span class="spinner" aria-hidden="true"></span>
+                <span>Consultando…</span>
+              } @else {
+                <app-icon name="sparkles" [size]="18" />
+                <span>Generar reporte</span>
+              }
+            </button>
+
+            @if (report() || error()) {
+              <button
+                type="button"
+                class="modal-button modal-button--secondary"
+                (click)="reset()"
+                [disabled]="loading()"
+              >
+                Limpiar
+              </button>
+            }
+          </div>
+        </form>
+      </section>
+    }
+
+    @if (loading()) {
+      <div class="loading-state panel" role="status" aria-live="polite">
+        <div class="loading-spinner"></div>
+        <p class="loading-title">Interpretando tu solicitud con DeepSeek…</p>
+        <p class="loading-sub">Consultando datos reales de la empresa y generando visualizaciones.</p>
+
+        <div class="kpi-grid skeleton-grid" aria-hidden="true">
+          @for (n of [1, 2, 3]; track n) {
+            <div class="panel skeleton"></div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="panel notice error-notice" role="alert">
+        <div class="notice-header">
+          <app-icon name="ban" [size]="20" />
+          <strong>No fue posible completar la consulta</strong>
+        </div>
+        <p>{{ error() }}</p>
+        <div class="filter-actions">
+          <button class="modal-button modal-button--primary" type="button" (click)="submitQuery()">
+            Reintentar consulta
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (report(); as rep) {
+      @if (rep.estado === 'AMBIGUO') {
+        <div class="panel alert-card alert-ambiguo" role="status">
+          <div class="alert-icon">
+            <app-icon name="alert-circle" [size]="24" />
+          </div>
+          <div class="alert-content">
+            <h2>{{ rep.titulo }}</h2>
+            <p>{{ rep.mensaje }}</p>
+            <div class="suggestions">
+              <span class="suggestions-label">Puedes probar con:</span>
+              <div class="chips-list">
+                @for (query of exampleQueries.slice(0, 3); track query) {
+                  <button type="button" class="chip" (click)="useExample(query)">{{ query }}</button>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else if (rep.estado === 'NO_SOPORTADO') {
+        <div class="panel alert-card alert-unsupported" role="status">
+          <div class="alert-icon">
+            <app-icon name="alert-circle" [size]="24" />
+          </div>
+          <div class="alert-content">
+            <h2>{{ rep.titulo }}</h2>
+            <p>{{ rep.mensaje }}</p>
+            <p class="supported-note">Tipos de reportes admitidos: <strong>Ventas</strong>, <strong>Stock bajo o agotado</strong>, <strong>Cambios y devoluciones</strong> y <strong>Reservas</strong>.</p>
+          </div>
+        </div>
+      } @else if (rep.estado === 'VACIO') {
+        <div class="panel alert-card alert-empty" role="status">
+          <div class="alert-icon">
+            <app-icon name="inbox" [size]="24" />
+          </div>
+          <div class="alert-content">
+            <h2>{{ rep.titulo }}</h2>
+            <p>{{ rep.mensaje }}</p>
+            @if (filterEntries().length) {
+              <div class="filters-badges">
+                @for (f of filterEntries(); track f.clave) {
+                  <span class="filter-badge"><strong>{{ f.clave }}:</strong> {{ f.valor }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      } @else if (rep.estado === 'OK') {
+        <div class="report-results">
+          <div class="report-meta panel">
+            <div class="meta-header">
+              <span class="report-type-badge type-{{ rep.tipo | lowercase }}">{{ rep.tipo }}</span>
+              <h2>{{ rep.titulo }}</h2>
+            </div>
+
+            @if (filterEntries().length) {
+              <div class="filters-badges">
+                @for (f of filterEntries(); track f.clave) {
+                  <span class="filter-badge">
+                    <strong>{{ f.clave }}:</strong> {{ f.valor }}
+                  </span>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Opciones de exportación CU21 (4 formatos requeridos) -->
+          <div class="export-toolbar panel" role="region" aria-label="Opciones de exportación de reporte">
+            <div class="export-label">
+              <app-icon name="download" [size]="18" />
+              <strong>Exportar reporte:</strong>
+            </div>
+            <div class="export-buttons">
+              <button
+                type="button"
+                class="export-btn export-btn--pdf"
+                title="Descargar reporte en formato PDF profesional"
+                (click)="exportPdf()"
+              >
+                <app-icon name="file-text" [size]="16" />
+                <span>PDF (.pdf)</span>
+              </button>
+              <button
+                type="button"
+                class="export-btn export-btn--excel"
+                title="Descargar datos organizados en hoja de cálculo Excel"
+                [disabled]="exportingExcel()"
+                (click)="exportExcel()"
+              >
+                <app-icon name="file-spreadsheet" [size]="16" />
+                <span>{{ exportingExcel() ? 'Generando…' : 'Excel (.xlsx)' }}</span>
+              </button>
+              <button
+                type="button"
+                class="export-btn export-btn--csv"
+                title="Descargar registros tabulares en formato CSV"
+                [disabled]="!rep.tabla?.filas?.length"
+                (click)="exportCsv()"
+              >
+                <app-icon name="table" [size]="16" />
+                <span>CSV (.csv)</span>
+              </button>
+              <button
+                type="button"
+                class="export-btn export-btn--json"
+                title="Descargar información estructurada en formato JSON"
+                (click)="exportJson()"
+              >
+                <app-icon name="file-code" [size]="16" />
+                <span>JSON (.json)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 1. RESUMEN IA -->
+          @if (rep.resumen) {
+            <article class="panel ai-summary" role="region" aria-label="Resumen ejecutivo con IA">
+              <div class="ai-summary__header">
+                <app-icon name="sparkles" [size]="18" />
+                <h3>Resumen ejecutivo generado con IA</h3>
+              </div>
+              <p class="ai-summary__text">{{ rep.resumen }}</p>
+              <div class="ai-summary__footer">
+                <span>Modelo: {{ rep.modelo ?? 'DeepSeek' }}</span>
+                <span>Generado: {{ rep.generado_en | slice:0:19 }}</span>
+              </div>
+            </article>
+          }
+
+          <!-- 2. CARDS (KPIs) -->
+          @if (rep.kpis.length) {
+            <div class="kpi-grid">
+              @for (kpi of rep.kpis; track kpi.etiqueta) {
+                <article class="panel kpi-card">
+                  <h3>{{ kpi.etiqueta }}</h3>
+                  <strong class="kpi-value">{{ kpi.valor }}</strong>
+                  @if (kpi.unidad) {
+                    <span class="kpi-unit">{{ kpi.unidad }}</span>
+                  }
+                </article>
+              }
+            </div>
+          }
+
+          <!-- 3. DOS GRÁFICOS DINÁMICOS: Gráfico de dona + Gráfico de barras -->
+          <div class="chart-grid">
+            <!-- 1. Gráfico de dona: Mostrar distribuciones y porcentajes -->
+            <article class="panel chart-card chart-card--donut" role="region" [attr.aria-label]="donutTitle()">
+              <header class="chart-header">
+                <div class="chart-header-main">
+                  <h3>{{ donutTitle() }}</h3>
+                  <span class="chart-unit">{{ donutUnit() }}</span>
+                </div>
+                @if (hasMultipleStockGroups()) {
+                  <div class="chart-header-actions">
+                    <div class="view-toggle" role="group" aria-label="Cambiar vista de distribución">
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="stockDonutView() === 'estado'"
+                        (click)="setStockDonutView('estado')"
+                      >
+                        Por estado
+                      </button>
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="stockDonutView() === 'grupo'"
+                        (click)="setStockDonutView('grupo')"
+                      >
+                        Por {{ groupLabel() }}
+                      </button>
+                    </div>
+                  </div>
+                }
+              </header>
+
+              @if (donutSegments().length) {
+                <div class="donut-layout">
+                  <div class="donut-holder">
+                    <svg viewBox="0 0 160 160" role="img" [attr.aria-label]="donutTitle()">
+                      <circle class="donut-track" cx="80" cy="80" r="54" />
+                      @for (segment of donutSegments(); track segment.key) {
+                        <circle
+                          class="donut-segment"
+                          [style.stroke]="segment.color"
+                          cx="80"
+                          cy="80"
+                          r="54"
+                          [attr.stroke-dasharray]="segment.dash + ' ' + segment.gap"
+                          [attr.stroke-dashoffset]="segment.offset"
+                        >
+                          <title>{{ segment.label }}: {{ segment.formattedValue }} ({{ segment.percent | number: '1.0-1' }}%)</title>
+                        </circle>
+                      }
+                    </svg>
+                    <div class="donut-center">
+                      <strong>{{ donutTotalDisplay() }}</strong>
+                      <span>{{ donutCenterLabel() }}</span>
+                    </div>
+                  </div>
+
+                  <ul class="legend">
+                    @for (segment of donutSegments(); track segment.key) {
+                      <li>
+                        <span class="dot" [style.background-color]="segment.color" aria-hidden="true"></span>
+                        <span class="legend-label" [title]="segment.label">{{ segment.label }}</span>
+                        <strong class="legend-pct">{{ segment.percent | number: '1.0-1' }}%</strong>
+                        <small class="legend-val">{{ segment.formattedValue }}</small>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              } @else {
+                <p class="empty">Sin datos suficientes para calcular la distribución porcentual.</p>
+              }
+            </article>
+
+            <!-- 2. Gráfico de barras: Comparar ventas, inventario, reservas y otros indicadores -->
+            <article class="panel chart-card chart-card--bars" role="region" [attr.aria-label]="barTitle()">
+              <header class="chart-header">
+                <div class="chart-header-main">
+                  <h3>{{ barTitle() }}</h3>
+                  <span class="chart-unit">{{ barUnit() }}</span>
+                </div>
+                <div class="chart-header-actions">
+                  @if (hasMultipleStockGroups() && hasStockProducts()) {
+                    <div class="view-toggle" role="group" aria-label="Cambiar vista de comparativa">
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="stockBarView() === 'grupo'"
+                        (click)="setStockBarView('grupo')"
+                      >
+                        Por {{ groupLabel() }}
+                      </button>
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="stockBarView() === 'productos'"
+                        (click)="setStockBarView('productos')"
+                      >
+                        Por producto
+                      </button>
+                    </div>
+                  }
+                  @if (isLineAvailable()) {
+                    <div class="view-toggle" role="group" aria-label="Cambiar modo de visualización">
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="barMode() === 'bar'"
+                        (click)="setBarMode('bar')"
+                      >
+                        Barras
+                      </button>
+                      <button
+                        type="button"
+                        class="toggle-btn"
+                        [class.active]="barMode() === 'line'"
+                        (click)="setBarMode('line')"
+                      >
+                        Evolución
+                      </button>
+                    </div>
+                  }
+                </div>
+              </header>
+
+              @if (barMode() === 'line' && linePoints().length) {
+                <div class="line-chart-wrapper">
+                  <svg viewBox="0 0 600 200" class="line-chart-svg" role="img" [attr.aria-label]="barTitle()">
+                    <line x1="20" y1="180" x2="580" y2="180" class="chart-axis" />
+                    <polyline [attr.points]="linePolylineAttr()" class="chart-polyline" />
+                    @for (pt of linePoints(); track pt.etiqueta) {
+                      <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="5" class="chart-circle">
+                        <title>{{ pt.etiqueta }}: {{ pt.valor.toLocaleString('es-BO') }}</title>
+                      </circle>
+                    }
+                  </svg>
+                  <div class="line-range">
+                    <span>{{ linePoints()[0]?.etiqueta }}</span>
+                    <span>{{ linePoints()[linePoints().length - 1]?.etiqueta }}</span>
+                  </div>
+                </div>
+              } @else if (barRows().length) {
+                <div class="bars-container">
+                  @for (row of barRows(); track row.key) {
+                    <div class="bar-item">
+                      <div class="bar-labels">
+                        <span class="bar-name" [title]="row.label">{{ row.label }}</span>
+                        <strong class="bar-value">{{ row.displayValue }}</strong>
+                      </div>
+                      <div class="bar-track" aria-hidden="true">
+                        <div
+                          class="bar-fill"
+                          [style.width.%]="row.percent"
+                          [style.background-color]="row.color || 'var(--color-terracotta)'"
+                        ></div>
+                      </div>
+                      @if (row.meta) {
+                        <div class="bar-meta">
+                          <span>{{ row.meta }}</span>
+                          <small>{{ row.percent | number: '1.0-1' }}% del máx</small>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="empty">Sin datos suficientes para la comparativa.</p>
+              }
+            </article>
+          </div>
+
+          <!-- 4. TABLA DE DETALLES -->
+          @if (rep.tabla; as tbl) {
+            <article class="panel table-card" role="region" aria-label="Detalle en tabla de datos">
+              <header class="table-header">
+                <div class="table-title">
+                  <h3>Detalle de registros</h3>
+                  <span class="table-count">Total: {{ tbl.total_filas }} filas</span>
+                </div>
+                @if (tbl.truncada) {
+                  <span class="badge-truncated" title="Para un mejor rendimiento en pantalla se limitan las filas">
+                    Mostrando primeras {{ tbl.filas.length }} filas
+                  </span>
+                }
+              </header>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      @for (col of tbl.columnas; track col.clave) {
+                        <th scope="col" [class.col-right]="col.tipo === 'moneda' || col.tipo === 'numero'">
+                          {{ col.etiqueta }}
+                        </th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (fila of tbl.filas; track $index) {
+                      <tr>
+                        @for (col of tbl.columnas; track col.clave) {
+                          <td [class.col-right]="col.tipo === 'moneda' || col.tipo === 'numero'">
+                            {{ formatCell(fila, col.clave, col.tipo) }}
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    }
+  }
+
+  <!-- ========================================================================= -->
+  <!--                 PESTAÑA 2: HISTORIAL DE REPORTES (CU21)                   -->
+  <!-- ========================================================================= -->
+  @if (activeTab() === 'historial') {
+    <section class="panel history-section" role="region" aria-label="Historial de reportes generados">
+      <header class="history-header">
+        <div>
+          <h2>Historial de Reportes Generados</h2>
+          <p class="history-sub">Consulta, visualiza nuevamente y exporta los reportes generados anteriormente para tu empresa.</p>
+        </div>
+        <div class="history-actions">
+          <button
+            type="button"
+            class="modal-button modal-button--secondary refresh-btn"
+            [disabled]="loadingHistory()"
+            (click)="loadHistory()"
+          >
+            <app-icon name="refresh" [size]="15" [class.spinning]="loadingHistory()" />
+            <span>Actualizar</span>
+          </button>
+        </div>
+      </header>
+
+      @if (loadingHistory()) {
+        <div class="loading-state history-loading">
+          <div class="loading-spinner"></div>
+          <p>Cargando historial de reportes…</p>
+        </div>
+      } @else if (historyError()) {
+        <div class="panel notice error-notice">
+          <p>{{ historyError() }}</p>
+          <button class="modal-button modal-button--primary" type="button" (click)="loadHistory()">
+            Reintentar
+          </button>
+        </div>
+      } @else if (historyList().length === 0) {
+        <div class="empty-state">
+          <app-icon name="inbox" [size]="48" class="empty-icon" />
+          <h3>No hay reportes en el historial</h3>
+          <p>Los reportes generados mediante lenguaje natural se guardarán automáticamente aquí.</p>
+          <button type="button" class="modal-button modal-button--primary" (click)="switchTab('generar')">
+            Generar primer reporte
+          </button>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="data-table history-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Título del reporte</th>
+                <th>Consulta realizada</th>
+                <th>Generado por</th>
+                <th class="col-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of historyList(); track item.id_reporte) {
+                <tr>
+                  <td class="date-col">{{ item.creado_en | slice:0:16 | date:'short':'America/La_Paz' }}</td>
+                  <td>
+                    <span class="report-type-badge type-{{ item.tipo | lowercase }}">{{ item.tipo }}</span>
+                  </td>
+                  <td><strong>{{ item.titulo }}</strong></td>
+                  <td class="query-col" [title]="item.consulta">«{{ item.consulta }}»</td>
+                  <td>{{ item.nombre_usuario || 'Administrador' }}</td>
+                  <td class="col-center actions-cell">
+                    <button
+                      type="button"
+                      class="modal-button modal-button--secondary view-btn"
+                      title="Abrir y visualizar este reporte con sus gráficos y datos"
+                      (click)="viewSavedReport(item.id_reporte)"
+                    >
+                      <app-icon name="eye" [size]="15" />
+                      <span>Ver reporte</span>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</section>

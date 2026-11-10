@@ -1,14 +1,14 @@
-"""Integracion basica: ReportAIService arma el prompt y usa GeminiClient para analizar CU28/29/30."""
+"""Integracion basica: ReportAIService arma el prompt y usa DeepSeekClient para analizar CU28/29/30."""
 
 from unittest import TestCase
 
-from app.integrations.gemini import GeminiAnalysisError
+from app.integrations.deepseek import DeepSeekError
 from app.schemas.admin_sales_report import SalesReportData
 from app.services.report_ai_service import ReportAIService
 
 
-class FakeGeminiClient:
-    """Sustituye la llamada HTTP real a Gemini para la prueba de integracion."""
+class FakeDeepSeekClient:
+    """Sustituye la llamada HTTP real a DeepSeek para la prueba de integracion."""
 
     def __init__(self, response: str | None = None, error: bool = False):
         self.response = response
@@ -18,12 +18,12 @@ class FakeGeminiClient:
     def generate_analysis(self, *, prompt: str) -> str:
         self.received_prompt = prompt
         if self.error:
-            raise GeminiAnalysisError
+            raise DeepSeekError
         return self.response
 
 
 class ReportAIServiceIntegrationTests(TestCase):
-    """Valida que el servicio use el cliente Gemini y traduzca sus errores."""
+    """Valida que el servicio use el cliente DeepSeek y traduzca sus errores."""
 
     def setUp(self) -> None:
         self.sales_data = SalesReportData(
@@ -43,8 +43,8 @@ class ReportAIServiceIntegrationTests(TestCase):
             serie_diaria=[],
         )
 
-    def test_analyze_sales_sends_summary_and_returns_gemini_text(self) -> None:
-        client = FakeGeminiClient(response="Resumen: ventas estables, mantener stock de temporada.")
+    def test_analyze_sales_sends_summary_and_returns_deepseek_text(self) -> None:
+        client = FakeDeepSeekClient(response="Resumen: ventas estables, mantener stock de temporada.")
         service = ReportAIService(client=client)
 
         result = service.analyze_sales(self.sales_data)

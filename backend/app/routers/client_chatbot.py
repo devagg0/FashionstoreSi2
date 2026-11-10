@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/client/chatbot", tags=["Asistente del cliente CU
     responses={
         401: {"model": ErrorResponse, "description": "Token invalido o expirado"},
         403: {"model": ErrorResponse, "description": "Se requiere el rol CLIENTE"},
-        503: {"model": ErrorResponse, "description": "Gemini no disponible"},
+        503: {"model": ErrorResponse, "description": "Asistente de IA no disponible"},
     },
 )
 def send_message(

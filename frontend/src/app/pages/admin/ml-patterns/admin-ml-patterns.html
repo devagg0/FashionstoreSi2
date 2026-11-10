@@ -1,0 +1,460 @@
+<div class="ml-patterns-container">
+  <!-- Page Header -->
+  <header class="page-heading">
+    <p>MACHINE LEARNING • APRENDIZAJE NO SUPERVISADO (CU23)</p>
+    <h1>Análisis de Patrones de Comportamiento y Rotación</h1>
+    <span>Descubrimiento de arquetipos comerciales, velocidad de rotación y comportamiento del catálogo mediante K-Means.</span>
+  </header>
+
+  <!-- Model Transparency Banner -->
+  @if (modelInfo(); as info) {
+    <section class="panel model-transparency-panel">
+      <div class="model-badge-header">
+        <div class="model-title-group">
+          <span class="tech-tag">
+            <app-icon name="layers" [size]="16" />
+            {{ info.algoritmo }}
+          </span>
+          <span class="unsupervised-pill">
+            <app-icon name="sparkles" [size]="14" />
+            Aprendizaje no supervisado
+          </span>
+        </div>
+        <div class="model-meta-info">
+          <span><strong>Variables analizadas:</strong> {{ info.variables.length }} indicadores de rotación y volumen</span>
+        </div>
+      </div>
+
+      <div class="model-metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Coeficiente de Silueta Referencial</span>
+          <span class="metric-value">{{ info.metricas.silhouette_score | number: '1.4-4' }}</span>
+          <span class="metric-note">Separación y cohesión de grupos en espacio normalizado</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Inercia del Modelo</span>
+          <span class="metric-value">{{ info.metricas.inercia | number: '1.1-1' }}</span>
+          <span class="metric-note">Suma de distancias cuadráticas a los centroides</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Número de Grupos (K)</span>
+          <span class="metric-value">{{ info.n_clusters }} <small>arquetipos</small></span>
+          <span class="metric-note">Estrellas, Premium, Flujo Regular y Baja Rotación</span>
+        </div>
+      </div>
+
+      <p class="model-disclaimer-note">
+        <strong>Metodología:</strong> {{ info.nota_metodologica }}
+      </p>
+    </section>
+  }
+
+  <!-- Filters Panel -->
+  <section class="panel filters-panel">
+    <div class="filters-header">
+      <div class="filters-title">
+        <app-icon name="filter" [size]="18" />
+        <h2>Filtros del análisis comercial</h2>
+      </div>
+      @if (analysisResult()) {
+        <button type="button" class="btn-text-action" (click)="resetAnalysis()">
+          <app-icon name="refresh" [size]="16" />
+          Nueva consulta
+        </button>
+      }
+    </div>
+
+    <div class="filters-form-grid">
+      <!-- Período -->
+      <div class="form-group period-group">
+        <label>Período de análisis</label>
+        <div class="period-chips" role="radiogroup" aria-label="Período de días">
+          @for (days of availablePeriods(); track days) {
+            <button
+              type="button"
+              class="period-chip"
+              [class.is-selected]="selectedPeriod() === days"
+              (click)="setPeriod(days)"
+              [disabled]="isLoading()"
+            >
+              {{ days }} días
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Sucursal -->
+      <div class="form-group">
+        <label for="sucursalSelect">Sucursal</label>
+        <div class="select-wrapper">
+          <select
+            id="sucursalSelect"
+            [ngModel]="selectedBranchId()"
+            (ngModelChange)="selectedBranchId.set($event ? +$event : null)"
+            [disabled]="isLoading() || isLoadingFilters()"
+          >
+            <option [ngValue]="null">Todas las sucursales</option>
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.nombre }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Categoría -->
+      <div class="form-group">
+        <label for="categoriaSelect">Categoría de prendas</label>
+        <div class="select-wrapper">
+          <select
+            id="categoriaSelect"
+            [ngModel]="selectedCategoryId()"
+            (ngModelChange)="selectedCategoryId.set($event ? +$event : null)"
+            [disabled]="isLoading() || isLoadingFilters()"
+          >
+            <option [ngValue]="null">Todas las categorías</option>
+            @for (cat of categories(); track cat.id) {
+              <option [value]="cat.id">{{ cat.nombre }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-actions">
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="executeAnalysis()"
+        [disabled]="isLoading()"
+      >
+        @if (isLoading()) {
+          <span class="spinner-inline" aria-hidden="true"></span>
+          <span>Analizando patrones K-Means...</span>
+        } @else {
+          <app-icon name="layers" [size]="18" />
+          <span>Ejecutar análisis de patrones</span>
+        }
+      </button>
+    </div>
+  </section>
+
+  <!-- Error Alert -->
+  @if (errorMessage()) {
+    <div class="alert-error" role="alert">
+      <app-icon name="alert-circle" [size]="20" />
+      <div class="alert-content">
+        <strong>Atención:</strong>
+        <p>{{ errorMessage() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="panel loading-panel">
+      <div class="loading-spinner"></div>
+      <h3>Descubriendo patrones comerciales con K-Means...</h3>
+      <p>Extrayendo ventas por sucursal, consolidando inventario real y calculando distancias a centroides.</p>
+    </div>
+  }
+
+  <!-- Results Section -->
+  @if (!isLoading() && analysisResult(); as res) {
+    <!-- Caso: Datos Insuficientes -->
+    @if (!res.datos_suficientes) {
+      <div class="panel alert-warning-panel" role="region" aria-label="Resultado controlado por datos insuficientes">
+        <div class="warning-header">
+          <app-icon name="alert-circle" [size]="22" />
+          <h3>Datos insuficientes para agrupamiento</h3>
+        </div>
+        <p class="warning-body">{{ res.mensaje }}</p>
+        <p class="warning-sub">
+          Total de prendas analizadas: <strong>{{ res.total_productos_analizados }}</strong>.
+          Para obtener agrupaciones estadísticas confiables y evitar patrones ficticios, amplíe el período o seleccione más sucursales.
+        </p>
+      </div>
+    } @else {
+      <!-- Caso: Análisis Exitoso con Patrones Reales -->
+      <div class="results-container">
+        <!-- Context & Metric Summary Banner -->
+        <div class="panel context-banner">
+          <div class="context-info">
+            <div class="context-headline">
+              <h3>Patrones descubiertos en {{ res.total_productos_analizados }} prendas</h3>
+              <span class="separator">•</span>
+              <span class="period-label">{{ res.filtros_aplicados['periodo'] }}</span>
+            </div>
+            <p class="context-sub">
+              Sucursal: <strong>{{ res.filtros_aplicados['sucursal'] }}</strong> • Categoría: <strong>{{ res.filtros_aplicados['categoria'] }}</strong>
+            </p>
+          </div>
+
+          <div class="context-badges">
+            <div class="badge-item">
+              <span class="badge-title">Calidad de Agrupamiento:</span>
+              <span class="badge" [class.badge-quality-high]="res.calidad_agrupamiento === 'ALTA'" [class.badge-quality-med]="res.calidad_agrupamiento !== 'ALTA'">
+                {{ res.calidad_agrupamiento }} (Silhouette {{ res.metricas.silhouette_score | number: '1.2-2' }})
+              </span>
+            </div>
+            <div class="badge-item">
+              <span class="badge-title">Grupos Identificados:</span>
+              <span class="badge badge-clusters">{{ res.n_clusters }} segmentos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <app-icon name="bag" [size]="20" />
+              <span>Prendas en análisis</span>
+            </div>
+            <div class="kpi-big-number">
+              {{ res.total_productos_analizados }}
+              <small>artículos</small>
+            </div>
+            <div class="kpi-subtext">Catálogo activo evaluado</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <app-icon name="trending-up" [size]="20" />
+              <span>Unidades vendidas</span>
+            </div>
+            <div class="kpi-big-number">
+              {{ res.total_unidades_vendidas }}
+              <small>unidades</small>
+            </div>
+            <div class="kpi-subtext">Total en el período seleccionado</div>
+          </div>
+
+          <div class="kpi-card highlight-card">
+            <div class="kpi-header">
+              <app-icon name="store" [size]="20" />
+              <span>Facturación total</span>
+            </div>
+            <div class="kpi-big-number">
+              Bs. {{ res.total_ingresos_facturados | number: '1.2-2' }}
+            </div>
+            <div class="kpi-subtext">Ventas efectivas completadas</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <app-icon name="layers" [size]="20" />
+              <span>Inercia K-Means</span>
+            </div>
+            <div class="kpi-big-number">
+              {{ res.metricas.inercia | number: '1.1-1' }}
+            </div>
+            <div class="kpi-subtext">Compacidad de los conglomerados</div>
+          </div>
+        </div>
+
+        <!-- Discovered Segments Grid -->
+        <section class="panel segments-panel">
+          <div class="segments-header">
+            <app-icon name="sparkles" [size]="20" />
+            <h2>Arquetipos y Segmentos Descubiertos</h2>
+          </div>
+
+          <div class="segments-grid">
+            @for (seg of res.segmentos; track seg.id_cluster) {
+              <div class="segment-card" [style.border-top-color]="seg.color">
+                <div class="segment-card-header">
+                  <span class="segment-pill" [style.background-color]="seg.color + '20'" [style.color]="seg.color">
+                    {{ seg.nombre }}
+                  </span>
+                  <span class="segment-count">
+                    <strong>{{ seg.total_productos }}</strong> prendas ({{ seg.porcentaje_catalogo }}%)
+                  </span>
+                </div>
+
+                <p class="segment-desc">{{ seg.descripcion }}</p>
+
+                <div class="segment-metrics-mini">
+                  <div class="mini-stat">
+                    <span>Unidades prom:</span>
+                    <strong>{{ seg.promedios.unidades_vendidas }}</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Facturación prom:</span>
+                    <strong>Bs. {{ seg.promedios.ingresos_totales | number: '1.1-1' }}</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Stock promedio:</span>
+                    <strong>{{ seg.promedios.stock_actual }}</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Rotación ratio:</span>
+                    <strong>{{ seg.promedios.ratio_rotacion | percent: '1.1-1' }}</strong>
+                  </div>
+                </div>
+
+                <div class="segment-strategy">
+                  <strong>Estrategia recomendada:</strong>
+                  <p>{{ seg.estrategia }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Interactive 2D Scatter Plot -->
+        <section class="panel scatter-panel">
+          <div class="scatter-header">
+            <div>
+              <h3>Dispersión Comercial: Unidades Vendidas vs Facturación</h3>
+              <span class="scatter-subtitle">
+                Cada punto representa una prenda. El tamaño del círculo refleja el stock actual; el color indica el segmento asignado por K-Means.
+              </span>
+            </div>
+            <div class="scatter-legend">
+              @for (seg of res.segmentos; track seg.id_cluster) {
+                <span class="legend-chip">
+                  <span class="legend-dot" [style.background-color]="seg.color"></span>
+                  {{ seg.nombre }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="svg-scatter-container">
+            <svg viewBox="0 0 760 260" class="scatter-svg" preserveAspectRatio="none">
+              <!-- Gridlines -->
+              <line x1="60" y1="30" x2="730" y2="30" class="grid-line" />
+              <line x1="60" y1="85" x2="730" y2="85" class="grid-line" />
+              <line x1="60" y1="140" x2="730" y2="140" class="grid-line" />
+              <line x1="60" y1="195" x2="730" y2="195" class="grid-line" />
+              <line x1="60" y1="215" x2="730" y2="215" class="grid-line axis-line" />
+              <line x1="60" y1="30" x2="60" y2="215" class="grid-line axis-line" />
+
+              <!-- Y-Axis Labels (Ingresos) -->
+              <text x="52" y="35" class="axis-number" text-anchor="end">Bs. {{ maxYValue() | number: '1.0-0' }}</text>
+              <text x="52" y="125" class="axis-number" text-anchor="end">Bs. {{ (maxYValue() / 2) | number: '1.0-0' }}</text>
+              <text x="52" y="215" class="axis-number" text-anchor="end">Bs. 0</text>
+
+              <!-- X-Axis Labels (Unidades) -->
+              <text x="60" y="235" class="axis-number" text-anchor="middle">0 un.</text>
+              <text x="395" y="235" class="axis-number" text-anchor="middle">{{ (maxXValue() / 2) | number: '1.0-0' }} un.</text>
+              <text x="730" y="235" class="axis-number" text-anchor="middle">{{ maxXValue() | number: '1.0-0' }} un.</text>
+
+              <!-- Scatter Circles -->
+              @for (pt of scatterPoints(); track pt.productName + pt.clusterName) {
+                <circle
+                  [attr.cx]="pt.x"
+                  [attr.cy]="pt.y"
+                  [attr.r]="pt.r"
+                  [style.fill]="pt.color"
+                  class="scatter-dot"
+                >
+                  <title>{{ pt.productName }} ({{ pt.clusterName }})&#10;Ventas: {{ pt.units }} un.&#10;Facturación: Bs. {{ pt.revenue | number: '1.2-2' }}&#10;Stock: {{ pt.stock }} un.&#10;Precio: Bs. {{ pt.price | number: '1.2-2' }}&#10;Rotación: {{ pt.rotation | percent: '1.1-1' }}</title>
+                </circle>
+              }
+            </svg>
+          </div>
+        </section>
+
+        <!-- Detailed Products Table -->
+        <section class="panel table-panel">
+          <div class="table-header-group">
+            <div class="table-title">
+              <app-icon name="table" [size]="18" />
+              <h3>Detalle de Prendas por Segmento</h3>
+            </div>
+
+            <div class="table-controls">
+              <!-- Search Input -->
+              <div class="search-box">
+                <app-icon name="search" [size]="16" />
+                <input
+                  type="text"
+                  placeholder="Buscar prenda o categoría..."
+                  [ngModel]="searchQuery()"
+                  (ngModelChange)="searchQuery.set($event)"
+                />
+              </div>
+
+              <!-- Cluster Filter Chips -->
+              <div class="cluster-filters">
+                <button
+                  type="button"
+                  class="filter-chip"
+                  [class.is-active]="selectedClusterFilter() === null"
+                  (click)="toggleClusterFilter(null)"
+                >
+                  Todos ({{ res.total_productos_analizados }})
+                </button>
+                @for (seg of res.segmentos; track seg.id_cluster) {
+                  <button
+                    type="button"
+                    class="filter-chip"
+                    [class.is-active]="selectedClusterFilter() === seg.id_cluster"
+                    [style.--chip-color]="seg.color"
+                    (click)="toggleClusterFilter(seg.id_cluster)"
+                  >
+                    {{ seg.nombre }} ({{ seg.total_productos }})
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="details-table">
+              <thead>
+                <tr>
+                  <th>Prenda</th>
+                  <th>Categoría</th>
+                  <th>Sección</th>
+                  <th>Precio</th>
+                  <th>Ventas (un.)</th>
+                  <th>Facturación</th>
+                  <th>Stock</th>
+                  <th>Rotación</th>
+                  <th>Segmento K-Means</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filteredProducts(); track item.id_producto) {
+                  <tr>
+                    <td><strong>{{ item.nombre }}</strong></td>
+                    <td>{{ item.categoria_nombre }}</td>
+                    <td><span class="badge-section">{{ item.seccion }}</span></td>
+                    <td>Bs. {{ item.precio_unitario | number: '1.2-2' }}</td>
+                    <td><strong>{{ item.unidades_vendidas }}</strong></td>
+                    <td>Bs. {{ item.ingresos_totales | number: '1.2-2' }}</td>
+                    <td>{{ item.stock_actual }} un.</td>
+                    <td>
+                      <div class="rotation-bar-wrapper">
+                        <div class="rotation-bar" [style.width.%]="item.ratio_rotacion * 100"></div>
+                        <span class="rotation-text">{{ item.ratio_rotacion | percent: '1.0-0' }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="cluster-tag" [style.background-color]="item.cluster_color + '20'" [style.color]="item.cluster_color">
+                        {{ item.cluster_nombre }}
+                      </span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="9" class="empty-state">No se encontraron prendas que coincidan con el filtro.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Disclaimer -->
+        <div class="results-disclaimer">
+          <app-icon name="alert-circle" [size]="16" />
+          <span>{{ res.disclaimer }}</span>
+        </div>
+      </div>
+    }
+  }
+</div>
+

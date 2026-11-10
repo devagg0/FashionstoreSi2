@@ -1,0 +1,29 @@
+{
+  "algoritmo": "GradientBoostingRegressor (scikit-learn)",
+  "descripcion": "Modelo supervisado de regresión para estimar demanda de prendas en sucursales",
+  "variables": [
+    "precio_unitario",
+    "ventas_ultimos_7d",
+    "ventas_ultimos_14d",
+    "ventas_ultimos_30d",
+    "stock_actual",
+    "dias_horizonte",
+    "mes",
+    "es_temporada_alta",
+    "seccion_HOMBRE",
+    "seccion_MUJER",
+    "seccion_UNISEX"
+  ],
+  "total_variables": 11,
+  "dataset_size": 2000,
+  "train_size": 1600,
+  "test_size": 400,
+  "metricas": {
+    "mae": 1.703,
+    "rmse": 2.332,
+    "r2": 0.9587
+  },
+  "es_experimental": true,
+  "nota_metodologica": "Entrenado sobre datos sintéticos generados para FashionStore. Las predicciones son estimaciones orientativas.",
+  "entrenado_en": "2026-11-10T03:35:47.101547+00:00"
+}

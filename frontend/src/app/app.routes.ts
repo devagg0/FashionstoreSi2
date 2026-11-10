@@ -35,6 +35,24 @@ export const routes: Routes = [
     title: 'Mis compras | FashionStore',
   },
   {
+    path: 'mis-operaciones',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/client-operations/client-operations').then(
+        (m) => m.ClientOperationsPage,
+      ),
+    title: 'Mis operaciones | FashionStore',
+  },
+  {
+    path: 'mis-notificaciones',
+    canActivate: [clientGuard],
+    loadComponent: () =>
+      import('./pages/client-notifications/client-notifications').then(
+        (m) => m.ClientNotificationsPage,
+      ),
+    title: 'Mis notificaciones | FashionStore',
+  },
+  {
     path: 'mis-compras/:id',
     canActivate: [clientGuard],
     loadComponent: () => import('./pages/purchases/purchases').then((m) => m.PurchasesPage),
@@ -317,6 +335,38 @@ export const routes: Routes = [
             ({ AdminGlobalInventory }) => AdminGlobalInventory,
           ),
         title: 'Inventario global | FashionStore',
+      },
+      {
+        path: 'reportes-ia',
+        loadComponent: () =>
+          import('./pages/admin/natural-language-report/admin-natural-language-report').then(
+            (m) => m.AdminNaturalLanguageReport,
+          ),
+        title: 'Reportes con IA | FashionStore',
+      },
+      {
+        path: 'predicciones-ml',
+        loadComponent: () =>
+          import('./pages/admin/ml-predictions/admin-ml-predictions').then(
+            (m) => m.AdminMlPredictionsComponent,
+          ),
+        title: 'Predicciones ML | FashionStore',
+      },
+      {
+        path: 'patrones-ml',
+        loadComponent: () =>
+          import('./pages/admin/ml-patterns/admin-ml-patterns').then(
+            (m) => m.AdminMlPatternsComponent,
+          ),
+        title: 'Análisis de Patrones ML | FashionStore',
+      },
+      {
+        path: 'dashboard-inteligente',
+        loadComponent: () =>
+          import('./pages/admin/analytics-dashboard/admin-analytics-dashboard').then(
+            (m) => m.AdminAnalyticsDashboardComponent,
+          ),
+        title: 'Dashboard Analítico Inteligente | FashionStore',
       },
       {
         path: 'reporte-ventas',

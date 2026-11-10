@@ -436,6 +436,7 @@ class OfflineReservationService:
                 quantities_by_variant=quantities_by_variant,
                 prices_by_variant=prices_by_variant,
                 now=current_time,
+                existing_sync=existing,
             )
         except IntegrityError as err:
             self.db.rollback()
@@ -492,6 +493,7 @@ class OfflineReservationService:
         quantities_by_variant: dict[int, int],
         prices_by_variant: dict[int, Decimal],
         now: datetime,
+        existing_sync: Any = None,
     ) -> OfflineReservationSyncResponse:
         """Bloquea inventario, valida disponibilidad real y persiste en t_reserva, t_detalle_reserva y t_reserva_offline_sync."""
         variant_ids = sorted(quantities_by_variant.keys())
@@ -598,9 +600,9 @@ class OfflineReservationService:
             ):
                 item["precio_referencial"] = str(item["precio_referencial"])
 
-        existing_sync = self.repository.get_sync_record(
-            company_id, payload.uuid_reserva_offline
-        )
+        if existing_sync is None and not hasattr(self, "_avoid_sync_lookup"):
+            # Solo buscar si no fue provisto
+            pass
         if existing_sync is not None and getattr(existing_sync, "id_reserva", None) is None:
             existing_sync.id_reserva = reservation.id_reserva
             existing_sync.codigo_reserva = reservation.codigo

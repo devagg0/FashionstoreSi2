@@ -1,5 +1,6 @@
 """Reglas, precios y transacciones de CU17."""
 
+import logging
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -30,6 +31,7 @@ from app.services.catalog import CatalogService
 
 MONEY = Decimal("0.01")
 RESERVATION_WINDOW_DAYS = 7
+logger = logging.getLogger(__name__)
 
 
 class ReservationNotFoundError(Exception):
@@ -328,6 +330,12 @@ class ClientReservationService:
                 ],
             )
             self.db.flush()
+            try:
+                with self.db.begin_nested():
+                    from app.services.notification_service import NotificationService
+                    NotificationService.notify_reservation_created(self.db, reservation)
+            except Exception as exc:
+                logger.warning("No se pudo generar la notificacion de reserva: %s", exc)
             return self._get_detail(reservation.id_reserva, client.id_cliente)
 
         return self._transaction(operation)
@@ -433,6 +441,12 @@ class ClientReservationService:
         reservation.estado = "EXPIRADA"
         reservation.updated_at = now
         self.db.flush()
+        try:
+            with self.db.begin_nested():
+                from app.services.notification_service import NotificationService
+                NotificationService.notify_reservation_expired(self.db, reservation)
+        except Exception as exc:
+            logger.warning("No se pudo generar la notificacion de reserva expirada: %s", exc)
         return True
 
     def _expire_due(self, client_id: int, now: datetime):
@@ -499,6 +513,12 @@ class ClientReservationService:
                 reservation.estado = "CANCELADA"
                 reservation.updated_at = now
                 self.db.flush()
+                try:
+                    with self.db.begin_nested():
+                        from app.services.notification_service import NotificationService
+                        NotificationService.notify_reservation_cancelled(self.db, reservation)
+                except Exception as exc:
+                    logger.warning("No se pudo generar la notificacion de cancelacion: %s", exc)
             return self._get_detail(reservation_id, client.id_cliente)
 
         result = self._transaction(operation)

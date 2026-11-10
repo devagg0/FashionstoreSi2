@@ -1,6 +1,7 @@
 import { Component, input } from '@angular/core';
 
 export type IconName =
+  | 'alert-circle'
   | 'bag'
   | 'ban'
   | 'chevron-down'
@@ -10,9 +11,15 @@ export type IconName =
   | 'circle-check'
   | 'close'
   | 'dashboard'
+  | 'download'
   | 'eye'
   | 'eye-off'
+  | 'file-code'
+  | 'file-spreadsheet'
+  | 'file-text'
   | 'filter'
+  | 'history'
+  | 'inbox'
   | 'key'
   | 'layers'
   | 'log-out'
@@ -21,6 +28,7 @@ export type IconName =
   | 'map-pin'
   | 'message-circle'
   | 'menu'
+  | 'mic'
   | 'monitor-smartphone'
   | 'refresh'
   | 'search'
@@ -30,6 +38,8 @@ export type IconName =
   | 'pencil'
   | 'plus'
   | 'store'
+  | 'table'
+  | 'trending-up'
   | 'user'
   | 'user-plus'
   | 'users';

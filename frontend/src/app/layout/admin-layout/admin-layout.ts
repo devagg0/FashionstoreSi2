@@ -35,6 +35,7 @@ export class AdminLayout implements OnInit {
 
   protected readonly sectionTitle = computed(() => {
     const url = this.activeUrl();
+    if (url.startsWith('/admin/reportes-ia')) return 'Reportes con IA';
     if (url.startsWith('/admin/reporte-ventas')) return 'Reporte de ventas';
     if (url.startsWith('/admin/reporte-inventario')) return 'Reporte de inventario';
     if (url.startsWith('/admin/reporte-reservas')) return 'Reporte de reservas';
