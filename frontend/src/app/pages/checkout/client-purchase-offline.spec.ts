@@ -273,11 +273,13 @@ describe('PK08 - CU11: Compra digital offline del CLIENTE (Web Angular PWA)', ()
     expect(storageMock['saveOfflinePurchaseAtomic']).toHaveBeenCalledTimes(1);
     expect(savedPurchases.length).toBe(1);
     expect(savedPurchases[0].canal).toBe('DIGITAL');
+    expect(savedPurchases[0].id_cliente).toBe(12);
     expect(savedPurchases[0].moneda).toBe('BOB');
     expect(savedPurchases[0].medio_pago).toBe('QR');
     expect(savedQueue.length).toBe(1);
     expect(savedQueue[0].tipo_operacion).toBe('COMPRA');
     expect(savedQueue[0].payload.uuid_venta_offline).toBe(uuid);
+    expect(savedQueue[0].payload.id_cliente).toBe(12);
   });
 
   it('5. Registra compra offline con pago TARJETA simulado y comprobante provisional sin cobro real', async () => {

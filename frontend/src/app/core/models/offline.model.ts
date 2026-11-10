@@ -397,6 +397,7 @@ export interface OfflinePurchaseLocal {
   pago_simulado: boolean;
   referencia_pago_local: string;
   estado_pago: 'PENDIENTE_VALIDACION' | 'APROBADO';
+  pago_confirmado_local?: boolean;
   estado: OfflinePurchaseState; // 'REGISTRADA_LOCAL'
   fecha_venta_offline: string; // ISO string
   created_at: string;
@@ -488,6 +489,8 @@ export interface CashierOfflineSaleInput {
   }[];
   idReserva?: number | null;
   idCliente?: number | null;
+  idVentaLocal?: number;
+  confirmPayment?: boolean;
   observaciones?: string | null;
   now?: Date;
 }

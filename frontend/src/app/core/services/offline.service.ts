@@ -201,6 +201,18 @@ export class OfflineService {
     return null;
   }
 
+  async resolveCompanyIdAsync(userId?: number): Promise<number | null> {
+    let empresaId = this.resolveEffectiveCompanyId();
+    const uid = userId ?? this.session.getUser()?.id_usuario;
+    if (!empresaId && uid) {
+      empresaId = await this.findCompanyIdFromDatabases(uid);
+      if (empresaId) {
+        this.saveUserCompanyFallback(uid, empresaId);
+      }
+    }
+    return empresaId;
+  }
+
   /**
    * Consulta liviana al endpoint GET /api/offline/status para verificar
    * vigencia y si existen cambios en el servidor antes de descargar.
@@ -776,6 +788,8 @@ export class OfflineService {
    */
   async registerClientOfflinePurchase(input: {
     uuid: string;
+    idVentaLocal?: number;
+    numeroVentaLocal?: string;
     idSucursal: number;
     medioPago: 'QR' | 'TARJETA';
     items: {
@@ -800,7 +814,7 @@ export class OfflineService {
     });
 
     const user = this.session.getUser();
-    const empresaId = this.resolveEffectiveCompanyId();
+    const empresaId = await this.resolveCompanyIdAsync(user?.id_usuario);
     if (!user || !empresaId) {
       return fail('Sesión no válida. Inicia sesión nuevamente.');
     }
@@ -813,12 +827,18 @@ export class OfflineService {
     const { uuid, idSucursal, medioPago, items } = input;
 
     try {
-      // Idempotencia: si ya existe una compra con este UUID, retornar el comprobante existente
+      // Idempotencia: si ya existe una compra con este UUID o idVentaLocal, retornar el comprobante existente
       const existing = (await this.storage.getOfflinePurchases(empresaId, userId)).find(
-        (row) => row.uuid_venta_offline === uuid,
+        (row) =>
+          row.uuid_venta_offline === uuid ||
+          (input.idVentaLocal !== undefined && row.id_venta_local === input.idVentaLocal),
       );
       if (existing) {
-        const details = await this.storage.getOfflinePurchaseDetails(empresaId, userId, uuid);
+        const details = await this.storage.getOfflinePurchaseDetails(
+          empresaId,
+          userId,
+          existing.uuid_venta_offline,
+        );
         const branches = await this.storage.getBranches(empresaId, userId);
         const branch = branches.find((b) => b.id_sucursal === existing.id_sucursal);
         return {
@@ -905,13 +925,17 @@ export class OfflineService {
         return fail('No se pudo registrar la compra offline por errores de validación.', errors);
       }
 
+      const clients = await this.storage.getClients(empresaId, userId);
+      const matchedClient = clients.find((c) => c.id_usuario === userId);
+      const resolvedClientId = matchedClient ? matchedClient.id_cliente : null;
+
       // Generar ID de venta local entero en rango seguro (90000000 - 99999999)
       let hash = 0;
       for (let i = 0; i < uuid.length; i++) {
         hash = (Math.imul(31, hash) + uuid.charCodeAt(i)) | 0;
       }
-      const localSaleId = 90000000 + (Math.abs(hash) % 9999999);
-      const saleNumber = `DIG-LOC-${uuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      const localSaleId = input.idVentaLocal ?? (90000000 + (Math.abs(hash) % 9999999));
+      const saleNumber = input.numeroVentaLocal ?? `DIG-LOC-${uuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
       const nowIso = now.toISOString();
 
 
@@ -921,7 +945,7 @@ export class OfflineService {
         id_venta_local: localSaleId,
         id_empresa: empresaId,
         id_usuario: userId,
-        id_cliente: userId,
+        id_cliente: resolvedClientId,
         id_sucursal: idSucursal,
         canal: 'DIGITAL',
         moneda: 'BOB',
@@ -951,7 +975,7 @@ export class OfflineService {
           uuid_venta_offline: uuid,
           canal: 'DIGITAL',
           id_sucursal: idSucursal,
-          id_cliente: userId,
+          id_cliente: resolvedClientId,
           detalles: lines.map((line) => ({
             id_variante_producto: line.id_variante_producto,
             id_producto: line.id_producto,
@@ -1000,10 +1024,18 @@ export class OfflineService {
    */
   async getOfflinePurchaseReceipt(
     idOrUuid: number | string,
+    options?: { onlyConfirmedPayment?: boolean },
   ): Promise<OfflinePurchaseReceiptData | null> {
     const user = this.session.getUser();
-    const empresaId = this.resolveEffectiveCompanyId();
-    if (!user || !empresaId) return null;
+    if (!user) return null;
+    let empresaId = this.resolveEffectiveCompanyId();
+    if (!empresaId) {
+      empresaId = await this.findCompanyIdFromDatabases(user.id_usuario);
+      if (empresaId) {
+        this.saveUserCompanyFallback(user.id_usuario, empresaId);
+      }
+    }
+    if (!empresaId) return null;
 
     try {
       const purchases = await this.storage.getOfflinePurchases(empresaId, user.id_usuario);
@@ -1018,6 +1050,9 @@ export class OfflineService {
       );
 
       if (!purchase) return null;
+      if (options?.onlyConfirmedPayment && purchase.pago_confirmado_local === false) {
+        return null;
+      }
 
       const [details, branches] = await Promise.all([
         this.storage.getOfflinePurchaseDetails(empresaId, user.id_usuario, purchase.uuid_venta_offline),
@@ -1035,7 +1070,7 @@ export class OfflineService {
    */
   async getPendingClientPurchases(): Promise<OfflinePurchaseReceiptData[]> {
     const user = this.session.getUser();
-    const empresaId = this.resolveEffectiveCompanyId();
+    const empresaId = await this.resolveCompanyIdAsync(user?.id_usuario);
     if (!user || !empresaId) return [];
 
     try {
@@ -1080,7 +1115,13 @@ export class OfflineService {
     });
 
     const user = this.session.getUser();
-    const empresaId = this.resolveEffectiveCompanyId();
+    let empresaId = this.resolveEffectiveCompanyId();
+    if (user && !empresaId) {
+      empresaId = await this.findCompanyIdFromDatabases(user.id_usuario);
+      if (empresaId) {
+        this.saveUserCompanyFallback(user.id_usuario, empresaId);
+      }
+    }
     if (!user || !empresaId) {
       return fail('Sesión no válida. Inicia sesión nuevamente.');
     }
@@ -1094,14 +1135,112 @@ export class OfflineService {
     const { uuid, idSucursal, medioPago, items } = input;
 
     try {
-      // Idempotencia: si ya existe una venta con este UUID, retornar el comprobante existente
+      // Idempotencia: si ya existe una venta con este UUID o idVentaLocal, actualizar su medio de pago si se está confirmando el cobro o retornar el comprobante existente
       const existing = (await this.storage.getOfflinePurchases(empresaId, userId)).find(
-        (row) => row.uuid_venta_offline === uuid,
+        (row) =>
+          row.uuid_venta_offline === uuid ||
+          (input.idVentaLocal !== undefined && row.id_venta_local === input.idVentaLocal),
       );
       if (existing) {
-        const details = await this.storage.getOfflinePurchaseDetails(empresaId, userId, uuid);
+        const details = await this.storage.getOfflinePurchaseDetails(
+          empresaId,
+          userId,
+          existing.uuid_venta_offline,
+        );
         const branches = await this.storage.getBranches(empresaId, userId);
         const branch = branches.find((b) => b.id_sucursal === existing.id_sucursal);
+
+        if (
+          input.confirmPayment &&
+          (existing.medio_pago !== medioPago || existing.pago_confirmado_local === false)
+        ) {
+          const existingUuid = existing.uuid_venta_offline;
+          const isSimulated = medioPago !== 'EFECTIVO';
+          const refPago = isSimulated
+            ? `SIM-${medioPago}-${existingUuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+            : `LOC-EFECTIVO-${existingUuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+          const estadoPago = medioPago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE_VALIDACION';
+          const nowIso = now.toISOString();
+
+          const updatedSale: OfflinePurchaseLocal = {
+            ...existing,
+            medio_pago: medioPago,
+            pago_simulado: isSimulated,
+            referencia_pago_local: refPago,
+            estado_pago: estadoPago,
+            pago_confirmado_local: true,
+            updated_at: nowIso,
+          };
+
+          const queueItems = await this.storage.getOfflineQueue(empresaId, userId);
+          const existingQueue = queueItems.find((q) => q.uuid_entidad === existingUuid);
+          const updatedQueueItem: OfflineSyncQueueItem = existingQueue
+            ? {
+                ...existingQueue,
+                payload: {
+                  ...(existingQueue.payload ?? {}),
+                  medio_pago: medioPago,
+                  pago_simulado: isSimulated,
+                  referencia_pago_local: refPago,
+                },
+                updated_at: nowIso,
+              }
+            : {
+                uuid_operacion: `op-${existingUuid}`,
+                tipo_operacion: 'VENTA',
+                uuid_entidad: existingUuid,
+                estado: 'REGISTRADA_LOCAL',
+                payload: {
+                  uuid_venta_offline: existingUuid,
+                  canal: 'PRESENCIAL',
+                  id_sucursal: existing.id_sucursal,
+                  id_cliente: existing.id_cliente ?? null,
+                  id_reserva: existing.id_reserva ?? null,
+                  detalles: details.map((line) => ({
+                    id_variante_producto: line.id_variante_producto,
+                    id_producto: line.id_producto,
+                    sku: line.sku,
+                    cantidad: line.cantidad,
+                    precio_unitario: line.precio_unitario,
+                    descuento_unitario: line.descuento_unitario,
+                    subtotal_linea: line.subtotal_linea,
+                  })),
+                  subtotal: existing.subtotal,
+                  descuento_total: existing.descuento_total,
+                  total: existing.total,
+                  moneda: 'BOB',
+                  medio_pago: medioPago,
+                  pago_simulado: isSimulated,
+                  referencia_pago_local: refPago,
+                  fecha_venta_offline: existing.fecha_venta_offline,
+                  observaciones: existing.observaciones ?? null,
+                },
+                reintentos: 0,
+                ultimo_error: null,
+                created_at: existing.created_at,
+                updated_at: nowIso,
+              };
+
+          await this.storage.saveOfflinePurchaseAtomic(
+            empresaId,
+            userId,
+            updatedSale,
+            details,
+            updatedQueueItem,
+            false,
+          );
+
+          return {
+            success: true,
+            uuid_venta_offline: updatedSale.uuid_venta_offline,
+            id_venta_local: updatedSale.id_venta_local,
+            numero_venta_local: updatedSale.numero_venta_local,
+            receipt: this.toPurchaseReceipt(updatedSale, details, branch),
+            message: 'Venta presencial registrada de forma atómica en modo offline.',
+            alreadyStored: false,
+          };
+        }
+
         return {
           success: true,
           uuid_venta_offline: existing.uuid_venta_offline,
@@ -1294,6 +1433,7 @@ export class OfflineService {
         pago_simulado: isSimulated,
         referencia_pago_local: refPago,
         estado_pago: estadoPago,
+        pago_confirmado_local: input.confirmPayment ?? true,
         estado: 'REGISTRADA_LOCAL',
         fecha_venta_offline: nowIso,
         created_at: nowIso,
@@ -1419,7 +1559,7 @@ export class OfflineService {
     };
   }
 
-  private saveUserCompanyFallback(userId: number, empresaId: number): void {
+  saveUserCompanyFallback(userId: number, empresaId: number): void {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(`fashionstore_offline_company_u${userId}`, String(empresaId));

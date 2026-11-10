@@ -374,7 +374,7 @@
                               [class.ops-chip--active]="newSchedule() === h"
                               (click)="newSchedule.set(h)"
                             >
-                              {{ h | date: 'dd/MM/yyyy HH:mm' }}
+                              {{ h | date: 'dd/MM/yyyy HH:mm' : '-0400' }}
                             </button>
                           }
                         </div>

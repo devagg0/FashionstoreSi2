@@ -1197,9 +1197,11 @@ export class OfflineStorageService {
                   if (targetBuy) {
                     targetBuy.id_venta_servidor = res.id_servidor ?? targetBuy.id_venta_servidor;
                     targetBuy.numero_venta_servidor = res.codigo_servidor ?? targetBuy.numero_venta_servidor;
+                    targetBuy.pago_simulado = res.pago_simulado ?? targetBuy.pago_simulado;
                     targetBuy.estado_pago =
-                      (res.estado_pago as any) ||
-                      (targetBuy.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE_VALIDACION');
+                      res.estado_pago === 'APROBADO' && !targetBuy.pago_simulado
+                        ? 'APROBADO'
+                        : 'PENDIENTE_VALIDACION';
                     targetBuy.estado =
                       res.estado_entidad_servidor === 'COMPLETADA'
                         ? 'CONFIRMADA'
@@ -1463,9 +1465,11 @@ export class OfflineStorageService {
                   if (targetBuy) {
                     targetBuy.id_venta_servidor = res.id_servidor ?? targetBuy.id_venta_servidor;
                     targetBuy.numero_venta_servidor = res.codigo_servidor ?? targetBuy.numero_venta_servidor;
+                    targetBuy.pago_simulado = res.pago_simulado ?? targetBuy.pago_simulado;
                     targetBuy.estado_pago =
-                      (res.estado_pago as any) ||
-                      (targetBuy.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE_VALIDACION');
+                      res.estado_pago === 'APROBADO' && !targetBuy.pago_simulado
+                        ? 'APROBADO'
+                        : 'PENDIENTE_VALIDACION';
                     targetBuy.estado =
                       res.estado_entidad_servidor === 'COMPLETADA'
                         ? 'CONFIRMADA'

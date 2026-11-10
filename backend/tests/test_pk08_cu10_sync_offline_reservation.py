@@ -464,6 +464,42 @@ class TestCU10SyncOfflineReservation(TestCase):
         self.assertTrue(race_response.confirmada)
         self.assertEqual(race_response.id_reserva, 99)
 
+        # Reintento de una reserva que previamente estuvo en CONFLICTO (sin id_reserva) cuando el horario ya se liberó
+        conflict_sync = SimpleNamespace(
+            uuid_reserva_offline="uuid-conflicto-liberado-01",
+            id_reserva=None,
+            codigo_reserva=None,
+            estado_sincronizacion="CONFLICTO",
+            motivo="Una de las prendas seleccionadas ya está reservada para esa sucursal, fecha y hora.",
+            id_sucursal=10,
+            id_cliente=7,
+            id_usuario=50,
+            empresa_id=1,
+            created_at=NOW - timedelta(minutes=30),
+        )
+        self.mock_repo.get_sync_record.side_effect = None
+        self.mock_repo.get_sync_record.return_value = conflict_sync
+        self.mock_repo.has_active_slot_conflict.return_value = False
+        self.mock_repo.create_sync_record.side_effect = None
+        self.mock_repo.create_sync_record.return_value = conflict_sync
+        self.mock_repo.create_reservation.return_value = SimpleNamespace(
+            id_reserva=105, codigo="RSV-20261101-LIB105", estado="PENDIENTE"
+        )
+
+        retry_conflict_payload = OfflineReservationSyncRequest(
+            uuid_reserva_offline="uuid-conflicto-liberado-01",
+            id_sucursal=10,
+            fecha_reserva_offline=NOW - timedelta(minutes=30),
+            fecha_atencion_programada=NOW + timedelta(hours=3),
+            detalles=[OfflineReservationDetailRequest(id_variante_producto=201, cantidad=1)],
+        )
+        re_evaluated = self.service.sync_offline_reservation(
+            self.client_user, retry_conflict_payload, now=NOW
+        )
+        self.assertTrue(re_evaluated.confirmada)
+        self.assertEqual(re_evaluated.estado_sincronizacion, "SINCRONIZADA")
+        self.assertEqual(re_evaluated.id_reserva, 105)
+
     def test_7_saas_subscription_and_offline_feature_required(self):
         """Verifica que sin funcionalidad OFFLINE habilitada en el plan SaaS se bloquee la sincronización."""
         payload = OfflineReservationSyncRequest(

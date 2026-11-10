@@ -219,6 +219,11 @@ describe('PK08 - CU11: Venta directa offline del CAJERO (POS FashionStore)', () 
     expect(saleResp.data.total).toBe('250.00');
     expect(saleResp.data.sucursal.nombre).toBe('Sucursal Central POS');
     expect(saleResp.data.cajero.nombre).toBe('Carlos');
+    expect(savedPurchases.length).toBe(1);
+    expect(savedPurchases[0].uuid_venta_offline).toBe(idempotencyKey);
+    expect(savedPurchases[0].pago_confirmado_local).toBe(false);
+    expect(savedQueue.length).toBe(1);
+    expect(savedQueue[0].tipo_operacion).toBe('VENTA');
   });
 
   it('4. guarda de forma atómica la venta, pago (efectivo/simulado) y comprobante provisional en la cola de sincronización', async () => {

@@ -3,10 +3,13 @@
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 import logging
-from typing import Any
+from typing import Any, Callable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
+from app.core.config import settings
 
 from app.PK07.CU07_ConsultarPlanLimites.service import (
     FeatureNotEnabledError,
@@ -187,12 +190,26 @@ class OfflineConflictManagementService:
 
     @staticmethod
     def _suggest_pickup_slots(
-        branch: Any, now: datetime, count: int = 3
+        branch: Any,
+        now: datetime,
+        count: int = 3,
+        *,
+        use_app_timezone: bool = False,
+        is_slot_occupied: Callable[[datetime], bool] | None = None,
     ) -> list[str]:
         """Genera próximos bloques válidos de 30 minutos dentro del horario de apertura/cierre de la sucursal."""
         open_t: time = getattr(branch, "hora_apertura", None) or time(9, 0)
         close_t: time = getattr(branch, "hora_cierre", None) or time(20, 0)
-        earliest = now + timedelta(hours=1, minutes=5)
+        base_now = now
+        if use_app_timezone:
+            try:
+                app_tz = ZoneInfo(settings.APP_TIMEZONE)
+                base_now = now.replace(tzinfo=timezone.utc).astimezone(app_tz)
+            except ZoneInfoNotFoundError:
+                base_now = now
+                use_app_timezone = False
+
+        earliest = base_now + timedelta(hours=1, minutes=5)
         candidate = earliest.replace(second=0, microsecond=0)
         if candidate.minute in (0, 30):
             pass
@@ -202,11 +219,21 @@ class OfflineConflictManagementService:
             candidate = (candidate + timedelta(hours=1)).replace(minute=0)
 
         slots: list[str] = []
-        max_time = now + timedelta(hours=72)
+        max_time = base_now + timedelta(hours=72)
         while len(slots) < count and candidate <= max_time:
-            slot_time = candidate.time()
+            slot_time = (
+                candidate.timetz().replace(tzinfo=None)
+                if candidate.tzinfo is not None
+                else candidate.time()
+            )
             if open_t <= slot_time <= close_t:
-                slots.append(candidate.isoformat())
+                candidate_utc = (
+                    candidate.astimezone(timezone.utc).replace(tzinfo=None)
+                    if candidate.tzinfo is not None
+                    else candidate
+                )
+                if is_slot_occupied is None or not is_slot_occupied(candidate_utc):
+                    slots.append(candidate.isoformat())
             candidate += timedelta(minutes=30)
         return slots
 
@@ -644,7 +671,26 @@ class OfflineConflictManagementService:
         close_t = getattr(branch, "hora_cierre", None)
         server_data.hora_apertura_sucursal = str(open_t) if open_t else "09:00:00"
         server_data.hora_cierre_sucursal = str(close_t) if close_t else "20:00:00"
-        server_data.horarios_sugeridos = self._suggest_pickup_slots(branch, current_time)
+        req_variant_ids = [d.id_variante_producto for d in res_req.detalles]
+        use_app_tz = (
+            res_req.fecha_atencion_programada.tzinfo is not None
+            and res_req.fecha_atencion_programada.utcoffset() is not None
+        )
+        server_data.horarios_sugeridos = self._suggest_pickup_slots(
+            branch,
+            current_time,
+            use_app_timezone=use_app_tz,
+            is_slot_occupied=lambda slot_utc: (
+                res_repo.has_active_slot_conflict(
+                    company_id=company_id,
+                    branch_id=res_req.id_sucursal,
+                    scheduled_at=slot_utc,
+                    variant_ids=req_variant_ids,
+                    now=current_time,
+                )
+                is True
+            ),
+        )
 
         conflicts: list[OfflineConflictDetail] = []
         allowed_actions: list[OfflineResolutionAction] = []
@@ -673,7 +719,6 @@ class OfflineConflictManagementService:
             )
             allowed_actions.extend(["REPROGRAMAR_HORARIO", "DESCARTAR_OPERACION"])
 
-        req_variant_ids = [d.id_variante_producto for d in res_req.detalles]
         variants_dict = res_repo.get_variants_with_products(company_id, req_variant_ids)
         inv_map = self._get_inventory_map(
             company_id, res_req.id_sucursal, req_variant_ids, is_reserva=True
@@ -1080,6 +1125,67 @@ class OfflineConflictManagementService:
     ) -> OfflineOperationConflictDiagnosis:
         sale_repo = self.sale_service.repository
         canal = "DIGITAL" if op.tipo_operacion == "COMPRA" else "PRESENCIAL"
+
+        if role == "CLIENTE":
+            client = sale_repo.get_client_by_user(company_id, user.id_usuario)
+            if not client or not getattr(client, "estado", True):
+                reason = "El usuario autenticado con rol CLIENTE no posee un perfil de cliente activo."
+                return OfflineOperationConflictDiagnosis(
+                    uuid_operacion=op.uuid_operacion,
+                    uuid_entidad=sale_req.uuid_venta_offline,
+                    tipo_operacion=op.tipo_operacion,
+                    secuencia=seq_num,
+                    codigo_local=op.codigo_local,
+                    estado_resultado="RECHAZADA",
+                    estado_sincronizacion="RECHAZADA",
+                    codigo_conflicto_principal="REGLA_NEGOCIO",
+                    motivo=reason,
+                    corregible=False,
+                    requiere_consentimiento=False,
+                    conflictos=[
+                        OfflineConflictDetail(
+                            tipo_conflicto="REGLA_NEGOCIO",
+                            corregible=False,
+                            requiere_consentimiento=False,
+                            acciones_permitidas=["DESCARTAR_OPERACION"],
+                            detalle=reason,
+                        )
+                    ],
+                    datos_actuales_servidor=server_data,
+                    acciones_permitidas=["DESCARTAR_OPERACION"],
+                    mensaje=reason,
+                )
+            if (
+                sale_req.id_cliente is not None
+                and getattr(client, "id_cliente", None) is not None
+                and sale_req.id_cliente != client.id_cliente
+            ):
+                reason = "Acceso denegado: no puede registrar ni sincronizar compras digitales a nombre de otro cliente."
+                return OfflineOperationConflictDiagnosis(
+                    uuid_operacion=op.uuid_operacion,
+                    uuid_entidad=sale_req.uuid_venta_offline,
+                    tipo_operacion=op.tipo_operacion,
+                    secuencia=seq_num,
+                    codigo_local=op.codigo_local,
+                    estado_resultado="RECHAZADA",
+                    estado_sincronizacion="RECHAZADA",
+                    codigo_conflicto_principal="REGLA_NEGOCIO",
+                    motivo=reason,
+                    corregible=False,
+                    requiere_consentimiento=False,
+                    conflictos=[
+                        OfflineConflictDetail(
+                            tipo_conflicto="REGLA_NEGOCIO",
+                            corregible=False,
+                            requiere_consentimiento=False,
+                            acciones_permitidas=["DESCARTAR_OPERACION"],
+                            detalle=reason,
+                        )
+                    ],
+                    datos_actuales_servidor=server_data,
+                    acciones_permitidas=["DESCARTAR_OPERACION"],
+                    mensaje=reason,
+                )
 
         # 1. Verificar idempotencia por UUID
         uuid_obj = self.sale_service._normalize_uuid(

@@ -255,11 +255,15 @@ class OfflineReservationService:
                     status_code=403,
                     message="Acceso denegado: el UUID de reserva offline pertenece a otro cliente.",
                 )
-            # Si ya fue SINCRONIZADA (tiene id_reserva) o no se está ejecutando resolución explícita CU14, retornar idempotente
+            # Si ya fue SINCRONIZADA (tiene id_reserva) o fue RECHAZADA definitivamente sin resolución explícita CU14, retornar idempotente.
+            # Si estaba en CONFLICTO (sin id_reserva), permitir reevaluar por si el bloqueo temporal (ej. solapamiento de horario) ya expiró o fue liberado.
             if (
                 existing.estado_sincronizacion == "SINCRONIZADA"
                 or existing.id_reserva is not None
-                or not allow_conflict_resolution
+                or (
+                    existing.estado_sincronizacion == "RECHAZADA"
+                    and not allow_conflict_resolution
+                )
             ):
                 res_obj = (
                     self.repository.get_reservation_by_id(company_id, existing.id_reserva)

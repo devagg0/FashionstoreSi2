@@ -663,7 +663,35 @@ class TestPK08CU14ManageSyncConflicts(TestCase):
             )
         self.assertEqual(ctx_tenant.exception.status_code, 403)
 
-        # 4.B: CLIENTE no puede resolver una VENTA presencial ni CAJERO una RESERVA
+        # 4.B: CLIENTE no puede resolver una VENTA presencial ni CAJERO una RESERVA, ni diagnosticar compra a nombre de otro cliente
+        self.mock_cu11_repo.get_client_by_user.return_value = SimpleNamespace(
+            id_cliente=7, id_usuario=10, empresa_id=1, estado=True
+        )
+        spoof_diag_resp = self.conflict_service.diagnose_conflicts(
+            client_user,
+            OfflineConflictDiagnoseRequest(
+                operaciones=[
+                    OfflineSyncOperationInput(
+                        uuid_operacion="uuid-buy-wrong-client",
+                        tipo_operacion="COMPRA",
+                        payload={
+                            "uuid_venta_offline": "uuid-buy-wrong-client",
+                            "canal": "DIGITAL",
+                            "id_sucursal": 2,
+                            "id_cliente": 10,  # id_usuario (10) != id_cliente real (7)
+                            "medio_pago": "TARJETA",
+                            "pago_simulado": True,
+                            "detalles": [{"id_variante_producto": 101, "cantidad": 1}],
+                        },
+                    )
+                ]
+            ),
+            now=NOW,
+        )
+        spoof_diag = spoof_diag_resp.diagnosticos_por_uuid["uuid-buy-wrong-client"]
+        self.assertEqual(spoof_diag.estado_resultado, "RECHAZADA")
+        self.assertIn("a nombre de otro cliente", spoof_diag.motivo or "")
+
         forbidden_role_resp = self.conflict_service.resolve_conflicts(
             client_user,
             OfflineConflictResolveRequest(
