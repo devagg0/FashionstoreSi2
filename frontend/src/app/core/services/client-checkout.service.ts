@@ -106,7 +106,7 @@ export class ClientCheckoutService {
     idSucursal: number,
   ): Promise<DigitalSaleResponse> {
     const user = this.session.getUser();
-    const empresaId = this.offlineService.resolveEffectiveCompanyId();
+    const empresaId = await this.offlineService.resolveCompanyIdAsync(user?.id_usuario);
     if (!user || !empresaId) {
       throw new HttpErrorResponse({
         status: 401,
@@ -131,14 +131,14 @@ export class ClientCheckoutService {
     const saleNum = `DIG-LOC-${localSaleId.toString().slice(-4)}`;
     const subtotal = items.reduce((acc, i) => acc + i.subtotal, 0);
 
-    let idCliente = user.id_usuario;
+    let idCliente = 0;
     if (typeof this.offlineStorage.getClients === 'function') {
       try {
         const clients = await this.offlineStorage.getClients(empresaId, user.id_usuario);
         const client = clients?.find((c) => c.id_usuario === user.id_usuario);
         if (client) idCliente = client.id_cliente;
       } catch {
-        // Fallback al ID de usuario de la sesión
+        // Sin perfil local en caché; el backend resolverá id_cliente desde el usuario autenticado
       }
     }
 
@@ -185,7 +185,7 @@ export class ClientCheckoutService {
     }
 
     const user = this.session.getUser();
-    const empresaId = this.offlineService.resolveEffectiveCompanyId();
+    const empresaId = await this.offlineService.resolveCompanyIdAsync(user?.id_usuario);
     if (user && empresaId) {
       const stored = await this.offlineStorage.getOfflinePurchaseByLocalId(
         empresaId,

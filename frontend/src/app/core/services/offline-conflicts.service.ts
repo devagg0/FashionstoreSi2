@@ -73,8 +73,35 @@ export class OfflineConflictsService {
     this.errorMessage.set(null);
 
     try {
+      const isClient = user.rol.toUpperCase() === 'CLIENTE';
+      let resolvedClientId: number | null = null;
+      if (isClient && typeof this.storage.getClients === 'function') {
+        try {
+          const clients = await this.storage.getClients(empresaId, user.id_usuario);
+          const matchedClient = clients?.find((c) => c.id_usuario === user.id_usuario);
+          resolvedClientId = matchedClient ? matchedClient.id_cliente : null;
+        } catch {
+          resolvedClientId = null;
+        }
+      }
+
+      const normalizedOps = operations.map((op) => {
+        if (
+          isClient &&
+          op.tipo_operacion === 'COMPRA' &&
+          op.payload?.id_cliente === user.id_usuario &&
+          resolvedClientId !== user.id_usuario
+        ) {
+          return {
+            ...op,
+            payload: { ...op.payload, id_cliente: resolvedClientId },
+          };
+        }
+        return op;
+      });
+
       const payload: OfflineConflictDiagnoseRequest = {
-        operaciones: operations,
+        operaciones: normalizedOps,
       };
 
       const response = await firstValueFrom(
@@ -129,8 +156,49 @@ export class OfflineConflictsService {
     this.errorMessage.set(null);
 
     try {
+      const isClient = user.rol.toUpperCase() === 'CLIENTE';
+      let resolvedClientId: number | null = null;
+      if (isClient && typeof this.storage.getClients === 'function') {
+        try {
+          const clients = await this.storage.getClients(empresaId, user.id_usuario);
+          const matchedClient = clients?.find((c) => c.id_usuario === user.id_usuario);
+          resolvedClientId = matchedClient ? matchedClient.id_cliente : null;
+        } catch {
+          resolvedClientId = null;
+        }
+      }
+
+      const normalizedResolutions = resolutions.map((res) => {
+        let updatedPayload = res.payload;
+        if (
+          isClient &&
+          res.tipo_operacion === 'COMPRA' &&
+          res.payload?.id_cliente === user.id_usuario &&
+          resolvedClientId !== user.id_usuario
+        ) {
+          updatedPayload = { ...res.payload, id_cliente: resolvedClientId };
+        }
+
+        let updatedSchedule = res.nueva_fecha_atencion_programada;
+        if (typeof updatedSchedule === 'string' && updatedSchedule.trim().length > 0) {
+          const raw = updatedSchedule.trim();
+          const hasTz = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+          if (!hasTz) {
+            updatedSchedule = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)
+              ? `${raw}:00-04:00`
+              : `${raw}-04:00`;
+          }
+        }
+
+        return {
+          ...res,
+          payload: updatedPayload,
+          nueva_fecha_atencion_programada: updatedSchedule,
+        };
+      });
+
       const payload: OfflineConflictResolveRequest = {
-        resoluciones: resolutions,
+        resoluciones: normalizedResolutions,
       };
 
       const response = await firstValueFrom(
@@ -204,7 +272,7 @@ export class OfflineConflictsService {
       case 'HORARIO_VENCIDO':
         return 'Horario de recogida expirado';
       case 'HORARIO_NO_DISPONIBLE':
-        return 'Horario fuera de atención de la sucursal';
+        return 'Horario no disponible o fuera de atención de la sucursal';
       case 'RESERVA_CANCELADA':
         return 'La reserva antecedente fue cancelada';
       case 'RESERVA_ESTADO_INVALIDO':

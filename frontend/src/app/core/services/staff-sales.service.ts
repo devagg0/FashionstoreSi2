@@ -370,12 +370,31 @@ export class StaffSalesService {
     const quoteResp = await this.quoteSaleOffline(payload);
     const quote = quoteResp.data;
 
-    let hash = 0;
-    for (let i = 0; i < idempotencyKey.length; i++) {
-      hash = (Math.imul(31, hash) + idempotencyKey.charCodeAt(i)) | 0;
+    const persisted = await this.offlineService.registerCashierOfflineSale({
+      uuid: idempotencyKey,
+      idSucursal: quote.sucursal.id_sucursal,
+      idReserva: payload.id_reserva ?? null,
+      idCliente: quote.id_cliente ?? null,
+      medioPago: 'EFECTIVO',
+      confirmPayment: false,
+      items: quote.detalles.map((d) => ({
+        id_variante_producto: d.id_variante_producto,
+        cantidad: d.cantidad,
+        precio_unitario: Number(d.precio_unitario),
+        descuento_unitario: Number(d.descuento_unitario),
+        sku: d.sku,
+      })),
+    });
+
+    if (!persisted.success) {
+      throw new HttpErrorResponse({
+        status: 422,
+        error: { message: persisted.message, errors: persisted.errors },
+      });
     }
-    const localSaleId = 80000000 + (Math.abs(hash) % 9999999);
-    const saleNumber = `VTA-LOC-${idempotencyKey.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+    const localSaleId = persisted.id_venta_local;
+    const saleNumber = persisted.numero_venta_local;
     const user = this.session.getUser();
     const empresaId = this.offlineService.resolveEffectiveCompanyId() ?? 1;
 
@@ -466,22 +485,42 @@ export class StaffSalesService {
   }
 
   private saveOfflineDraft(sale: SaleData): void {
+    const key = `fashionstore_cu20_offline_draft_${sale.id_venta}`;
+    const serialized = JSON.stringify(sale);
     try {
       if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(`fashionstore_cu20_offline_draft_${sale.id_venta}`, JSON.stringify(sale));
+        sessionStorage.setItem(key, serialized);
       }
     } catch {
       // Ignorar si sessionStorage falla
     }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, serialized);
+      }
+    } catch {
+      // Ignorar si localStorage falla
+    }
   }
 
   private getOfflineDraft(idVenta: number): SaleData | null {
+    const key = `fashionstore_cu20_offline_draft_${idVenta}`;
     try {
-      if (typeof sessionStorage === 'undefined') return null;
-      const raw = sessionStorage.getItem(`fashionstore_cu20_offline_draft_${idVenta}`);
-      return raw ? (JSON.parse(raw) as SaleData) : null;
+      if (typeof sessionStorage !== 'undefined') {
+        const raw = sessionStorage.getItem(key);
+        if (raw) return JSON.parse(raw) as SaleData;
+      }
     } catch {
-      return null;
+      // Ignorar error de lectura en sessionStorage
     }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(key);
+        if (raw) return JSON.parse(raw) as SaleData;
+      }
+    } catch {
+      // Ignorar error de lectura en localStorage
+    }
+    return null;
   }
 }

@@ -17,7 +17,7 @@ export interface SaleReceipt {
   descuento_total: string;
   total: string;
   moneda: 'BOB';
-  pago: { medio: 'TARJETA' | 'EFECTIVO' | 'QR'; estado: 'APROBADO' | 'REEMBOLSADO'; monto: string };
+  pago: { medio: 'TARJETA' | 'EFECTIVO' | 'QR'; estado: 'APROBADO' | 'REEMBOLSADO' | 'PENDIENTE'; monto: string };
 }
 
 @Injectable({ providedIn: 'root' })

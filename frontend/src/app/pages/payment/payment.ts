@@ -148,40 +148,105 @@ export class PaymentPage {
       );
     }
 
-    // Comprobar si ya existe un comprobante offline para esta venta
-    void this.offlineService.getOfflinePurchaseReceipt(this.id).then((storedReceipt) => {
-      if (storedReceipt) {
-        this.offlineReceipt.set(storedReceipt);
-        const restoredPayment: Payment = {
-          id_pago: storedReceipt.id_venta_local,
-          id_venta: this.id,
-          medio: storedReceipt.medio_pago,
-          proveedor: storedReceipt.medio_pago === 'TARJETA' ? 'STRIPE' : 'MANUAL',
-          entorno: 'LOCAL',
-          estado: storedReceipt.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE',
-          estado_venta: 'PENDIENTE',
-          monto: String(storedReceipt.total),
-          moneda: 'BOB',
-          referencia_externa: storedReceipt.referencia_pago,
-          clave_idempotencia: storedReceipt.uuid_venta_offline,
-          fecha_aprobacion: storedReceipt.medio_pago === 'EFECTIVO' ? storedReceipt.fecha_registro : null,
-          created_at: storedReceipt.fecha_registro,
-          updated_at: storedReceipt.fecha_registro,
-        };
-        this.payment.set(restoredPayment);
-        this.sale.update((curSale) => {
-          if (!curSale) return curSale;
-          const updated = {
-            ...curSale,
-            id: storedReceipt.id_venta_local,
-            numero: storedReceipt.numero_venta_local,
-            estado: 'PENDIENTE' as const,
-          };
-          this.api.saveSale(updated);
-          return updated;
-        });
-      }
+    let destroyed = false;
+    this.destroy.onDestroy(() => {
+      destroyed = true;
     });
+
+    // Comprobar si ya existe un comprobante offline con pago confirmado para esta venta
+    void this.offlineService
+      .getOfflinePurchaseReceipt(this.id, { onlyConfirmedPayment: true })
+      .then((storedReceipt) => {
+        if (destroyed) return;
+        if (storedReceipt) {
+          this.offlineReceipt.set(storedReceipt);
+          this.error.set('');
+          const restoredPayment: Payment = {
+            id_pago: storedReceipt.id_venta_local,
+            id_venta: this.id,
+            medio: storedReceipt.medio_pago,
+            proveedor: storedReceipt.medio_pago === 'TARJETA' ? 'STRIPE' : 'MANUAL',
+            entorno: 'LOCAL',
+            estado: storedReceipt.medio_pago === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE',
+            estado_venta: 'PENDIENTE',
+            monto: String(storedReceipt.total),
+            moneda: 'BOB',
+            referencia_externa: storedReceipt.referencia_pago,
+            clave_idempotencia: storedReceipt.uuid_venta_offline,
+            fecha_aprobacion:
+              storedReceipt.medio_pago === 'EFECTIVO' ? storedReceipt.fecha_registro : null,
+            created_at: storedReceipt.fecha_registro,
+            updated_at: storedReceipt.fecha_registro,
+          };
+          this.payment.set(restoredPayment);
+          this.sale.update((curSale) => {
+            const isStaffRole = this.session.getUser()?.rol.toUpperCase() === 'CAJERO';
+            const baseSale = curSale ?? {
+              id: storedReceipt.id_venta_local,
+              numero: storedReceipt.numero_venta_local,
+              canal: storedReceipt.canal ?? (isStaffRole ? 'PRESENCIAL' : 'DIGITAL'),
+              estado: 'PENDIENTE' as const,
+              sucursal: storedReceipt.sucursal.nombre,
+              id_sucursal: storedReceipt.sucursal.id_sucursal,
+              fecha: storedReceipt.fecha_registro ?? null,
+              subtotal: storedReceipt.subtotal.toFixed(2),
+              descuento: storedReceipt.descuento_total.toFixed(2),
+              total: storedReceipt.total.toFixed(2),
+              items: storedReceipt.detalles.map((d) => ({
+                id: d.id_variante_producto,
+                nombre: d.producto_nombre,
+                sku: d.sku,
+                detalle: `${d.talla} · ${d.color}`,
+                cantidad: d.cantidad,
+                precio: d.precio_unitario.toFixed(2),
+                descuento: d.descuento_unitario.toFixed(2),
+                subtotal: d.subtotal_linea.toFixed(2),
+              })),
+            };
+            const updated = {
+              ...baseSale,
+              id: storedReceipt.id_venta_local,
+              numero: storedReceipt.numero_venta_local,
+              estado: 'PENDIENTE' as const,
+            };
+            this.api.saveSale(updated);
+            return updated;
+          });
+          return;
+        }
+
+        if (!this.sale() && (this.id >= 80000000 || this.isOfflineMode())) {
+          void this.offlineService.getOfflinePurchaseReceipt(this.id).then((pendingSaleReceipt) => {
+            if (destroyed || !pendingSaleReceipt) return;
+            this.error.set('');
+            const isStaffRole = this.session.getUser()?.rol.toUpperCase() === 'CAJERO';
+            const reconstructed = {
+              id: pendingSaleReceipt.id_venta_local,
+              numero: pendingSaleReceipt.numero_venta_local,
+              canal: pendingSaleReceipt.canal ?? (isStaffRole ? 'PRESENCIAL' : 'DIGITAL'),
+              estado: 'PENDIENTE' as const,
+              sucursal: pendingSaleReceipt.sucursal.nombre,
+              id_sucursal: pendingSaleReceipt.sucursal.id_sucursal,
+              fecha: pendingSaleReceipt.fecha_registro ?? null,
+              subtotal: pendingSaleReceipt.subtotal.toFixed(2),
+              descuento: pendingSaleReceipt.descuento_total.toFixed(2),
+              total: pendingSaleReceipt.total.toFixed(2),
+              items: pendingSaleReceipt.detalles.map((d) => ({
+                id: d.id_variante_producto,
+                nombre: d.producto_nombre,
+                sku: d.sku,
+                detalle: `${d.talla} · ${d.color}`,
+                cantidad: d.cantidad,
+                precio: d.precio_unitario.toFixed(2),
+                descuento: d.descuento_unitario.toFixed(2),
+                subtotal: d.subtotal_linea.toFixed(2),
+              })),
+            };
+            this.api.saveSale(reconstructed);
+            this.sale.set(reconstructed);
+          });
+        }
+      });
 
     const returnKind = this.route.snapshot.queryParamMap?.get('checkout');
     if (returnKind === 'success' || returnKind === 'cancel') {
@@ -222,6 +287,36 @@ export class PaymentPage {
         this.redirecting.set(true);
         this.returnMessage.set('Verificando el resultado del pago con Stripe…');
         this.execute(this.monitorCheckout(this.attempt()!.idPago!));
+      } else if (this.isOfflineMode()) {
+        void this.offlineService.getOfflinePurchaseReceipt(this.id).then((receipt) => {
+          if (receipt) {
+            this.offlineReceipt.set(receipt);
+            this.sale.update((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                estado: 'PENDIENTE',
+              };
+            });
+            const simulatedPayment: Payment = {
+              id_pago: receipt.id_venta_local,
+              id_venta: this.id,
+              medio: receipt.medio_pago === 'QR' ? 'QR' : 'TARJETA',
+              proveedor: receipt.medio_pago === 'TARJETA' ? 'STRIPE' : 'MANUAL',
+              entorno: 'LOCAL',
+              estado: 'PENDIENTE',
+              estado_venta: 'PENDIENTE',
+              monto: receipt.total.toFixed(2),
+              moneda: 'BOB',
+              referencia_externa: receipt.referencia_pago,
+              clave_idempotencia: this.attempt()?.key ?? receipt.uuid_venta_offline,
+              fecha_aprobacion: null,
+              created_at: receipt.fecha_registro,
+              updated_at: receipt.fecha_registro,
+            };
+            this.payment.set(simulatedPayment);
+          }
+        });
       } else this.refresh();
     } else if (this.attempt()) {
       if (!this.isOfflineMode()) {
@@ -365,11 +460,13 @@ export class PaymentPage {
 
     const presentation = this.checkoutService.presentation(this.id);
     const offlineSale = this.checkoutService.offlineSale(this.id);
-    const branchId = presentation?.id_sucursal ?? offlineSale?.id_sucursal ?? 1;
+    const branchId = currentSale.id_sucursal ?? presentation?.id_sucursal ?? offlineSale?.id_sucursal ?? 1;
 
     this.offlineService
       .registerClientOfflinePurchase({
         uuid: attempt.key,
+        idVentaLocal: this.id,
+        numeroVentaLocal: currentSale.numero,
         idSucursal: branchId,
         medioPago: attempt.medio === 'QR' ? 'QR' : 'TARJETA',
         items: currentSale.items.map((it) => ({
@@ -445,6 +542,8 @@ export class PaymentPage {
     this.offlineService
       .registerCashierOfflineSale({
         uuid: attempt.key,
+        idVentaLocal: this.id,
+        confirmPayment: true,
         idSucursal: branchId,
         idReserva: currentSale.id_reserva ?? null,
         medioPago: attempt.medio,
@@ -558,6 +657,16 @@ export class PaymentPage {
       return;
     const attempt = this.attempt()!;
     if (!this.persist(attempt)) return;
+
+    if (this.isOfflineMode()) {
+      if (this.sale()?.canal === 'PRESENCIAL') {
+        this.confirmOfflineCashierSale(attempt);
+      } else {
+        this.confirmOfflinePurchase(attempt);
+      }
+      return;
+    }
+
     if (attempt.idPago) {
       if (attempt.medio === 'TARJETA' && this.payment()?.referencia_externa === null) {
         this.execute(this.process(attempt));
@@ -570,6 +679,14 @@ export class PaymentPage {
   }
 
   refresh(sync = false): void {
+    if (this.isOfflineMode()) {
+      void this.offlineService.getOfflinePurchaseReceipt(this.id).then((receipt) => {
+        if (receipt) {
+          this.offlineReceipt.set(receipt);
+        }
+      });
+      return;
+    }
     const id = this.attempt()?.idPago ?? this.payment()?.id_pago;
     if (!id || this.busy() || this.loading() || this.expired()) return;
     this.loading.set(true);
@@ -579,6 +696,16 @@ export class PaymentPage {
   recover(value: string): void {
     const id = Number(value);
     if (!Number.isInteger(id) || id <= 0 || this.busy() || this.loading() || this.expired()) return;
+    if (this.isOfflineMode()) {
+      void this.offlineService.getOfflinePurchaseReceipt(id).then((receipt) => {
+        if (receipt) {
+          this.offlineReceipt.set(receipt);
+        } else {
+          this.error.set('No se encontró el comprobante offline con el ID indicado.');
+        }
+      });
+      return;
+    }
     this.execute(this.api.get(id));
   }
 

@@ -134,6 +134,7 @@ export class Checkout {
     if (!sale || this.saving()) return;
     try {
       this.payments.saveSale({ id: sale.id_venta, numero: sale.numero_venta, sucursal: this.branchName(),
+        id_sucursal: sale.id_sucursal,
         canal: 'DIGITAL', estado: sale.estado, fecha: null, subtotal: sale.subtotal,
         descuento: sale.descuento_total, total: sale.total,
         items: this.saleRows().map(item => ({ id: item.id_variante_producto, nombre: item.nombre,

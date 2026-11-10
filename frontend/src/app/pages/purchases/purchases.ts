@@ -83,10 +83,10 @@ export class PurchasesPage {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
       const raw = params.get('id');
       if (raw === null) {
-        const idVentaQuery = this.route.snapshot.queryParamMap.get('id_venta');
+        const idVentaQuery = this.route.snapshot?.queryParamMap?.get('id_venta');
         if (idVentaQuery && /^[1-9]\d*$/.test(idVentaQuery)) {
           void this.router.navigate(['/mis-compras', idVentaQuery], {
-            queryParams: this.route.snapshot.queryParams,
+            queryParams: this.route.snapshot?.queryParams,
           });
           return;
         }

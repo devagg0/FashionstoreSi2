@@ -105,8 +105,12 @@ export class OfflinePendingOperationsService {
     estadoSync?: string;
   }): Promise<OfflinePendingOperationItem[]> {
     const user = this.session.getUser();
-    const empresaId = this.offlineService.resolveEffectiveCompanyId();
-    if (!user || !empresaId) return [];
+    if (!user) return [];
+    let empresaId = this.offlineService.resolveEffectiveCompanyId();
+    if (!empresaId && typeof this.offlineService.findCompanyIdFromDatabases === 'function') {
+      empresaId = await this.offlineService.findCompanyIdFromDatabases(user.id_usuario);
+    }
+    if (!empresaId) return [];
 
     const isClient = user.rol.toUpperCase() === 'CLIENTE';
     const isStaff =
@@ -126,8 +130,9 @@ export class OfflinePendingOperationsService {
 
     const branchMap = new Map(branches.map((b) => [b.id_sucursal, b.nombre]));
 
-    // Para personal de sucursal, identificar su sucursal autorizada
+    // Para personal de sucursal, identificar sus sucursales autorizadas
     let authorizedBranchId: number | null = null;
+    const allowedBranchIds = new Set<number>(branches.map((b) => b.id_sucursal));
     if (isStaff) {
       if (typeof localStorage !== 'undefined') {
         try {
@@ -135,12 +140,15 @@ export class OfflinePendingOperationsService {
           if (raw) {
             const parsed = JSON.parse(raw);
             authorizedBranchId = parsed?.branch?.id_sucursal ?? null;
+            if (authorizedBranchId) {
+              allowedBranchIds.add(authorizedBranchId);
+            }
           }
         } catch {
           // ignore
         }
       }
-      if (!authorizedBranchId && branches.length > 0) {
+      if (!authorizedBranchId && branches.length === 1) {
         authorizedBranchId = branches[0].id_sucursal;
       }
     }
@@ -157,11 +165,17 @@ export class OfflinePendingOperationsService {
 
     // 2. Procesar Compras y Ventas (compras_offline)
     for (const p of purchases) {
-      // Aislamiento: CLIENTE solo ve sus compras digitales; CAJERO solo ve ventas de su sucursal
+      // Aislamiento: CLIENTE solo ve sus compras digitales; CAJERO ve las ventas que registró o de sus sucursales autorizadas
       if (isClient) {
         if (p.id_usuario !== user.id_usuario && p.canal !== 'DIGITAL') continue;
       } else if (isStaff) {
-        if (authorizedBranchId && p.id_sucursal !== authorizedBranchId) continue;
+        if (
+          p.id_usuario !== user.id_usuario &&
+          allowedBranchIds.size > 0 &&
+          !allowedBranchIds.has(p.id_sucursal)
+        ) {
+          continue;
+        }
       }
 
       const qItem =

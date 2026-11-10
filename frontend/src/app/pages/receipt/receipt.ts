@@ -139,7 +139,8 @@ export class ReceiptPage {
         moneda: 'BOB',
         pago: {
           medio: data.medio_pago,
-          estado: 'APROBADO',
+          estado:
+            data.estado_pago === 'APROBADO' && !data.pago_simulado ? 'APROBADO' : 'PENDIENTE',
           monto: data.total.toFixed(2),
         },
       });

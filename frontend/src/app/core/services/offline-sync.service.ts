@@ -136,7 +136,7 @@ export class OfflineSyncService {
     }
 
     const user = this.session.getUser();
-    const empresaId = this.offlineService.resolveEffectiveCompanyId();
+    const empresaId = await this.offlineService.resolveCompanyIdAsync(user?.id_usuario);
 
     if (!user || !empresaId) {
       const msg = 'Sesión no válida o sin empresa asignada para sincronizar.';
@@ -216,15 +216,30 @@ export class OfflineSyncService {
         return (a.created_at || '').localeCompare(b.created_at || '');
       });
 
+      let resolvedClientId: number | null = null;
+      if (isClient && typeof this.storage.getClients === 'function') {
+        try {
+          const clients = await this.storage.getClients(empresaId, user.id_usuario);
+          const matchedClient = clients?.find((c) => c.id_usuario === user.id_usuario);
+          resolvedClientId = matchedClient ? matchedClient.id_cliente : null;
+        } catch {
+          resolvedClientId = null;
+        }
+      }
+
       // 5. Construir lote normalizado con secuencia y datos originales
       const operationsDto: OfflineQueueSyncOperationInputDto[] = sortedItems.map(
         (item, idx) => {
           let tipoOp: OfflineSyncOperationType = item.tipo_operacion as any;
-          const payload = item.payload || {};
+          let payload = item.payload ? { ...item.payload } : {};
           if (tipoOp === 'RESERVA' && payload.accion) {
             tipoOp = 'TRANSICION_RESERVA';
           } else if (tipoOp === 'VENTA' && payload.canal === 'DIGITAL') {
             tipoOp = 'COMPRA';
+          }
+
+          if (isClient && tipoOp === 'COMPRA') {
+            payload = { ...payload, id_cliente: resolvedClientId ?? null };
           }
 
           const codigoLocal =
