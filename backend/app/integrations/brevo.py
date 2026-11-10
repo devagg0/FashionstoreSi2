@@ -73,3 +73,61 @@ class BrevoEmailClient:
                     raise BrevoEmailError
         except (HTTPError, URLError, TimeoutError, OSError) as error:
             raise BrevoEmailError from error
+
+    def send_notification_email(
+        self,
+        *,
+        recipient_email: str,
+        recipient_name: str,
+        subject: str,
+        title: str,
+        message: str,
+    ) -> None:
+        """Envía una notificación transaccional por correo al cliente."""
+        safe_name = escape(recipient_name)
+        safe_title = escape(title)
+        safe_message = escape(message)
+        html_content = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #2b2625; line-height: 1.5;">
+            <h2 style="color: #c1563a;">{safe_title}</h2>
+            <p>Hola {safe_name},</p>
+            <p>{safe_message}</p>
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #6b7280;">
+              Mensaje automático de FashionStore. Por favor no responder a este correo.
+            </p>
+          </body>
+        </html>
+        """.strip()
+        payload = {
+            "sender": {
+                "email": str(settings.BREVO_SENDER_EMAIL),
+                "name": settings.BREVO_SENDER_NAME,
+            },
+            "to": [
+                {
+                    "email": recipient_email,
+                    "name": recipient_name,
+                }
+            ],
+            "subject": subject,
+            "htmlContent": html_content,
+        }
+        request = Request(
+            BREVO_TRANSACTIONAL_EMAIL_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "accept": "application/json",
+                "api-key": settings.BREVO_API_KEY.get_secret_value(),
+                "content-type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=10) as response:
+                if response.status != 201:
+                    raise BrevoEmailError
+        except (HTTPError, URLError, TimeoutError, OSError) as error:
+            raise BrevoEmailError from error

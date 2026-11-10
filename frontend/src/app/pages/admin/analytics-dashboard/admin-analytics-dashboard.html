@@ -1,0 +1,416 @@
+<div class="analytics-dashboard-container">
+  <!-- Header de página -->
+  <header class="page-heading">
+    <div class="heading-meta">
+      <p class="tagline">FASHIONSTORE · INTELIGENCIA EMPRESARIAL</p>
+      <h1>Dashboard Analítico Inteligente</h1>
+      <span>Consolidación ejecutiva en tiempo real: KPIs, Reportes Generativos IA y Machine Learning.</span>
+    </div>
+
+    <div class="heading-actions">
+      <button
+        type="button"
+        class="btn-refresh"
+        (click)="loadAnalytics()"
+        [disabled]="isLoading()"
+        title="Actualizar datos del dashboard"
+      >
+        <app-icon name="refresh" [size]="18" />
+        <span>Actualizar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filtros interactivos -->
+  <section class="filters-panel">
+    <div class="filters-group-periods">
+      <span class="filter-label">Período:</span>
+      <div class="period-chips">
+        @for (period of availablePeriods(); track period) {
+          <button
+            type="button"
+            class="chip-period"
+            [class.is-active]="selectedPeriod() === period"
+            (click)="onPeriodChange(period)"
+          >
+            {{ period }} días
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="filters-group-dropdowns">
+      <div class="dropdown-item">
+        <label for="sucursalSelect">Sucursal:</label>
+        <div class="select-wrapper">
+          <select id="sucursalSelect" (change)="onBranchChange($event)">
+            <option value="">Todas las sucursales</option>
+            @for (b of branches(); track b.id) {
+              <option [value]="b.id">{{ b.nombre }}</option>
+            }
+          </select>
+          <app-icon name="chevron-down" [size]="16" class="select-icon" />
+        </div>
+      </div>
+
+      <div class="dropdown-item">
+        <label for="categoriaSelect">Categoría:</label>
+        <div class="select-wrapper">
+          <select id="categoriaSelect" (change)="onCategoryChange($event)">
+            <option value="">Todas las categorías</option>
+            @for (c of categories(); track c.id) {
+              <option [value]="c.id">{{ c.nombre }}</option>
+            }
+          </select>
+          <app-icon name="chevron-down" [size]="16" class="select-icon" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Banner de Error -->
+  @if (errorMessage()) {
+    <div class="alert-box alert-error">
+      <app-icon name="alert-circle" [size]="20" />
+      <div>
+        <strong>Error de sincronización:</strong>
+        <p>{{ errorMessage() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- Spinner de Carga -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Consolidando indicadores comerciales, modelos ML y reportes...</p>
+    </div>
+  } @else if (analytics(); as data) {
+    <!-- 1. KPI CARDS PRINCIPALES -->
+    <section class="kpi-grid">
+      <!-- Facturación Total -->
+      <div class="kpi-card highlight-revenue">
+        <div class="kpi-icon-wrap icon-revenue">
+          <app-icon name="trending-up" [size]="24" />
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-title">Facturación Total</span>
+          <span class="kpi-value">Bs. {{ data.kpis.ingresos_totales | number: '1.2-2' }}</span>
+          <span class="kpi-helper">{{ data.kpis.total_ventas }} ventas completadas</span>
+        </div>
+      </div>
+
+      <!-- Ticket Promedio -->
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-ticket">
+          <app-icon name="bag" [size]="24" />
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-title">Ticket Promedio</span>
+          <span class="kpi-value">Bs. {{ data.kpis.ticket_promedio | number: '1.2-2' }}</span>
+          <span class="kpi-helper">Ingreso medio por transacción</span>
+        </div>
+      </div>
+
+      <!-- Unidades y Stock -->
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-stock">
+          <app-icon name="layers" [size]="24" />
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-title">Stock Disponible</span>
+          <span class="kpi-value">{{ data.kpis.stock_disponible | number }}</span>
+          <span class="kpi-helper">{{ data.kpis.unidades_vendidas }} unidades vendidas en período</span>
+        </div>
+      </div>
+
+      <!-- Reservas Atendidas -->
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-reservations">
+          <app-icon name="circle-check" [size]="24" />
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-title">Reservas Atendidas</span>
+          <span class="kpi-value">{{ data.kpis.reservas_atendidas }} / {{ data.kpis.total_reservas }}</span>
+          <span class="kpi-helper">Conversión omnicanal de reservas</span>
+        </div>
+      </div>
+
+      <!-- Tasa de Devoluciones -->
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-returns">
+          <app-icon name="refresh" [size]="24" />
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-title">Tasa de Devolución</span>
+          <span class="kpi-value">{{ data.kpis.tasa_devolucion_pct | number: '1.1-1' }}%</span>
+          <span class="kpi-helper">{{ data.kpis.total_devoluciones }} devoluciones registradas</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. FILA DE GRÁFICOS Y DISTRIBUCIÓN -->
+    <section class="charts-row">
+      <!-- Gráfico de Tendencia Diaria -->
+      <div class="panel chart-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <app-icon name="trending-up" [size]="20" />
+            <div>
+              <h3>Tendencia de Facturación Diaria</h3>
+              <span>Evolución cronológica de ingresos y unidades en el período seleccionado</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-wrapper">
+          @if (chartPoints().length > 1) {
+            <svg viewBox="0 0 640 180" class="trend-svg" preserveAspectRatio="none">
+              <!-- Degradado de fondo -->
+              <defs>
+                <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#C1563A" stop-opacity="0.30" />
+                  <stop offset="100%" stop-color="#C1563A" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
+
+              <!-- Eje inferior -->
+              <line x1="40" y1="160" x2="600" y2="160" stroke="#E5E7EB" stroke-width="1" />
+
+              <!-- Área bajo la curva -->
+              <path [attr.d]="svgAreaPath()" fill="url(#areaGrad)" />
+
+              <!-- Línea de curva -->
+              <path
+                [attr.d]="svgLinePath()"
+                fill="none"
+                stroke="#C1563A"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Puntos interactivos -->
+              @for (pt of chartPoints(); track pt.date) {
+                <circle
+                  [attr.cx]="pt.x"
+                  [attr.cy]="pt.y"
+                  r="4"
+                  fill="#FFFFFF"
+                  stroke="#C1563A"
+                  stroke-width="2"
+                  class="chart-dot"
+                >
+                  <title>{{ pt.date }}: Bs. {{ pt.revenue | number: '1.2-2' }} ({{ pt.units }} u.)</title>
+                </circle>
+              }
+            </svg>
+
+            <!-- Etiquetas del eje X -->
+            <div class="x-axis-labels">
+              @for (pt of chartPoints(); track pt.date; let i = $index) {
+                @if (i % 5 === 0 || i === chartPoints().length - 1) {
+                  <span class="x-label">{{ pt.label }}</span>
+                }
+              }
+            </div>
+          } @else {
+            <div class="no-chart-data">
+              <app-icon name="dashboard" [size]="32" />
+              <p>No se registran transacciones suficientes para graficar la tendencia en este período.</p>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Distribución Comercial: Canales y Secciones -->
+      <div class="panel distribution-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <app-icon name="store" [size]="20" />
+            <div>
+              <h3>Canales y Secciones</h3>
+              <span>Composición de ventas y demanda</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="distribution-content">
+          <!-- Canales -->
+          <div class="distribution-section">
+            <h4 class="dist-subtitle">Canales de Venta</h4>
+            <div class="channel-bars">
+              @for (c of data.distribucion_canales; track c.canal) {
+                <div class="channel-item">
+                  <div class="channel-info">
+                    <span class="channel-name">{{ c.canal === 'DIGITAL' ? 'Tienda Online' : 'Tienda Física' }}</span>
+                    <span class="channel-amount">Bs. {{ c.ingresos | number: '1.2-2' }} ({{ c.porcentaje | number: '1.1-1' }}%)</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div
+                      class="progress-bar-fill"
+                      [style.width.%]="c.porcentaje"
+                      [class.fill-digital]="c.canal === 'DIGITAL'"
+                    ></div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Secciones -->
+          <div class="distribution-section">
+            <h4 class="dist-subtitle">Secciones de Catálogo</h4>
+            <div class="section-pills">
+              @for (s of data.distribucion_secciones; track s.seccion) {
+                <div class="section-pill-card">
+                  <span class="sec-label">{{ s.seccion }}</span>
+                  <span class="sec-pct">{{ s.porcentaje | number: '1.1-1' }}%</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. BLOQUE DE MACHINE LEARNING E IA INTEGRADOS -->
+    <section class="ml-ia-integrated-row">
+      <!-- CU22: Predicciones ML Supervisadas -->
+      <div class="panel ml-card">
+        <div class="ml-card-header">
+          <div class="ml-title-group">
+            <span class="badge-tag">CU22 · ML Supervisado</span>
+            <h3>Predicción de Demanda</h3>
+          </div>
+          <a routerLink="/admin/predicciones-ml" class="btn-link-action" title="Ir al módulo de predicciones">
+            <span>Ver módulo</span>
+            <app-icon name="chevron-right" [size]="16" />
+          </a>
+        </div>
+
+        <div class="ml-meta-banner">
+          <span class="model-name">{{ data.ml_predicciones.algoritmo }}</span>
+          <div class="metrics-row">
+            <span class="metric-pill"><strong>R²:</strong> {{ data.ml_predicciones.r2 | number: '1.4-4' }}</span>
+            <span class="metric-pill"><strong>MAE:</strong> {{ data.ml_predicciones.mae | number: '1.2-2' }} u.</span>
+          </div>
+        </div>
+
+        <div class="ml-card-body">
+          <div class="risk-summary-head">
+            <app-icon name="alert-circle" [size]="18" />
+            <span>Prendas en riesgo de rotura: <strong>{{ data.ml_predicciones.productos_con_riesgo_stock }}</strong></span>
+          </div>
+
+          <div class="risk-items-list">
+            @for (item of data.ml_predicciones.items_riesgo; track item.id_producto) {
+              <div class="risk-item-row">
+                <div class="risk-item-info">
+                  <span class="risk-prod-name">{{ item.producto_nombre }}</span>
+                  <span class="risk-prod-details">
+                    Stock: {{ item.stock_actual }} u. | Demanda 15d: {{ item.demanda_estimada_15d }} u.
+                  </span>
+                </div>
+                <span class="risk-badge" [ngClass]="getRiskBadgeClass(item.nivel_riesgo)">
+                  {{ item.nivel_riesgo }}
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- CU23: Patrones y Segmentación K-Means -->
+      <div class="panel ml-card">
+        <div class="ml-card-header">
+          <div class="ml-title-group">
+            <span class="badge-tag badge-tag-blue">CU23 · No Supervisado</span>
+            <h3>Segmentación de Catálogo</h3>
+          </div>
+          <a routerLink="/admin/patrones-ml" class="btn-link-action" title="Ir al módulo de patrones">
+            <span>Ver módulo</span>
+            <app-icon name="chevron-right" [size]="16" />
+          </a>
+        </div>
+
+        <div class="ml-meta-banner">
+          <span class="model-name">{{ data.ml_patrones.algoritmo }}</span>
+          <div class="metrics-row">
+            <span class="metric-pill"><strong>Silhouette:</strong> {{ data.ml_patrones.silhouette_score | number: '1.3-3' }}</span>
+            <span class="metric-pill"><strong>Calidad:</strong> {{ data.ml_patrones.calidad_agrupamiento }}</span>
+          </div>
+        </div>
+
+        <div class="ml-card-body">
+          <div class="segments-summary-list">
+            @for (seg of data.ml_patrones.segmentos; track seg.id_cluster) {
+              <div class="segment-summary-item">
+                <div class="segment-indicator" [style.background-color]="seg.color"></div>
+                <div class="segment-info">
+                  <span class="seg-name">{{ seg.nombre }}</span>
+                  <span class="seg-detail">
+                    {{ seg.total_productos }} prendas ({{ seg.porcentaje_catalogo | number: '1.1-1' }}% cat.)
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- CU20/CU21: Reportes Generativos con IA -->
+      <div class="panel ml-card">
+        <div class="ml-card-header">
+          <div class="ml-title-group">
+            <span class="badge-tag badge-tag-purple">CU20 / CU21 · DeepSeek IA</span>
+            <h3>Reportes con IA</h3>
+          </div>
+          <a routerLink="/admin/reportes-ia" class="btn-link-action" title="Ir al módulo de reportes">
+            <span>Ver módulo</span>
+            <app-icon name="chevron-right" [size]="16" />
+          </a>
+        </div>
+
+        <div class="ml-meta-banner">
+          <span class="model-name">Historial y Consultas en Lenguaje Natural</span>
+          <div class="metrics-row">
+            <span class="metric-pill"><strong>Guardados:</strong> {{ data.reportes_ia.total_reportes_guardados }}</span>
+          </div>
+        </div>
+
+        <div class="ml-card-body">
+          <div class="recent-reports-head">
+            <app-icon name="history" [size]="18" />
+            <span>Últimos reportes generados:</span>
+          </div>
+
+          <div class="reports-items-list">
+            @if (data.reportes_ia.ultimos_reportes.length > 0) {
+              @for (rep of data.reportes_ia.ultimos_reportes; track rep.id_reporte) {
+                <div class="report-item-row">
+                  <div class="report-item-info">
+                    <span class="report-title">{{ rep.titulo }}</span>
+                    <span class="report-meta">{{ rep.creado_en }} · {{ rep.tipo }}</span>
+                  </div>
+                  <a routerLink="/admin/reportes-ia" class="report-btn-view" title="Abrir en historial">
+                    <app-icon name="eye" [size]="16" />
+                  </a>
+                </div>
+              }
+            } @else {
+              <div class="empty-reports-hint">
+                <p>Aún no se han generado reportes empresariales con IA.</p>
+                <a routerLink="/admin/reportes-ia" class="btn-create-report">
+                  <app-icon name="sparkles" [size]="16" />
+                  <span>Generar reporte</span>
+                </a>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+</div>
+

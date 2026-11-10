@@ -1,6 +1,6 @@
 """Servicio independiente de CU27 para asistencia conversacional de clientes."""
 
-from app.integrations.gemini import GeminiAnalysisError, GeminiClient
+from app.integrations.deepseek import DeepSeekClient, DeepSeekError
 from app.schemas.catalog import CatalogProductData
 from app.schemas.client_chatbot import (
     ChatbotMessage,
@@ -16,7 +16,7 @@ class ClientChatbotUnavailableError(Exception):
 
 
 class ClientChatbotService:
-    """Orquesta catálogo y Gemini sin permitir acceso de Gemini a la base de datos."""
+    """Orquesta catálogo y DeepSeek sin permitir acceso de la IA a la base de datos."""
 
     MAX_PRODUCTS = 20
 
@@ -24,10 +24,10 @@ class ClientChatbotService:
         self,
         db,
         *,
-        gemini_client: GeminiClient | None = None,
+        ai_client: DeepSeekClient | None = None,
         catalog_service: CatalogService | None = None,
     ) -> None:
-        self.gemini_client = gemini_client or GeminiClient()
+        self.ai_client = ai_client or DeepSeekClient()
         self.catalog_service = catalog_service or CatalogService(db)
 
     def answer(self, request: ChatbotMessageRequest) -> ChatbotResponseData:
@@ -35,8 +35,8 @@ class ClientChatbotService:
         context = [self._product_context(product) for product in products]
         prompt = self._build_prompt(request.message, request.history, context)
         try:
-            reply = self.gemini_client.generate_analysis(prompt=prompt)
-        except GeminiAnalysisError as error:
+            reply = self.ai_client.generate_analysis(prompt=prompt)
+        except DeepSeekError as error:
             raise ClientChatbotUnavailableError from error
         return ChatbotResponseData(
             reply=reply,

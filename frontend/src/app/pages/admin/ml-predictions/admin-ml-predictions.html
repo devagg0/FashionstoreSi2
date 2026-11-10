@@ -1,0 +1,452 @@
+<div class="ml-predictions-container">
+  <!-- Page Header -->
+  <header class="page-heading">
+    <p>MACHINE LEARNING • APRENDIZAJE SUPERVISADO (CU22)</p>
+    <h1>Predicción de Demanda de Prendas</h1>
+    <span>Proyección de ventas para los próximos 7, 15 o 30 días mediante regresión supervisada adaptada a FashionStore.</span>
+  </header>
+
+  <!-- Model Transparency Banner (Métricas y Metodología) -->
+  @if (modelInfo(); as info) {
+    <section class="panel model-transparency-panel">
+      <div class="model-badge-header">
+        <div class="model-title-group">
+          <span class="tech-tag">
+            <app-icon name="sparkles" [size]="16" />
+            {{ info.algoritmo }}
+          </span>
+          <span class="experimental-pill">
+            <app-icon name="alert-circle" [size]="14" />
+            Estimación experimental
+          </span>
+        </div>
+        <div class="model-meta-info">
+          <span><strong>Dataset:</strong> {{ info.dataset_size | number }} registros</span>
+          <span>(Entrenamiento: {{ info.train_size | number }} • Test: {{ info.test_size | number }})</span>
+        </div>
+      </div>
+
+      <div class="model-metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Error Absoluto Medio (MAE)</span>
+          <span class="metric-value">{{ info.metricas.mae | number: '1.2-2' }} <small>unidades</small></span>
+          <span class="metric-note">Precisión promedio sobre conjunto de prueba</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Raíz Error Cuadrático (RMSE)</span>
+          <span class="metric-value">{{ info.metricas.rmse | number: '1.2-2' }} <small>unidades</small></span>
+          <span class="metric-note">Sensibilidad a desviaciones atípicas</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Coeficiente R²</span>
+          <span class="metric-value">{{ info.metricas.r2 | number: '1.4-4' }}</span>
+          <span class="metric-note">Varianza de demanda explicada por el modelo</span>
+        </div>
+      </div>
+
+      <p class="model-disclaimer-note">
+        <strong>Nota metodológica:</strong> {{ info.nota_metodologica }}
+      </p>
+    </section>
+  }
+
+  <!-- Filters Panel -->
+  <section class="panel filters-panel">
+    <div class="filters-header">
+      <div class="filters-title">
+        <app-icon name="filter" [size]="18" />
+        <h2>Parámetros de predicción</h2>
+      </div>
+      @if (predictionResult()) {
+        <button type="button" class="btn-text-action" (click)="resetPrediction()">
+          <app-icon name="refresh" [size]="16" />
+          Nueva consulta
+        </button>
+      }
+    </div>
+
+    <div class="filters-form-grid">
+      <!-- Sucursal -->
+      <div class="form-group">
+        <label for="sucursalSelect">Sucursal</label>
+        <div class="select-wrapper">
+          <select
+            id="sucursalSelect"
+            [ngModel]="selectedBranchId()"
+            (ngModelChange)="selectedBranchId.set($event ? +$event : null)"
+            [disabled]="isLoading() || isLoadingFilters()"
+          >
+            <option [ngValue]="null" disabled>Seleccionar sucursal...</option>
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.nombre }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Producto -->
+      <div class="form-group">
+        <label for="productoSelect">Prenda / Producto</label>
+        <div class="select-wrapper">
+          <select
+            id="productoSelect"
+            [ngModel]="selectedProductId()"
+            (ngModelChange)="selectedProductId.set($event ? +$event : null)"
+            [disabled]="isLoading() || isLoadingFilters()"
+          >
+            <option [ngValue]="null" disabled>Seleccionar prenda...</option>
+            @for (prod of products(); track prod.id) {
+              <option [value]="prod.id">
+                {{ prod.nombre }} ({{ prod.codigo }}) {{ prod.extra ? '• ' + prod.extra : '' }}
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Horizonte temporal -->
+      <div class="form-group horizon-group">
+        <label>Horizonte temporal</label>
+        <div class="horizon-chips" role="radiogroup" aria-label="Horizonte de días">
+          @for (days of availableHorizons(); track days) {
+            <button
+              type="button"
+              class="horizon-chip"
+              [class.is-selected]="selectedHorizon() === days"
+              (click)="setHorizon(days)"
+              [disabled]="isLoading()"
+            >
+              {{ days }} días
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-actions">
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="generatePrediction()"
+        [disabled]="isLoading() || !selectedBranchId() || !selectedProductId()"
+      >
+        @if (isLoading()) {
+          <span class="spinner-inline" aria-hidden="true"></span>
+          <span>Procesando inferencia...</span>
+        } @else {
+          <app-icon name="trending-up" [size]="18" />
+          <span>Generar predicción</span>
+        }
+      </button>
+    </div>
+  </section>
+
+  <!-- Error Alert -->
+  @if (errorMessage()) {
+    <div class="alert-error" role="alert">
+      <app-icon name="alert-circle" [size]="20" />
+      <div class="alert-content">
+        <strong>Atención:</strong>
+        <p>{{ errorMessage() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="panel loading-panel">
+      <div class="loading-spinner"></div>
+      <h3>Generando estimación con Machine Learning...</h3>
+      <p>Consultando inventario actual, extrayendo ventas históricas y aplicando transformaciones del modelo supervisado.</p>
+    </div>
+  }
+
+  <!-- Prediction Results Section -->
+  @if (!isLoading() && predictionResult(); as result) {
+    <div class="results-container">
+      <!-- Context & Confidence Banner -->
+      <div class="panel context-banner">
+        <div class="context-info">
+          <div class="context-headline">
+            <h3>{{ result.producto_nombre }}</h3>
+            <span class="separator">•</span>
+            <span class="branch-label">{{ result.sucursal_nombre }}</span>
+          </div>
+          <p class="horizon-badge">Proyección a {{ result.horizonte_dias }} días calendario</p>
+        </div>
+
+        <div class="context-badges">
+          <div class="badge-item">
+            <span class="badge-title">Nivel de Confianza:</span>
+            <span class="badge" [ngClass]="getConfidenceBadgeClass(result.prediccion.confianza_estimacion)">
+              {{ result.prediccion.confianza_estimacion }}
+            </span>
+          </div>
+          <div class="badge-item">
+            <span class="badge-title">Riesgo Desabastecimiento:</span>
+            <span class="badge" [ngClass]="getRiskBadgeClass(result.prediccion.nivel_riesgo)">
+              {{ result.prediccion.nivel_riesgo }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insufficient Data Warning if applicable -->
+      @if (!result.historico.datos_suficientes) {
+        <div class="alert-warning" role="region" aria-label="Advertencia de datos insuficientes">
+          <app-icon name="alert-circle" [size]="20" />
+          <div class="warning-text">
+            <strong>Estimación experimental (sin historial comercial):</strong>
+            <p>{{ result.historico.mensaje_suficiencia }}</p>
+            <span class="warning-hint">Las sugerencias de reposición son estimaciones orientativas del modelo y no representan necesidades confirmadas de compra.</span>
+          </div>
+        </div>
+      }
+
+      <!-- 4 KPI Cards -->
+      <div class="kpi-grid">
+        <!-- Demanda Estimada -->
+        <div class="kpi-card highlight-card">
+          <div class="kpi-header">
+            <app-icon name="trending-up" [size]="20" />
+            <span>Demanda proyectada</span>
+          </div>
+          <div class="kpi-big-number">
+            {{ result.prediccion.demanda_estimada }}
+            <small>unidades</small>
+          </div>
+          <div class="kpi-subtext">
+            Rango estimado: [{{ result.prediccion.rango_minimo }} - {{ result.prediccion.rango_maximo }} un.]
+          </div>
+          <div class="kpi-footer-note">
+            Ritmo promedio: {{ result.prediccion.unidades_diarias_promedio | number: '1.1-2' }} un./día
+          </div>
+        </div>
+
+        <!-- Stock Actual -->
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <app-icon name="store" [size]="20" />
+            <span>Stock disponible</span>
+          </div>
+          <div class="kpi-big-number">
+            {{ result.historico.stock_actual }}
+            <small>unidades</small>
+          </div>
+          <div class="kpi-subtext">
+            Stock mínimo de seguridad: {{ result.historico.stock_minimo }} un.
+          </div>
+          <div class="kpi-footer-note">
+            En sucursal {{ result.sucursal_nombre }}
+          </div>
+        </div>
+
+        <!-- Cobertura / Autonomía -->
+        <div class="kpi-card" [class.warning-border]="result.prediccion.riesgo_desabastecimiento">
+          <div class="kpi-header">
+            <app-icon name="layers" [size]="20" />
+            <span>Autonomía de stock</span>
+          </div>
+          <div class="kpi-big-number">
+            @if (result.prediccion.cobertura_stock_dias !== null) {
+              {{ result.prediccion.cobertura_stock_dias | number: '1.1-1' }}
+              <small>días</small>
+            } @else {
+              > {{ result.horizonte_dias }} <small>días</small>
+            }
+          </div>
+          <div class="kpi-subtext">
+            @if (result.prediccion.riesgo_desabastecimiento) {
+              @if (!result.historico.datos_suficientes) {
+                <span class="text-warning">Sugerencia orientativa: ~{{ result.prediccion.demanda_estimada - result.historico.stock_actual }} un.</span>
+              } @else {
+                <span class="text-danger">Déficit estimado: {{ result.prediccion.demanda_estimada - result.historico.stock_actual }} un.</span>
+              }
+            } @else {
+              <span class="text-success">Inventario suficiente para el período</span>
+            }
+          </div>
+          <div class="kpi-footer-note">
+            @if (result.prediccion.riesgo_desabastecimiento) {
+              Stock insuficiente para cubrir los {{ result.horizonte_dias }} días
+            } @else {
+              Cubre los {{ result.horizonte_dias }} días de proyección
+            }
+          </div>
+        </div>
+
+        <!-- Ventas Recientes -->
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <app-icon name="history" [size]="20" />
+            <span>Ventas recientes (30d)</span>
+          </div>
+          <div class="kpi-big-number">
+            {{ result.historico.ventas_ultimos_30d }}
+            <small>unidades</small>
+          </div>
+          <div class="kpi-subtext">
+            Últimos 7d: {{ result.historico.ventas_ultimos_7d }} un. • 14d: {{ result.historico.ventas_ultimos_14d }} un.
+          </div>
+          <div class="kpi-footer-note">
+            Precio ref: Bs. {{ result.historico.precio_unitario | number: '1.2-2' }} ({{ result.historico.seccion }})
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanatory Insight Panel -->
+      <section class="panel insight-panel">
+        <div class="insight-header">
+          <app-icon name="sparkles" [size]="20" />
+          <h3>Interpretación del Modelo y Recomendación Operativa</h3>
+        </div>
+        <p class="insight-text">{{ result.prediccion.explicacion }}</p>
+      </section>
+
+      <!-- Comparative SVG Trend Chart -->
+      <section class="panel chart-panel">
+        <div class="chart-header">
+          <div>
+            <h3>Tendencia Comparativa: Ventas Reales vs Proyección ML</h3>
+            <span class="chart-subtitle">
+              Muestra las ventas diarias observadas en los últimos 14 días y la demanda diaria proyectada para los próximos {{ result.horizonte_dias }} días.
+            </span>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item">
+              <span class="legend-line real-line"></span>
+              Ventas Reales (14d)
+            </span>
+            <span class="legend-item">
+              <span class="legend-line projected-line"></span>
+              Proyección ML ({{ result.horizonte_dias }}d)
+            </span>
+          </div>
+        </div>
+
+        <div class="svg-chart-container">
+          <svg viewBox="0 0 800 240" class="trend-chart-svg" preserveAspectRatio="none">
+            <!-- Gridlines -->
+            <line x1="45" y1="25" x2="755" y2="25" class="grid-line" />
+            <line x1="45" y1="75" x2="755" y2="75" class="grid-line" />
+            <line x1="45" y1="125" x2="755" y2="125" class="grid-line" />
+            <line x1="45" y1="165" x2="755" y2="165" class="grid-line" />
+            <line x1="45" y1="190" x2="755" y2="190" class="grid-line axis-line" />
+
+            <!-- Vertical Divider at Transition from Real to Projected -->
+            @if (transitionX(); as tx) {
+              <line [attr.x1]="tx" y1="20" [attr.x2]="tx" y2="190" class="transition-divider" />
+              <text [attr.x]="tx" y="15" class="transition-label" text-anchor="middle">
+                Inicio proyección
+              </text>
+            }
+
+            <!-- Real Sales Line -->
+            @if (realLinePath()) {
+              <path [attr.d]="realLinePath()" class="chart-path real-path" />
+            }
+
+            <!-- Projected Demand Line -->
+            @if (projectedLinePath()) {
+              <path [attr.d]="projectedLinePath()" class="chart-path projected-path" />
+            }
+
+            <!-- Data Points and Spaced Date Axis Labels -->
+            @for (pt of chartPoints(); track pt.date + pt.type) {
+              <g class="chart-point-group">
+                <circle
+                  [attr.cx]="pt.x"
+                  [attr.cy]="pt.y"
+                  [attr.r]="pt.type === 'REAL' ? 4 : 4.5"
+                  [class.pt-real]="pt.type === 'REAL'"
+                  [class.pt-projected]="pt.type === 'PROYECTADO'"
+                >
+                  <title>{{ pt.label }} ({{ pt.type === 'REAL' ? 'Venta real' : 'Proyección ML' }}): {{ pt.value }} un.</title>
+                </circle>
+
+                <!-- Cleanly spaced horizontal axis date labels without overlap -->
+                @if (pt.showLabel) {
+                  <line [attr.x1]="pt.x" y1="190" [attr.x2]="pt.x" y2="195" class="axis-tick" />
+                  <text
+                    [attr.x]="pt.x"
+                    [attr.y]="212"
+                    class="chart-axis-label"
+                    text-anchor="middle"
+                  >
+                    {{ pt.label }}
+                  </text>
+                }
+              </g>
+            }
+          </svg>
+        </div>
+      </section>
+
+      <!-- Details Summary Table -->
+      <section class="panel table-panel">
+        <div class="table-header">
+          <app-icon name="table" [size]="18" />
+          <h3>Variables del Modelo e Impacto Estimado</h3>
+        </div>
+
+        <div class="table-responsive">
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Variable Analizada</th>
+                <th>Valor Observado</th>
+                <th>Rol en la Inferencia</th>
+                <th>Fuente de Datos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Precio Unitario</strong></td>
+                <td>Bs. {{ result.historico.precio_unitario | number: '1.2-2' }}</td>
+                <td>Sensibilidad de compra y elasticidad precio</td>
+                <td><span class="source-tag">Catálogo Empresa</span></td>
+              </tr>
+              <tr>
+                <td><strong>Sección Prenda</strong></td>
+                <td>{{ result.historico.seccion }}</td>
+                <td>Segmento comercial y ponderación estacional</td>
+                <td><span class="source-tag">Catálogo Empresa</span></td>
+              </tr>
+              <tr>
+                <td><strong>Ventas 7d / 14d / 30d</strong></td>
+                <td>{{ result.historico.ventas_ultimos_7d }} / {{ result.historico.ventas_ultimos_14d }} / {{ result.historico.ventas_ultimos_30d }} un.</td>
+                <td>Velocidad reciente de rotación e impulso de ventas</td>
+                <td><span class="source-tag">Transacciones Reales</span></td>
+              </tr>
+              <tr>
+                <td><strong>Stock Actual en Sucursal</strong></td>
+                <td>{{ result.historico.stock_actual }} unidades</td>
+                <td>Disponibilidad inmediata para atender demanda</td>
+                <td><span class="source-tag">Inventario Sucursal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Horizonte de Predicción</strong></td>
+                <td>{{ result.horizonte_dias }} días</td>
+                <td>Ventana de planificación para abastecimiento</td>
+                <td><span class="source-tag">Filtro Administrativo</span></td>
+              </tr>
+              <tr class="table-highlight-row">
+                <td><strong>Demanda Estimada ML</strong></td>
+                <td><strong>{{ result.prediccion.demanda_estimada }} unidades</strong></td>
+                <td>Inferencia supervisada GradientBoosting</td>
+                <td><span class="source-tag source-ml">Modelo ML</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Bottom Disclaimer -->
+      <div class="results-disclaimer">
+        <app-icon name="alert-circle" [size]="16" />
+        <span>{{ result.disclaimer }}</span>
+      </div>
+    </div>
+  }
+</div>
+

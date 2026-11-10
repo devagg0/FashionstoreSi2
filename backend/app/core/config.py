@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = None
     SUPABASE_STORAGE_BUCKET: str | None = None
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
+    DEEPSEEK_API_KEY: SecretStr | None = Field(default=None, repr=False)
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
     STRIPE_SECRET_KEY: SecretStr = Field(repr=False)
     STRIPE_PUBLISHABLE_KEY: SecretStr = Field(repr=False)
     STRIPE_MODE: str

@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.tenant_context import set_tenant_context
 from app.routers.auth import bearer_scheme
 from app.schemas.auth import AuthenticatedUserData, ErrorResponse
 from app.schemas.client_reservations import (
@@ -114,6 +115,7 @@ def create_reservation(
 
     company_id = getattr(client, "id_empresa", None) or getattr(db, "info", {}).get("empresa_id")
     if company_id:
+        set_tenant_context(db, company_id)
         from app.PK07.CU07_ConsultarPlanLimites.service import (
             FeatureNotEnabledError,
             NoActiveSubscriptionError,
